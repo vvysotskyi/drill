@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,14 +17,17 @@
  */
 
 <@pp.dropOutputFile />
-<#list ["Single", "Repeated"] as mode>
+<#list ["Single", "Repeated", "Nullable"] as mode>
 <@pp.changeOutputFile name="/org/apache/drill/exec/vector/complex/impl/${mode}MapWriter.java" />
 <#if mode == "Single">
 <#assign containerClass = "MapVector" />
 <#assign index = "idx()">
-<#else>
+<#elseif mode == "Repeated">
 <#assign containerClass = "RepeatedMapVector" />
 <#assign index = "currentChildIndex">
+<#else>
+<#assign containerClass = "NullableMapVector" />
+<#assign index = "idx()">
 </#if>
 
 <#include "/@includes/license.ftl" />
@@ -82,12 +85,14 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
   @Override
   public MapWriter map(String name) {
       FieldWriter writer = fields.get(name.toLowerCase());
-    if(writer == null){
+    if(writer == null) {
       int vectorCount=container.size();
-        MapVector vector = container.addOrGet(name, MapVector.TYPE, MapVector.class);
-      if(!unionEnabled){
-        writer = new SingleMapWriter(vector, this);
+
+      NullableMapVector vector = container.addOrGet(name, NullableMapVector.TYPE, NullableMapVector.class);
+      if(!unionEnabled) {
+        writer = new NullableMapWriter(vector, this);
       } else {
+
         writer = new PromotableWriter(vector, container);
       }
       if(vectorCount != container.size()) {

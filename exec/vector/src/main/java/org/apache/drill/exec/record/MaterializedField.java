@@ -214,7 +214,7 @@ public class MaterializedField {
     }
     MaterializedField other = (MaterializedField) obj;
     // DRILL-1872: Compute equals only on key. See also the comment
-    // in MapVector$MapTransferPair
+    // in MapVector$MapTransferImpl
 
     return this.name.equalsIgnoreCase(other.name) &&
             Objects.equals(this.type, other.type);

@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+import org.apache.drill.exec.vector.complex.impl.NullableMapWriter;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/drill/exec/vector/complex/impl/UnionWriter.java" />
 
@@ -84,7 +86,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   private MapWriter getMapWriter() {
     if (mapWriter == null) {
-      mapWriter = new SingleMapWriter(data.getMap(), null, true);
+      mapWriter = new NullableMapWriter(data.getMap(), null, true);
       mapWriter.setPosition(idx());
       writers.add(mapWriter);
     }

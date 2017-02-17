@@ -721,4 +721,24 @@ public class TestJsonReader extends BaseTestQuery {
       testNoResult("alter session reset `exec.enable_union_type`");
     }
   }
+
+  @Test
+  public void testLocal() throws Exception {
+    File path = new File(BaseTestQuery.getTempDir("json/input"));
+    path.mkdirs();
+    path.deleteOnExit();
+    String pathString = path.toPath().toString();
+
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(path, "empty_array.json")))) {
+      writer.write("{ \"a\": { \"b\": { \"c\": [] }, \"c\": {} } }");
+      writer.write("{ \"a\": { \"b\": { \"c\": [] }} }");
+      writer.write("{ \"a\": { \"b\": { \"c\": [] }, \"c\": {} } }");
+    }
+    String query = String.format("select * from dfs_test.`%s/empty_array.json` t",
+      pathString);
+
+    List<QueryDataBatch> queryDataBatches = testSqlWithResults(query);
+    setColumnWidth(50);
+    printResult(queryDataBatches);
+  }
 }

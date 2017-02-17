@@ -82,6 +82,7 @@ public class BasicTypeHelper {
     case MAP:
       switch (mode) {
       case OPTIONAL:
+        return NullableMapVector.class;
       case REQUIRED:
         return MapVector.class;
       case REPEATED:
@@ -121,6 +122,8 @@ public class BasicTypeHelper {
     switch (type) {
     case MAP:
       switch (mode) {
+      case OPTIONAL:
+          return NullableMapReaderImpl.class;
       case REQUIRED:
         if (!isSingularRepeated)
           return SingleMapReaderImpl.class;
@@ -179,8 +182,9 @@ public class BasicTypeHelper {
     case MAP:
       switch (mode) {
       case REQUIRED:
-      case OPTIONAL:
         return SingleMapWriter.class;
+      case OPTIONAL:
+        return NullableMapWriter.class;
       case REPEATED:
         return RepeatedMapWriter.class;
       }
@@ -247,8 +251,9 @@ public class BasicTypeHelper {
     case MAP:
       switch (type.getMode()) {
       case REQUIRED:
-      case OPTIONAL:
         return new MapVector(field, allocator, callBack);
+      case OPTIONAL:
+        return new NullableMapVector(field, allocator, callBack);
       case REPEATED:
         return new RepeatedMapVector(field, allocator, callBack);
       }

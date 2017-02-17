@@ -18,6 +18,7 @@
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.complex.NullableMapVector;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/drill/exec/vector/complex/UnionVector.java" />
@@ -58,7 +59,7 @@ public class UnionVector implements ValueVector {
   private MapVector internalMap;
   private UInt1Vector typeVector;
 
-  private MapVector mapVector;
+  private NullableMapVector mapVector;
   private ListVector listVector;
 
   private FieldReader reader;
@@ -101,10 +102,10 @@ public class UnionVector implements ValueVector {
 
   private static final MajorType MAP_TYPE = Types.optional(MinorType.MAP);
 
-  public MapVector getMap() {
+  public NullableMapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
-      mapVector = internalMap.addOrGet("map", MAP_TYPE, MapVector.class);
+      mapVector = internalMap.addOrGet("map", MAP_TYPE, NullableMapVector.class);
       addSubType(MinorType.MAP);
       if (internalMap.size() > vectorCount) {
         mapVector.allocateNew();
