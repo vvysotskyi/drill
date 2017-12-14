@@ -1137,7 +1137,7 @@ class DrillMetaImpl extends MetaImpl {
         List<TypedValue> list, long l) throws NoSuchStatementException {
     return new ExecuteResult(Collections.singletonList(
         MetaResultSet.create(statementHandle.connectionId, statementHandle.id,
-            false, statementHandle.signature, null)));
+            true, statementHandle.signature, null)));
   }
 
   @Override
