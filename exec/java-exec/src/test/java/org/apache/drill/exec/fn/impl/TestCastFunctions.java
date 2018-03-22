@@ -517,4 +517,20 @@ public class TestCastFunctions extends BaseTestQuery {
       test("alter session reset planner.enable_decimal_data_type");
     }
   }
+
+  @Test // DRILL-6212
+  public void testCastWithJoin() throws Exception {
+    String query = "select t1.f from " +
+        "(select cast(f as int) f from (values('1')) t(f)) as t " +
+        "inner join (select cast(f as int) f from (values('1')) t(f)) as t1 " +
+        "on cast(t.f as int) = cast(t1.f as int) and cast(t.f as int) = 1";
+
+    testBuilder()
+        .sqlQuery(query)
+        .unOrdered()
+        .baselineColumns("f")
+        .baselineValues(1)
+        .build()
+        .run();
+  }
 }

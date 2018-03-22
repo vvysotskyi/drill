@@ -16,8 +16,12 @@
  */
 package org.apache.drill.exec.planner;
 
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.volcano.AbstractConverter;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalCalc;
@@ -36,6 +40,7 @@ import org.apache.calcite.rel.rules.ProjectWindowTransposeRule;
 import org.apache.calcite.rel.rules.ReduceExpressionsRule;
 import org.apache.calcite.rel.rules.SortRemoveRule;
 import org.apache.calcite.rel.rules.UnionToDistinctRule;
+import org.apache.drill.exec.planner.logical.DrillFilterMergeRule;
 import org.apache.drill.exec.planner.logical.DrillRelFactories;
 
 /**
@@ -52,11 +57,8 @@ public interface RuleInstance {
           DrillRelFactories.LOGICAL_BUILDER);
 
   JoinPushExpressionsRule JOIN_PUSH_EXPRESSIONS_RULE =
-      new JoinPushExpressionsRule(Join.class,
+      new JoinPushExpressionsRule(LogicalJoin.class,
           DrillRelFactories.LOGICAL_BUILDER);
-
-  FilterMergeRule FILTER_MERGE_RULE =
-      new FilterMergeRule(DrillRelFactories.LOGICAL_BUILDER);
 
   AggregateRemoveRule AGGREGATE_REMOVE_RULE =
       new AggregateRemoveRule(LogicalAggregate.class, DrillRelFactories.LOGICAL_BUILDER);
@@ -90,9 +92,6 @@ public interface RuleInstance {
 
   ProjectRemoveRule PROJECT_REMOVE_RULE =
       new ProjectRemoveRule(DrillRelFactories.LOGICAL_BUILDER);
-
-  ProjectToWindowRule PROJECT_TO_LOGICAL_PROJECT_AND_WINDOW_RULE =
-      new ProjectToWindowRule.ProjectToLogicalProjectAndWindowRule(DrillRelFactories.LOGICAL_BUILDER);
 
   SortRemoveRule SORT_REMOVE_RULE =
       new SortRemoveRule(DrillRelFactories.LOGICAL_BUILDER);

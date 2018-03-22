@@ -18,6 +18,7 @@
 package org.apache.drill.exec.planner.logical;
 
 
+import com.google.common.collect.ImmutableList;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -28,6 +29,7 @@ import org.apache.calcite.rel.core.RelFactories.ProjectFactory;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.drill.exec.planner.DrillRelBuilder;
+import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 
 public class DrillMergeProjectRule extends ProjectMergeRule {
 
@@ -54,8 +56,7 @@ public class DrillMergeProjectRule extends ProjectMergeRule {
     Project bottomProject = call.rel(1);
 
     // Make sure both projects be LogicalProject.
-    if (topProject.getTraitSet().getTrait(ConventionTraitDef.INSTANCE) != Convention.NONE ||
-        bottomProject.getTraitSet().getTrait(ConventionTraitDef.INSTANCE) != Convention.NONE) {
+    if (!DrillRelOptUtil.allRelsLogical(ImmutableList.of(topProject, bottomProject))) {
       return false;
     }
 

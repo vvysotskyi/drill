@@ -21,6 +21,8 @@ import java.util.AbstractList;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Project;
@@ -286,5 +288,20 @@ public abstract class DrillRelOptUtil {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Checks that all {@link RelNode} instances in specified list are logical.
+   *
+   * @param relNodes list of rel nodes
+   * @return true is all {@link RelNode} instances are logical.
+   */
+  public static boolean allRelsLogical(List<RelNode> relNodes) {
+    for (RelNode relNode : relNodes) {
+      if (relNode.getTraitSet().getTrait(ConventionTraitDef.INSTANCE) != Convention.NONE) {
+        return false;
+      }
+    }
+    return true;
   }
 }

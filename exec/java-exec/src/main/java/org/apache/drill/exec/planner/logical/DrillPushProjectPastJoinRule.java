@@ -17,9 +17,15 @@
  */
 package org.apache.drill.exec.planner.logical;
 
+import com.google.common.collect.ImmutableList;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
+import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.rules.ProjectJoinTransposeRule;
 import org.apache.calcite.rel.rules.PushProjector;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 
 public class DrillPushProjectPastJoinRule extends ProjectJoinTransposeRule {
 
@@ -29,4 +35,8 @@ public class DrillPushProjectPastJoinRule extends ProjectJoinTransposeRule {
     super(preserveExprCondition, DrillRelFactories.LOGICAL_BUILDER);
   }
 
+  @Override
+  public boolean matches(RelOptRuleCall call) {
+    return DrillRelOptUtil.allRelsLogical(ImmutableList.of(call.rel(0), call.rel(1)));
+  }
 }

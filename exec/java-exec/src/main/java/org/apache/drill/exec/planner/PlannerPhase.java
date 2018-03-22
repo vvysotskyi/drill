@@ -22,21 +22,30 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Lists;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
 import org.apache.calcite.rel.rules.JoinToMultiJoinRule;
 import org.apache.calcite.rel.rules.LoptOptimizeJoinRule;
+import org.apache.calcite.rel.rules.ProjectFilterTransposeRule;
+import org.apache.calcite.rel.rules.ProjectJoinTransposeRule;
+import org.apache.calcite.rel.rules.PushProjector;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.planner.logical.DrillAggregateRule;
+import org.apache.drill.exec.planner.logical.DrillConditions;
 import org.apache.drill.exec.planner.logical.DrillFilterAggregateTransposeRule;
 import org.apache.drill.exec.planner.logical.DrillFilterItemStarReWriterRule;
 import org.apache.drill.exec.planner.logical.DrillFilterJoinRules;
+import org.apache.drill.exec.planner.logical.DrillFilterMergeRule;
 import org.apache.drill.exec.planner.logical.DrillFilterRule;
 import org.apache.drill.exec.planner.logical.DrillJoinRel;
 import org.apache.drill.exec.planner.logical.DrillJoinRule;
 import org.apache.drill.exec.planner.logical.DrillLimitRule;
 import org.apache.drill.exec.planner.logical.DrillMergeProjectRule;
 import org.apache.drill.exec.planner.logical.DrillProjectRule;
+import org.apache.drill.exec.planner.logical.DrillProjectToWindowRule;
 import org.apache.drill.exec.planner.logical.DrillPushFilterPastProjectRule;
 import org.apache.drill.exec.planner.logical.DrillPushLimitToScanRule;
 import org.apache.drill.exec.planner.logical.DrillPushProjectIntoScanRule;
@@ -104,7 +113,7 @@ public enum PlannerPhase {
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return RuleSets.ofList(
           RuleInstance.CALC_INSTANCE,
-          RuleInstance.PROJECT_TO_LOGICAL_PROJECT_AND_WINDOW_RULE
+          DrillProjectToWindowRule.PROJECT_TO_LOGICAL_PROJECT_AND_WINDOW_RULE
           );
     }
   },
@@ -262,7 +271,7 @@ public enum PlannerPhase {
       //FilterSetOpTransposeRule.INSTANCE,
       DrillFilterAggregateTransposeRule.INSTANCE,
 
-      RuleInstance.FILTER_MERGE_RULE,
+      DrillFilterMergeRule.FILTER_MERGE_RULE,
       RuleInstance.AGGREGATE_REMOVE_RULE,
       RuleInstance.PROJECT_REMOVE_RULE,
       RuleInstance.SORT_REMOVE_RULE,

@@ -19,32 +19,24 @@
 package org.apache.drill.exec.planner.logical;
 
 import org.apache.calcite.plan.Contexts;
+import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.logical.LogicalAggregate;
+import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.rules.FilterAggregateTransposeRule;
 import org.apache.drill.exec.planner.DrillRelBuilder;
 
 public class DrillFilterAggregateTransposeRule extends FilterAggregateTransposeRule{
 
-  // Since Calcite's default FilterAggregateTransposeRule would match Filter on top of Aggregate, it potentially will match Rels with mixed CONVENTION trait.
-  // Here override match method, such that the rule matchs with Rel in the same CONVENTION.
-
+  // Since this rule creates logical rel nodes, it should be applied to logical rel nodes only
   public static final FilterAggregateTransposeRule INSTANCE = new DrillFilterAggregateTransposeRule();
 
   private DrillFilterAggregateTransposeRule() {
-    super(Filter.class, DrillRelBuilder.proto(Contexts.of(RelFactories.DEFAULT_FILTER_FACTORY)),
-        Aggregate.class);
+    super(LogicalFilter.class, DrillRelBuilder.proto(Contexts.of(RelFactories.DEFAULT_FILTER_FACTORY)),
+        LogicalAggregate.class);
   }
-
-  @Override
-  public boolean matches(RelOptRuleCall call) {
-    final Filter filter = call.rel(0);
-    final Aggregate aggregate = call.rel(1);
-    return filter.getTraitSet().getTrait(ConventionTraitDef.INSTANCE)
-        == aggregate.getTraitSet().getTrait(ConventionTraitDef.INSTANCE);
-  }
-
 }

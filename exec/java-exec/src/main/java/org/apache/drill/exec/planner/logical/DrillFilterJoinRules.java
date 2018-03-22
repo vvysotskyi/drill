@@ -17,15 +17,22 @@
  */
 package org.apache.drill.exec.planner.logical;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rules.FilterJoinRule;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.drill.exec.planner.DrillRelBuilder;
+import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 
 import java.util.List;
 
@@ -59,20 +66,45 @@ public class DrillFilterJoinRules {
         }
       };
 
-
-  /** Rule that pushes predicates from a Filter into the Join below them. */
   public static final FilterJoinRule DRILL_FILTER_ON_JOIN =
-      new FilterJoinRule.FilterIntoJoinRule(true,
+      new DrillFilterIntoJoinRule(true,
           DrillRelBuilder.proto(RelFactories.DEFAULT_FILTER_FACTORY,
               RelFactories.DEFAULT_PROJECT_FACTORY),
           EQUAL_IS_DISTINCT_FROM);
 
 
-  /** Rule that pushes predicates in a Join into the inputs to the join. */
   public static final FilterJoinRule DRILL_JOIN =
-      new FilterJoinRule.JoinConditionPushRule(
+      new DrillJoinConditionPushRule(
           DrillRelBuilder.proto(RelFactories.DEFAULT_FILTER_FACTORY,
               RelFactories.DEFAULT_PROJECT_FACTORY),
           EQUAL_IS_DISTINCT_FROM);
 
+  /**
+   * Rule that pushes predicates in a Join into the inputs to the join.
+   */
+  public static class DrillJoinConditionPushRule extends FilterJoinRule.JoinConditionPushRule {
+    public DrillJoinConditionPushRule(RelBuilderFactory relBuilderFactory, Predicate predicate) {
+      super(relBuilderFactory, predicate);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      return DrillRelOptUtil.allRelsLogical(ImmutableList.of(call.rel(0)));
+    }
+  }
+
+  /**
+   * Rule that pushes predicates from a Filter into the Join below them.
+   */
+  public static class DrillFilterIntoJoinRule extends FilterJoinRule.FilterIntoJoinRule {
+    public DrillFilterIntoJoinRule(boolean smart,
+        RelBuilderFactory relBuilderFactory, Predicate predicate) {
+      super(smart, relBuilderFactory, predicate);
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      return DrillRelOptUtil.allRelsLogical(ImmutableList.of(call.rel(0), call.rel(1)));
+    }
+  }
 }
