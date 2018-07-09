@@ -17,13 +17,13 @@
  */
 package org.apache.drill.exec.planner.physical.visitor;
 
-import com.google.common.collect.Lists;
-
 import org.apache.drill.exec.planner.physical.ExchangePrel;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.planner.physical.Prel;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.calcite.rel.RelNode;
+
+import java.util.ArrayList;
 import java.util.List;
 
 public class InsertLocalExchangeVisitor extends BasePrelVisitor<Prel, Void, RuntimeException> {
@@ -56,7 +56,7 @@ public class InsertLocalExchangeVisitor extends BasePrelVisitor<Prel, Void, Runt
 
   @Override
   public Prel visitPrel(Prel prel, Void value) throws RuntimeException {
-    List<RelNode> children = Lists.newArrayList();
+    List<RelNode> children = new ArrayList<>();
     for(Prel child : prel){
       children.add(child.accept(this, null));
     }

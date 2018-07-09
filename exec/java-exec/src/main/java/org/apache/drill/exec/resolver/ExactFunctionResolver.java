@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.resolver;
 
-import com.google.common.collect.Lists;
 import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.expr.fn.DrillFuncHolder;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ExactFunctionResolver implements FunctionResolver {
@@ -38,7 +38,7 @@ public class ExactFunctionResolver implements FunctionResolver {
 
     int currCost;
 
-    final List<TypeProtos.MajorType> argumentTypes = Lists.newArrayList();
+    final List<TypeProtos.MajorType> argumentTypes = new ArrayList<>();
     for (LogicalExpression expression : call.args) {
       argumentTypes.add(expression.getMajorType());
     }

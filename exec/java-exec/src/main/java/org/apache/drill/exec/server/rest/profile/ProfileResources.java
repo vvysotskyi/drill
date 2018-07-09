@@ -18,6 +18,7 @@
 package org.apache.drill.exec.server.rest.profile;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
@@ -57,8 +58,6 @@ import org.apache.drill.exec.store.sys.PersistentStoreProvider;
 import org.apache.drill.exec.work.WorkManager;
 import org.apache.drill.exec.work.foreman.Foreman;
 import org.glassfish.jersey.server.mvc.Viewable;
-
-import com.google.common.collect.Lists;
 
 @Path("/")
 @RolesAllowed(DrillUserPrincipal.AUTHENTICATED_ROLE)
@@ -235,9 +234,9 @@ public class ProfileResources {
       final PersistentStore<QueryProfile> completed = profileStoreContext.getCompletedProfileStore();
       final TransientStore<QueryInfo> running = profileStoreContext.getRunningProfileStore();
 
-      final List<String> errors = Lists.newArrayList();
+      final List<String> errors = new ArrayList<>();
 
-      final List<ProfileInfo> runningQueries = Lists.newArrayList();
+      final List<ProfileInfo> runningQueries = new ArrayList<>();
 
       final Iterator<Map.Entry<String, QueryInfo>> runningEntries = running.entries();
       while (runningEntries.hasNext()) {
@@ -260,7 +259,7 @@ public class ProfileResources {
 
       Collections.sort(runningQueries, Collections.reverseOrder());
 
-      final List<ProfileInfo> finishedQueries = Lists.newArrayList();
+      final List<ProfileInfo> finishedQueries = new ArrayList<>();
 
       //Defining #Profiles to load
       int maxProfilesToLoad = work.getContext().getConfig().getInt(ExecConstants.HTTP_MAX_PROFILES);

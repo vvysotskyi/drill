@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.svremover;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.exception.OutOfMemoryException;
@@ -32,7 +33,6 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.WritableBatch;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVectorRemover>{
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RemovingRecordBatch.class);
@@ -103,7 +103,7 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
 
   private class StraightCopier implements Copier{
 
-    private List<TransferPair> pairs = Lists.newArrayList();
+    private List<TransferPair> pairs = new ArrayList<>();
 
     @Override
     public void setup(RecordBatch incoming, VectorContainer outgoing){

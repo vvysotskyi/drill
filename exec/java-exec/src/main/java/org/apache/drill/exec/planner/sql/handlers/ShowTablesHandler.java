@@ -22,6 +22,7 @@ import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SHRD_COL_T
 import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SHRD_COL_TABLE_SCHEMA;
 import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.TAB_TABLES;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.calcite.rel.type.RelDataType;
@@ -46,7 +47,6 @@ import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 public class ShowTablesHandler extends DefaultSqlHandler {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ShowTablesHandler.class);
@@ -57,7 +57,7 @@ public class ShowTablesHandler extends DefaultSqlHandler {
   @Override
   public SqlNode rewrite(SqlNode sqlNode) throws RelConversionException, ForemanSetupException {
     SqlShowTables node = unwrap(sqlNode, SqlShowTables.class);
-    List<SqlNode> selectList = Lists.newArrayList();
+    List<SqlNode> selectList = new ArrayList<>();
     SqlNode fromClause;
     SqlNode where;
 

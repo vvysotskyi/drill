@@ -19,7 +19,6 @@ package org.apache.drill.exec.rpc.security;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.sasl.Sasl;
@@ -28,6 +27,7 @@ import javax.security.sasl.SaslClientFactory;
 import javax.security.sasl.SaslException;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -68,7 +68,7 @@ public class FastSaslClientFactory implements SaslClientFactory {
   // used in initialization, and for testing
   private void refresh() {
     final Enumeration<SaslClientFactory> factories = Sasl.getSaslClientFactories();
-    final Map<String, List<SaslClientFactory>> map = Maps.newHashMap();
+    final Map<String, List<SaslClientFactory>> map = new HashMap<>();
 
     while (factories.hasMoreElements()) {
       final SaslClientFactory factory = factories.nextElement();

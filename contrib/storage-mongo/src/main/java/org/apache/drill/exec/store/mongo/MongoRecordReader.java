@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.mongo;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -138,7 +139,7 @@ public class MongoRecordReader extends AbstractRecordReader {
 
   private void init(MongoSubScan.MongoSubScanSpec subScanSpec) {
     List<String> hosts = subScanSpec.getHosts();
-    List<ServerAddress> addresses = Lists.newArrayList();
+    List<ServerAddress> addresses = new ArrayList<>();
     for (String host : hosts) {
       addresses.add(new ServerAddress(host));
     }

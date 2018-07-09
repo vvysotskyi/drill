@@ -19,6 +19,7 @@ package org.apache.drill.exec.client;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.config.DrillConfig;
@@ -37,7 +38,6 @@ import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
-import com.google.common.collect.Lists;
 
 public class DumpCat {
   private final static DrillConfig drillConfig = DrillConfig.create();
@@ -168,7 +168,7 @@ public class DumpCat {
     int  batchNum = 0;
     int  emptyBatchNum = 0;
     BatchSchema prevSchema = null;
-    final List<Integer> schemaChangeIdx = Lists.newArrayList();
+    final List<Integer> schemaChangeIdx = new ArrayList<>();
 
     final BatchMetaInfo aggBatchMetaInfo = new BatchMetaInfo();
 

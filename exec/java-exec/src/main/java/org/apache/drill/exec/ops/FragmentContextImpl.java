@@ -18,6 +18,8 @@
 package org.apache.drill.exec.ops;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,7 +65,6 @@ import org.apache.drill.exec.work.batch.IncomingBuffers;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import io.netty.buffer.DrillBuf;
@@ -98,8 +99,9 @@ import io.netty.buffer.DrillBuf;
 public class FragmentContextImpl extends BaseFragmentContext implements ExecutorFragmentContext {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FragmentContextImpl.class);
 
-  private final Map<DrillbitEndpoint, AccountingDataTunnel> tunnels = Maps.newHashMap();
-  private final List<OperatorContextImpl> contexts = Lists.newLinkedList();
+  private final Map<DrillbitEndpoint, AccountingDataTunnel> tunnels = new HashMap<>();
+
+  private final List<OperatorContextImpl> contexts = new LinkedList<>();
 
   private final DrillbitContext context;
   private final UserClientConnection connection; // is null if this context is for non-root fragment
@@ -204,7 +206,7 @@ public class FragmentContextImpl extends BaseFragmentContext implements Executor
 
     stats = new FragmentStats(allocator, fragment.getAssignment());
     bufferManager = new BufferManagerImpl(this.allocator);
-    constantValueHolderCache = Maps.newHashMap();
+    constantValueHolderCache = new HashMap<>();
   }
 
   /**

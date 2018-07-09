@@ -71,6 +71,7 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -133,7 +134,7 @@ public class TestBitBitKerberos extends BaseTestQuery {
   }
 
   private static WritableBatch getRandomBatch(BufferAllocator allocator, int records) {
-    List<ValueVector> vectors = Lists.newArrayList();
+    List<ValueVector> vectors = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
       @SuppressWarnings("resource")
       Float8Vector v = (Float8Vector) TypeHelper.getNewVector(

@@ -17,17 +17,17 @@
  */
 package org.apache.drill.exec.coord.store;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.drill.common.AutoCloseables;
 
 public class CachingTransientStoreFactory implements TransientStoreFactory {
   private final TransientStoreFactory delegate;
-  private final Map<TransientStoreConfig, TransientStore> cache = Maps.newHashMap();
+  private final Map<TransientStoreConfig, TransientStore> cache = new HashMap<>();
 
   public CachingTransientStoreFactory(final TransientStoreFactory delegate) {
     this.delegate = Preconditions.checkNotNull(delegate, "delegate factory is required");
@@ -47,10 +47,7 @@ public class CachingTransientStoreFactory implements TransientStoreFactory {
 
   @Override
   public void close() throws Exception {
-    final List<AutoCloseable> closeables = Lists.newArrayList();
-    for(final AutoCloseable store : cache.values()){
-      closeables.add(store);
-    }
+    final List<AutoCloseable> closeables = new ArrayList<>(cache.values());
     closeables.add(delegate);
     cache.clear();
     AutoCloseables.close(closeables);

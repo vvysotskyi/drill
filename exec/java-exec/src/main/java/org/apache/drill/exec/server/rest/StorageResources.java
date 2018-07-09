@@ -19,6 +19,7 @@ package org.apache.drill.exec.server.rest;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -75,7 +76,7 @@ public class StorageResources {
   @Produces(MediaType.APPLICATION_JSON)
   public List<PluginConfigWrapper> getStoragePluginsJSON() {
 
-    List<PluginConfigWrapper> list = Lists.newArrayList();
+    List<PluginConfigWrapper> list = new ArrayList<>();
     for (Map.Entry<String, StoragePluginConfig> entry : Lists.newArrayList(storage.getStore().getAll())) {
       PluginConfigWrapper plugin = new PluginConfigWrapper(entry.getKey(), entry.getValue());
       list.add(plugin);

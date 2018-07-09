@@ -17,14 +17,13 @@
  */
 package org.apache.drill.exec.physical.base;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.physical.MinorFragmentEndpoint;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
-
-import com.google.common.collect.Lists;
 
 public class PhysicalOperatorUtil {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PhysicalOperatorUtil.class);
@@ -47,7 +46,7 @@ public class PhysicalOperatorUtil {
    * @return
    */
   public static List<MinorFragmentEndpoint> getIndexOrderedEndpoints(List<DrillbitEndpoint> endpoints) {
-    List<MinorFragmentEndpoint> destinations = Lists.newArrayList();
+    List<MinorFragmentEndpoint> destinations = new ArrayList<>();
     int minorFragmentId = 0;
     for(DrillbitEndpoint endpoint : endpoints) {
       destinations.add(new MinorFragmentEndpoint(minorFragmentId, endpoint));

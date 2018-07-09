@@ -19,6 +19,7 @@ package org.apache.drill.common.collections;
 
 import java.util.AbstractMap;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -26,7 +27,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
@@ -54,7 +54,7 @@ import org.slf4j.LoggerFactory;
 public class MapWithOrdinal<K, V> implements Map<K, V> {
   private final static Logger logger = LoggerFactory.getLogger(MapWithOrdinal.class);
 
-  private final Map<K, Entry<Integer, V>> primary = Maps.newLinkedHashMap();
+  private final Map<K, Entry<Integer, V>> primary = new LinkedHashMap<>();
   private final IntObjectHashMap<V> secondary = new IntObjectHashMap<>();
 
   private final Map<K, V> delegate = new Map<K, V>() {

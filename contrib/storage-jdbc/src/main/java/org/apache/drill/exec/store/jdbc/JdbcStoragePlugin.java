@@ -22,6 +22,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,7 +66,6 @@ import org.apache.drill.exec.store.jdbc.DrillJdbcRuleBase.DrillJdbcProjectRule;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 
 public class JdbcStoragePlugin extends AbstractStoragePlugin {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JdbcStoragePlugin.class);
@@ -234,7 +234,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
 
   private class CapitalizingJdbcSchema extends AbstractSchema {
 
-    final Map<String, CapitalizingJdbcSchema> schemaMap = Maps.newHashMap();
+    final Map<String, CapitalizingJdbcSchema> schemaMap = new HashMap<>();
     private final JdbcSchema inner;
 
     public CapitalizingJdbcSchema(List<String> parentSchemaPath, String name, DataSource dataSource,
@@ -299,7 +299,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
 
   private class JdbcCatalogSchema extends AbstractSchema {
 
-    private final Map<String, CapitalizingJdbcSchema> schemaMap = Maps.newHashMap();
+    private final Map<String, CapitalizingJdbcSchema> schemaMap = new HashMap<>();
     private final CapitalizingJdbcSchema defaultSchema;
 
     public JdbcCatalogSchema(String name) {

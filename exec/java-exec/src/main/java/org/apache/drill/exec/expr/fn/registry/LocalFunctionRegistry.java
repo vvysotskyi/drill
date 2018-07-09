@@ -17,7 +17,10 @@
  */
 package org.apache.drill.exec.expr.fn.registry;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -27,8 +30,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.scanner.persistence.AnnotatedClassDescriptor;
@@ -110,7 +111,7 @@ public class LocalFunctionRegistry {
    * @return list of validated function signatures
    */
   public List<String> validate(String jarName, ScanResult scanResult) {
-    List<String> functions = Lists.newArrayList();
+    List<String> functions = new ArrayList<>();
     FunctionConverter converter = new FunctionConverter();
     List<AnnotatedClassDescriptor> providerClasses = scanResult.getAnnotatedClasses();
 
@@ -158,11 +159,11 @@ public class LocalFunctionRegistry {
    * @param version remote function registry version number with which local function registry is synced
    */
   public void register(List<JarScan> jars, long version) {
-    Map<String, List<FunctionHolder>> newJars = Maps.newHashMap();
+    Map<String, List<FunctionHolder>> newJars = new HashMap<>();
     for (JarScan jarScan : jars) {
       FunctionConverter converter = new FunctionConverter();
       List<AnnotatedClassDescriptor> providerClasses = jarScan.getScanResult().getAnnotatedClasses();
-      List<FunctionHolder> functions = Lists.newArrayList();
+      List<FunctionHolder> functions = new ArrayList<>();
       newJars.put(jarScan.getJarName(), functions);
       for (AnnotatedClassDescriptor func : providerClasses) {
         DrillFuncHolder holder = converter.getHolder(func, jarScan.getClassLoader());
@@ -245,8 +246,8 @@ public class LocalFunctionRegistry {
 
   private void registerOperatorsWithInference(DrillOperatorTable operatorTable, Map<String,
       Collection<DrillFuncHolder>> registeredFunctions) {
-    final Map<String, DrillSqlOperator.DrillSqlOperatorBuilder> map = Maps.newHashMap();
-    final Map<String, DrillSqlAggOperator.DrillSqlAggOperatorBuilder> mapAgg = Maps.newHashMap();
+    final Map<String, DrillSqlOperator.DrillSqlOperatorBuilder> map = new HashMap<>();
+    final Map<String, DrillSqlAggOperator.DrillSqlAggOperatorBuilder> mapAgg = new HashMap<>();
     for (Entry<String, Collection<DrillFuncHolder>> function : registeredFunctions.entrySet()) {
       final ArrayListMultimap<Pair<Integer, Integer>, DrillFuncHolder> functions = ArrayListMultimap.create();
       final ArrayListMultimap<Integer, DrillFuncHolder> aggregateFunctions = ArrayListMultimap.create();
@@ -319,7 +320,7 @@ public class LocalFunctionRegistry {
   private void registerOperatorsWithoutInference(DrillOperatorTable operatorTable, Map<String, Collection<DrillFuncHolder>> registeredFunctions) {
     SqlOperator op;
     for (Entry<String, Collection<DrillFuncHolder>> function : registeredFunctions.entrySet()) {
-      Set<Integer> argCounts = Sets.newHashSet();
+      Set<Integer> argCounts = new HashSet<>();
       String name = function.getKey().toUpperCase();
       for (DrillFuncHolder func : function.getValue()) {
         if (argCounts.add(func.getParamCount())) {

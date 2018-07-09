@@ -24,8 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.InvalidRelException;
@@ -714,8 +712,8 @@ public class DrillReduceAggregatesRule extends RelOptRule {
     public void onMatch(RelOptRuleCall call) {
       final DrillAggregateRel oldAggRel = (DrillAggregateRel) call.rels[0];
 
-      final Map<AggregateCall, RexNode> aggCallMapping = Maps.newHashMap();
-      final List<AggregateCall> newAggregateCalls = Lists.newArrayList();
+      final Map<AggregateCall, RexNode> aggCallMapping = new HashMap<>();
+      final List<AggregateCall> newAggregateCalls = new ArrayList<>();
       for (AggregateCall oldAggregateCall : oldAggRel.getAggCallList()) {
         if (isConversionToSumZeroNeeded(oldAggregateCall.getAggregation(), oldAggregateCall.getType())) {
           final RelDataType argType = oldAggregateCall.getType();
@@ -783,7 +781,7 @@ public class DrillReduceAggregatesRule extends RelOptRule {
       final ImmutableList.Builder<Window.Group> builder = ImmutableList.builder();
 
       for (Window.Group group : oldWinRel.groups) {
-        final List<Window.RexWinAggCall> aggCalls = Lists.newArrayList();
+        final List<Window.RexWinAggCall> aggCalls = new ArrayList<>();
         for (Window.RexWinAggCall rexWinAggCall : group.aggCalls) {
           if (isConversionToSumZeroNeeded(rexWinAggCall.getOperator(), rexWinAggCall.getType())) {
             final RelDataType argType = rexWinAggCall.getType();

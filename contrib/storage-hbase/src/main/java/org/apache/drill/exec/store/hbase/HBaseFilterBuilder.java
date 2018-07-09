@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.hbase;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.FunctionCall;
@@ -35,7 +36,6 @@ import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableList;
 
 public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void, RuntimeException> implements DrillHBaseConstants {
 
@@ -88,7 +88,7 @@ public class HBaseFilterBuilder extends AbstractExprVisitor<HBaseScanSpec, Void,
   public HBaseScanSpec visitFunctionCall(FunctionCall call, Void value) throws RuntimeException {
     HBaseScanSpec nodeScanSpec = null;
     String functionName = call.getName();
-    ImmutableList<LogicalExpression> args = call.args;
+    List<LogicalExpression> args = call.args;
 
     if (CompareFunctionsProcessor.isCompareFunction(functionName)) {
       /*

@@ -21,6 +21,7 @@ import io.netty.buffer.DrillBuf;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
@@ -38,7 +39,6 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 public class JsonReader extends BaseJsonProcessor {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory
@@ -57,7 +57,7 @@ public class JsonReader extends BaseJsonProcessor {
    * Collection for tracking empty array writers during reading
    * and storing them for initializing empty arrays
    */
-  private final List<ListWriter> emptyArrayWriters = Lists.newArrayList();
+  private final List<ListWriter> emptyArrayWriters = new ArrayList<>();
 
   /**
    * Describes whether or not this reader can unwrap a single root array record

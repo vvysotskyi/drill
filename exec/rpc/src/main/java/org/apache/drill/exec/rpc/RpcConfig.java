@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.rpc;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.protobuf.Internal.EnumLite;
 import com.google.protobuf.MessageLite;
 
@@ -162,8 +162,8 @@ public class RpcConfig {
     private String name;
     private int timeout = -1;
     private Executor executor;
-    private Map<EnumLite, RpcMessageType<?, ?, ?>> sendMap = Maps.newHashMap();
-    private Map<Integer, RpcMessageType<?, ?, ?>> receiveMap = Maps.newHashMap();
+    private Map<EnumLite, RpcMessageType<?, ?, ?>> sendMap = new HashMap<>();
+    private Map<Integer, RpcMessageType<?, ?, ?>> receiveMap = new HashMap<>();
 
     private RpcConfigBuilder() {
     }

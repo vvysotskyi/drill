@@ -17,11 +17,11 @@
  */
 package org.apache.drill.exec.store.mongo.schema;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.collect.Maps;
 import org.apache.calcite.schema.Table;
 
 import org.apache.drill.exec.planner.logical.DrillTable;
@@ -37,7 +37,7 @@ public class MongoDatabaseSchema extends AbstractSchema {
   private final MongoSchema mongoSchema;
   private final Set<String> tableNames;
 
-  private final Map<String, DrillTable> drillTables = Maps.newHashMap();
+  private final Map<String, DrillTable> drillTables = new HashMap<>();
 
   public MongoDatabaseSchema(List<String> tableList, MongoSchema mongoSchema,
       String name) {

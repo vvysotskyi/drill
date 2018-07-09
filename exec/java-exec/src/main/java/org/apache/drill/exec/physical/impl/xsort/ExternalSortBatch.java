@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.impl.xsort;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -79,7 +80,6 @@ import org.apache.hadoop.fs.Path;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 import com.sun.codemodel.JConditional;
 import com.sun.codemodel.JExpr;
 
@@ -110,8 +110,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * 2. Merge sorted batches when all incoming data fits in memory
    */
   private PriorityQueueCopier copier;
-  private LinkedList<BatchGroup> batchGroups = Lists.newLinkedList();
-  private LinkedList<BatchGroup> spilledBatchGroups = Lists.newLinkedList();
+  private LinkedList<BatchGroup> batchGroups = new LinkedList<>();
+
+  private LinkedList<BatchGroup> spilledBatchGroups = new LinkedList<>();
+
   private SelectionVector4 sv4;
   private FileSystem fs;
   private int spillCount = 0;
@@ -547,7 +549,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     logger.debug("Copier allocator current allocation {}", copierAllocator.getAllocatedMemory());
     logger.debug("mergeAndSpill: starting total size in memory = {}", oAllocator.getAllocatedMemory());
     VectorContainer outputContainer = new VectorContainer();
-    List<BatchGroup> batchGroupList = Lists.newArrayList();
+    List<BatchGroup> batchGroupList = new ArrayList<>();
     int batchCount = batchGroups.size();
     for (int i = 0; i < batchCount / 2; i++) {
       if (batchGroups.size() == 0) {

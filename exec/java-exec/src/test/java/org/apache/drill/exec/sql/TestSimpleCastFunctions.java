@@ -18,7 +18,6 @@
 package org.apache.drill.exec.sql;
 
 import com.google.common.base.Function;
-import com.google.common.collect.Lists;
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.categories.SqlTest;
 import org.apache.drill.common.exceptions.UserRemoteException;
@@ -26,6 +25,7 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -35,7 +35,7 @@ import static org.junit.Assert.assertThat;
 @Category(SqlTest.class)
 public class TestSimpleCastFunctions extends BaseTestQuery {
 
-  private static final List<Function<String, String>> inputFunctions = Lists.newArrayList();
+  private static final List<Function<String, String>> inputFunctions = new ArrayList<>();
 
   static {
     inputFunctions.add(new Function<String, String>() {

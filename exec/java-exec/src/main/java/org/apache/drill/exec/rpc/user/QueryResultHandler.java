@@ -22,6 +22,7 @@ import io.netty.buffer.DrillBuf;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,7 +42,6 @@ import org.apache.drill.exec.rpc.RpcConnectionHandler;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
 
-import com.google.common.collect.Maps;
 import com.google.common.collect.Queues;
 
 /**
@@ -66,8 +66,7 @@ public class QueryResultHandler {
    *   access by batchArrived is not otherwise synchronized.
    * </p>
    */
-  private final ConcurrentMap<QueryId, UserResultsListener> queryIdToResultsListenersMap =
-      Maps.newConcurrentMap();
+  private final ConcurrentMap<QueryId, UserResultsListener> queryIdToResultsListenersMap = new ConcurrentHashMap<>();
 
   public RpcOutcomeListener<QueryId> getWrappedListener(UserResultsListener resultsListener) {
     return new SubmissionListener(resultsListener);

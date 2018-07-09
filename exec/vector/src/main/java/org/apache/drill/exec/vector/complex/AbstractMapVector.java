@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.complex;
 
 import io.netty.buffer.DrillBuf;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -34,7 +35,6 @@ import org.apache.drill.exec.util.CallBack;
 import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 /**
  * Base class for MapVectors. Currently used by RepeatedMapVector and MapVector
@@ -225,7 +225,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    * Returns a list of scalar child vectors recursing the entire vector hierarchy.
    */
   public List<ValueVector> getPrimitiveVectors() {
-    final List<ValueVector> primitiveVectors = Lists.newArrayList();
+    final List<ValueVector> primitiveVectors = new ArrayList<>();
     for (final ValueVector v : vectors.values()) {
       if (v instanceof AbstractMapVector) {
         AbstractMapVector mapVector = (AbstractMapVector) v;
@@ -252,7 +252,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
 
   @Override
   public DrillBuf[] getBuffers(boolean clear) {
-    final List<DrillBuf> buffers = Lists.newArrayList();
+    final List<DrillBuf> buffers = new ArrayList<>();
 
     for (final ValueVector vector : vectors.values()) {
       for (final DrillBuf buf : vector.getBuffers(false)) {

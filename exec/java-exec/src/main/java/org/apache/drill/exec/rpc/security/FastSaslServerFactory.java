@@ -19,7 +19,6 @@ package org.apache.drill.exec.rpc.security;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.sasl.Sasl;
@@ -28,6 +27,7 @@ import javax.security.sasl.SaslServer;
 import javax.security.sasl.SaslServerFactory;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -69,7 +69,7 @@ public final class FastSaslServerFactory implements SaslServerFactory {
   // used in initialization, and for testing
   private void refresh() {
     final Enumeration<SaslServerFactory> factories = Sasl.getSaslServerFactories();
-    final Map<String, List<SaslServerFactory>> map = Maps.newHashMap();
+    final Map<String, List<SaslServerFactory>> map = new HashMap<>();
 
     while (factories.hasMoreElements()) {
       final SaslServerFactory factory = factories.nextElement();
@@ -77,7 +77,7 @@ public final class FastSaslServerFactory implements SaslServerFactory {
       // instantiating a server are what really matter. See createSaslServer.
       for (final String mechanismName : factory.getMechanismNames(null)) {
         if (!map.containsKey(mechanismName)) {
-          map.put(mechanismName, new ArrayList<SaslServerFactory>());
+          map.put(mechanismName, new ArrayList<>());
         }
         map.get(mechanismName).add(factory);
       }

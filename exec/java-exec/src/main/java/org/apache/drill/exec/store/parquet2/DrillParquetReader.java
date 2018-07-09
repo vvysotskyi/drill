@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,7 +63,6 @@ import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 public class DrillParquetReader extends AbstractRecordReader {
@@ -120,9 +120,9 @@ public class DrillParquetReader extends AbstractRecordReader {
     Set<SchemaPath> selectedSchemaPaths = Sets.newLinkedHashSet();
 
     // get a list of modified columns which have the array elements removed from the schema path since parquet schema doesn't include array elements
-    List<SchemaPath> modifiedColumns = Lists.newLinkedList();
+    List<SchemaPath> modifiedColumns = new LinkedList<>();
     for (SchemaPath path : columns) {
-      List<String> segments = Lists.newArrayList();
+      List<String> segments = new ArrayList<>();
       PathSegment seg = path.getRootSegment();
       do {
         if (seg.isNamed()) {
@@ -137,7 +137,7 @@ public class DrillParquetReader extends AbstractRecordReader {
 
     // convert the columns in the parquet schema to a list of SchemaPath columns so that they can be compared in case insensitive manner
     // to the projection columns
-    List<SchemaPath> schemaPaths = Lists.newLinkedList();
+    List<SchemaPath> schemaPaths = new LinkedList<>();
     for (ColumnDescriptor columnDescriptor : schemaColumns) {
       String[] schemaColDesc = Arrays.copyOf(columnDescriptor.getPath(), columnDescriptor.getPath().length);
       SchemaPath schemaPath = SchemaPath.getCompoundPath(schemaColDesc);
@@ -160,7 +160,7 @@ public class DrillParquetReader extends AbstractRecordReader {
 
     // convert SchemaPaths from selectedSchemaPaths and convert to parquet type, and merge into projection schema
     for (SchemaPath schemaPath : selectedSchemaPaths) {
-      List<String> segments = Lists.newArrayList();
+      List<String> segments = new ArrayList<>();
       PathSegment seg = schemaPath.getRootSegment();
       do {
         segments.add(seg.getNameSegment().getPath());

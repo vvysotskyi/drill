@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.text;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -49,7 +50,6 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 public class DrillTextRecordReader extends AbstractRecordReader {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillTextRecordReader.class);
@@ -57,11 +57,13 @@ public class DrillTextRecordReader extends AbstractRecordReader {
   private static final String COL_NAME = "columns";
 
   private org.apache.hadoop.mapred.RecordReader<LongWritable, Text> reader;
-  private final List<ValueVector> vectors = Lists.newArrayList();
+  private final List<ValueVector> vectors = new ArrayList<>();
+
   private byte delimiter;
   private FieldReference ref = new FieldReference(COL_NAME);
   private RepeatedVarCharVector vector;
-  private List<Integer> columnIds = Lists.newArrayList();
+  private List<Integer> columnIds = new ArrayList<>();
+
   private LongWritable key;
   private Text value;
   private int numCols = 0;

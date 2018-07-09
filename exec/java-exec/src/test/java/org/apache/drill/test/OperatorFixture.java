@@ -76,6 +76,7 @@ import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -174,7 +175,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     private final BufferAllocator allocator;
     private final ExecutorService scanExecutorService;
     private final ExecutorService scanDecodeExecutorService;
-    private final List<OperatorContext> contexts = Lists.newLinkedList();
+    private final List<OperatorContext> contexts = new LinkedList<>();
 
 
     private ExecutorState executorState = new OperatorFixture.MockExecutorState();

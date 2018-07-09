@@ -19,12 +19,12 @@ package org.apache.drill.exec.physical.unit;
 
 import static org.apache.drill.test.TestBuilder.mapOf;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.MinorFragmentEndpoint;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.ComplexToJson;
 import org.apache.drill.exec.physical.config.ExternalSort;
@@ -194,7 +194,7 @@ public class BasicPhysicalOpUnitTest extends PhysicalOpUnitTestBase {
   @Test
   public void testFlatten() {
     final PhysicalOperator flatten = new FlattenPOP(null, SchemaPath.getSimplePath("b"));
-    List<String> inputJsonBatches = Lists.newArrayList();
+    List<String> inputJsonBatches = new ArrayList<>();
     StringBuilder batchString = new StringBuilder();
 
     for (int j = 0; j < 1; j++) {
@@ -241,7 +241,7 @@ public class BasicPhysicalOpUnitTest extends PhysicalOpUnitTestBase {
   private void externalSortLowMemoryHelper(int batchSize, int numberOfBatches, long initReservation, long maxAllocation) {
     ExternalSort sortConf = new ExternalSort(null,
         Lists.newArrayList(ordering("b", RelFieldCollation.Direction.ASCENDING, RelFieldCollation.NullDirection.FIRST)), false);
-    List<String> inputJsonBatches = Lists.newArrayList();
+    List<String> inputJsonBatches = new ArrayList<>();
     StringBuilder batchString = new StringBuilder();
     for (int j = 0; j < numberOfBatches; j++) {
       batchString.append("[");
@@ -328,7 +328,7 @@ public class BasicPhysicalOpUnitTest extends PhysicalOpUnitTestBase {
   @Ignore
   @Test
   public void testSimpleMergingReceiver() {
-    MergingReceiverPOP mergeConf = new MergingReceiverPOP(-1, Lists.<MinorFragmentEndpoint>newArrayList(),
+    MergingReceiverPOP mergeConf = new MergingReceiverPOP(-1, new ArrayList<>(),
         Lists.newArrayList(ordering("x", RelFieldCollation.Direction.ASCENDING, RelFieldCollation.NullDirection.FIRST)), false);
     List<String> leftJsonBatches = Lists.newArrayList(
         "[{\"x\": 5, \"a\" : \"a string\"}]",

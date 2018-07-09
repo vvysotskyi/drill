@@ -18,15 +18,17 @@
 package org.apache.drill.exec.expr;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Maps;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.CastExpression;
@@ -138,7 +140,7 @@ public class ExpressionTreeMaterializer {
                                               FunctionLookupContext functionLookupContext,
                                               boolean allowComplexWriterExpr,
                                               boolean unionTypeEnabled) {
-    Map<VectorAccessible, BatchReference> batches = Maps.newHashMap();
+    Map<VectorAccessible, BatchReference> batches = new HashMap<>();
     batches.put(batch, null);
     return materialize(expr, batches, errorCollector, functionLookupContext, allowComplexWriterExpr, unionTypeEnabled);
   }
@@ -179,7 +181,7 @@ public class ExpressionTreeMaterializer {
 
   public static LogicalExpression convertToNullableType(LogicalExpression fromExpr, MinorType toType, FunctionLookupContext functionLookupContext, ErrorCollector errorCollector) {
     String funcName = "convertToNullable" + toType.toString();
-    List<LogicalExpression> args = Lists.newArrayList();
+    List<LogicalExpression> args = new ArrayList<>();
     args.add(fromExpr);
     FunctionCall funcCall = new FunctionCall(funcName, args, ExpressionPosition.UNKNOWN);
     FunctionResolver resolver = FunctionResolverFactory.getResolver(funcCall);
@@ -511,7 +513,7 @@ public class ExpressionTreeMaterializer {
         List<MinorType> subTypes = majorType.getSubTypeList();
         Preconditions.checkState(subTypes.size() > 0, "Union type has no subtypes");
 
-        Queue<IfCondition> ifConditions = Lists.newLinkedList();
+        Queue<IfCondition> ifConditions = new LinkedList<>();
 
         for (MinorType minorType : subTypes) {
           LogicalExpression ifCondition = getIsTypeExpressionForType(minorType, arg.accept(new CloneVisitor(), null));

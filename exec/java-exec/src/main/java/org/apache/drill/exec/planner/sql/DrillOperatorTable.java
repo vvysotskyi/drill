@@ -18,8 +18,6 @@
 package org.apache.drill.exec.planner.sql;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.fun.SqlBetweenOperator;
@@ -35,6 +33,8 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.server.options.OptionManager;
 
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -45,10 +45,13 @@ import java.util.Map;
  */
 public class DrillOperatorTable extends SqlStdOperatorTable {
   private static final SqlOperatorTable inner = SqlStdOperatorTable.instance();
-  private final List<SqlOperator> calciteOperators = Lists.newArrayList();
-  private final List<SqlOperator> drillOperatorsWithoutInference = Lists.newArrayList();
-  private final List<SqlOperator> drillOperatorsWithInference = Lists.newArrayList();
-  private final Map<SqlOperator, SqlOperator> calciteToWrapper = Maps.newIdentityHashMap();
+  private final List<SqlOperator> calciteOperators = new ArrayList<>();
+
+  private final List<SqlOperator> drillOperatorsWithoutInference = new ArrayList<>();
+
+  private final List<SqlOperator> drillOperatorsWithInference = new ArrayList<>();
+
+  private final Map<SqlOperator, SqlOperator> calciteToWrapper = new IdentityHashMap<>();
 
   private final ArrayListMultimap<String, SqlOperator> drillOperatorsWithoutInferenceMap = ArrayListMultimap.create();
   private final ArrayListMultimap<String, SqlOperator> drillOperatorsWithInferenceMap = ArrayListMultimap.create();
@@ -111,7 +114,7 @@ public class DrillOperatorTable extends SqlStdOperatorTable {
 
   private void populateFromTypeInference(SqlIdentifier opName, SqlFunctionCategory category,
                                          SqlSyntax syntax, List<SqlOperator> operatorList) {
-    final List<SqlOperator> calciteOperatorList = Lists.newArrayList();
+    final List<SqlOperator> calciteOperatorList = new ArrayList<>();
     inner.lookupOperatorOverloads(opName, category, syntax, calciteOperatorList);
     if (!calciteOperatorList.isEmpty()) {
       for (SqlOperator calciteOperator : calciteOperatorList) {
@@ -145,8 +148,7 @@ public class DrillOperatorTable extends SqlStdOperatorTable {
 
   @Override
   public List<SqlOperator> getOperatorList() {
-    final List<SqlOperator> sqlOperators = Lists.newArrayList();
-    sqlOperators.addAll(calciteOperators);
+    final List<SqlOperator> sqlOperators = new ArrayList<>(calciteOperators);
     if (isInferenceEnabled()) {
       sqlOperators.addAll(drillOperatorsWithInference);
     } else {
@@ -201,7 +203,7 @@ public class DrillOperatorTable extends SqlStdOperatorTable {
   }
 
   private List<DrillFuncHolder> getFunctionListWithInference(String name) {
-    final List<DrillFuncHolder> functions = Lists.newArrayList();
+    final List<DrillFuncHolder> functions = new ArrayList<>();
     for (SqlOperator sqlOperator : drillOperatorsWithInferenceMap.get(name.toLowerCase())) {
       if (sqlOperator instanceof DrillSqlOperator) {
         final List<DrillFuncHolder> list = ((DrillSqlOperator) sqlOperator).getFunctions();

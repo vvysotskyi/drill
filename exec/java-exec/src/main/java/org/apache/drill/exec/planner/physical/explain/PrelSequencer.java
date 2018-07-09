@@ -19,7 +19,10 @@ package org.apache.drill.exec.planner.physical.explain;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -31,11 +34,10 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.sql.SqlExplainLevel;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 public class PrelSequencer extends BasePrelVisitor<Void, PrelSequencer.Frag, RuntimeException> {
 
-  private List<Frag> frags = Lists.newLinkedList();
+  private List<Frag> frags = new LinkedList<>();
 
   public static String printWithIds(final Prel rel, SqlExplainLevel explainlevel) {
       if (rel == null) {
@@ -56,7 +58,8 @@ public class PrelSequencer extends BasePrelVisitor<Void, PrelSequencer.Frag, Run
   static class Frag implements Iterable<Frag> {
     Prel root;
     int majorFragmentId;
-    final List<Frag> children = Lists.newArrayList();
+    final List<Frag> children = new ArrayList<>();
+
     public Frag(Prel root) {
       super();
       this.root = root;
@@ -185,7 +188,7 @@ public class PrelSequencer extends BasePrelVisitor<Void, PrelSequencer.Frag, Run
     root.accept(this, rootFrag);
 
     // do depth first traversal of fragments to assign major fragment ids.
-    Queue<Frag> q = Lists.newLinkedList();
+    Queue<Frag> q = new LinkedList<>();
 
     q.add(rootFrag);
     int majorFragmentId = 0;
@@ -200,12 +203,12 @@ public class PrelSequencer extends BasePrelVisitor<Void, PrelSequencer.Frag, Run
     }
 
     // for each fragment, do a dfs of operators to assign operator ids.
-    Map<Prel, OpId> ids = Maps.newIdentityHashMap();
+    Map<Prel, OpId> ids = new IdentityHashMap<>();
 
     ids.put(rootFrag.root, new OpId(0, 0));
     for (Frag f : frags) {
       int id = 1;
-      Queue<Prel> ops = Lists.newLinkedList();
+      Queue<Prel> ops = new LinkedList<>();
       ops.add(f.root);
       while (!ops.isEmpty()) {
         Prel p = ops.remove();

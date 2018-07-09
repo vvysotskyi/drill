@@ -24,6 +24,7 @@ import org.apache.drill.exec.physical.EndpointAffinity;
 import org.apache.drill.exec.physical.PhysicalOperatorSetupException;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -91,7 +92,7 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
       final ParallelizationParameters parameters)
     throws PhysicalOperatorSetupException {
 
-    final List<DrillbitEndpoint> endpoints = Lists.newArrayList();
+    final List<DrillbitEndpoint> endpoints = new ArrayList<>();
 
     if (endpointAffinityMap.size() > 0) {
       // Get EndpointAffinity list sorted in descending order of affinity values
@@ -140,7 +141,7 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
       final Set<DrillbitEndpoint> endpointsWithAffinity = endpointAffinityMap.keySet();
 
       if (endpointAffinityMap.size() > 0) {
-        endpointsWithNoAffinity = Lists.newArrayList();
+        endpointsWithNoAffinity = new ArrayList<>();
         for (DrillbitEndpoint ep : activeEndpoints) {
           if (!endpointsWithAffinity.contains(ep)) {
             endpointsWithNoAffinity.add(ep);

@@ -18,6 +18,8 @@
 package org.apache.drill.exec.compile;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
@@ -37,9 +39,6 @@ import org.objectweb.asm.tree.ClassNode;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 /**
  * Compiles generated code, merges the resulting class with the
@@ -243,7 +242,7 @@ public class ClassTransformer {
       final byte[][] implementationClasses = classLoader.getClassByteCode(set.generated, entireClass);
 
       long totalBytecodeSize = 0;
-      Map<String, Pair<byte[], ClassNode>> classesToMerge = Maps.newHashMap();
+      Map<String, Pair<byte[], ClassNode>> classesToMerge = new HashMap<>();
       for (byte[] clazz : implementationClasses) {
         totalBytecodeSize += clazz.length;
         final ClassNode node = AsmUtil.classFromBytes(clazz, ClassReader.EXPAND_FRAMES);
@@ -253,8 +252,8 @@ public class ClassTransformer {
         classesToMerge.put(node.name, Pair.of(clazz, node));
       }
 
-      final LinkedList<ClassSet> names = Lists.newLinkedList();
-      final Set<ClassSet> namesCompleted = Sets.newHashSet();
+      final LinkedList<ClassSet> names = new LinkedList<>();
+      final Set<ClassSet> namesCompleted = new HashSet<>();
       names.add(set);
 
       while ( !names.isEmpty() ) {

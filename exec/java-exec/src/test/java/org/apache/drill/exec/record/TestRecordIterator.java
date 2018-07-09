@@ -21,8 +21,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.google.common.collect.Lists;
-
 import org.apache.drill.categories.VectorTest;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.util.DrillFileUtils;
@@ -51,6 +49,7 @@ import com.google.common.io.Files;
 import org.junit.experimental.categories.Category;
 import org.mockito.Mockito;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Category(VectorTest.class)
@@ -89,7 +88,7 @@ public class TestRecordIterator extends PopUnitTestBase {
       } else {
         // First time save vectors.
         if (vectors == null) {
-          vectors = Lists.newArrayList();
+          vectors = new ArrayList<>();
           for (VectorWrapper vw : iter) {
             vectors.add(vw.getValueVector());
           }
@@ -147,7 +146,7 @@ public class TestRecordIterator extends PopUnitTestBase {
     assertEquals(0, iter.getCurrentPosition());
     assertEquals(0, iter.getOuterPosition());
     assertEquals(1, iter.cachedBatches().size());
-    vectors = Lists.newArrayList();
+    vectors = new ArrayList<>();
     for (VectorWrapper vw : iter) {
       vectors.add(vw.getValueVector());
     }

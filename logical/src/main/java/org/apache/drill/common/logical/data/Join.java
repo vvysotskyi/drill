@@ -17,6 +17,7 @@
  */
 package org.apache.drill.common.logical.data;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -31,7 +32,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 
 @JsonTypeName("join")
 public class Join extends LogicalOperatorBase {
@@ -109,7 +109,7 @@ public class Join extends LogicalOperatorBase {
     private LogicalOperator left;
     private LogicalOperator right;
     private JoinRelType type;
-    private List<JoinCondition> conditions = Lists.newArrayList();
+    private List<JoinCondition> conditions = new ArrayList<>();
 
     public Builder type(JoinRelType type) {
       this.type = type;

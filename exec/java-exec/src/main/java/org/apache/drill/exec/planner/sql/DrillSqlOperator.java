@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import com.google.common.collect.Lists;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
@@ -126,7 +125,8 @@ public class DrillSqlOperator extends SqlFunction {
 
   public static class DrillSqlOperatorBuilder {
     private String name;
-    private final List<DrillFuncHolder> functions = Lists.newArrayList();
+    private final List<DrillFuncHolder> functions = new ArrayList<>();
+
     private int argCountMin = Integer.MAX_VALUE;
     private int argCountMax = Integer.MIN_VALUE;
     private boolean isDeterministic = true;

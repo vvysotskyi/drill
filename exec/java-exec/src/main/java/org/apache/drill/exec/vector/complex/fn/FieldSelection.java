@@ -26,9 +26,6 @@ import java.util.TreeMap;
 import org.apache.drill.common.expression.PathSegment;
 import org.apache.drill.common.expression.SchemaPath;
 
-import com.google.common.collect.Maps;
-
-
 /**
  * This class manages the projection pushdown for a complex path.
  */
@@ -74,7 +71,7 @@ public class FieldSelection {
     if(children.isEmpty()){
       return ALL_VALID;
     }else{
-      Map<String, FieldSelection> newMap = Maps.newHashMap();
+      Map<String, FieldSelection> newMap = new HashMap<>();
       for(Entry<String, FieldSelection> e : children.entrySet()){
         newMap.put(e.getKey(), e.getValue().fixNodes());
       }

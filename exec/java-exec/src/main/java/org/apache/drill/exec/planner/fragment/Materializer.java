@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.planner.fragment;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -98,7 +99,7 @@ public class Materializer extends AbstractPhysicalVisitor<PhysicalOperator, Mate
   public PhysicalOperator visitOp(PhysicalOperator op, IndexedFragmentNode iNode) throws ExecutionSetupException {
     iNode.addAllocation(op);
 //    logger.debug("Visiting catch all: {}", op);
-    List<PhysicalOperator> children = Lists.newArrayList();
+    List<PhysicalOperator> children = new ArrayList<>();
     for(PhysicalOperator child : op){
       children.add(child.accept(this, iNode));
     }

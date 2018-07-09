@@ -21,13 +21,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.drill.common.logical.data.JoinCondition;
 import org.apache.drill.exec.physical.base.AbstractJoinPop;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @JsonTypeName("merge-join")
@@ -55,7 +55,7 @@ public class MergeJoinPOP extends AbstractJoinPop{
 
   public MergeJoinPOP flipIfRight(){
     if(joinType == JoinRelType.RIGHT){
-      List<JoinCondition> flippedConditions = Lists.newArrayList();
+      List<JoinCondition> flippedConditions = new ArrayList<>();
       for(JoinCondition c : conditions){
         flippedConditions.add(c.flip());
       }

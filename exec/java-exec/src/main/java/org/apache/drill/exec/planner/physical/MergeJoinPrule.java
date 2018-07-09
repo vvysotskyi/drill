@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.planner.physical;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.calcite.rel.RelCollations;
@@ -31,7 +32,6 @@ import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptRuleOperand;
 import org.apache.calcite.util.trace.CalciteTrace;
 
-import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 
 public class MergeJoinPrule extends JoinPruleBase {
@@ -84,7 +84,7 @@ public class MergeJoinPrule extends JoinPruleBase {
   }
 
   private RelCollation getCollation(List<Integer> keys) {
-    List<RelFieldCollation> fields = Lists.newArrayList();
+    List<RelFieldCollation> fields = new ArrayList<>();
     for (int key : keys) {
       fields.add(new RelFieldCollation(key));
     }

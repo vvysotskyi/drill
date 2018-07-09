@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.httpd;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -55,7 +56,7 @@ import org.apache.hadoop.mapred.TextInputFormat;
 
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+
 import java.util.Map;
 import org.apache.drill.exec.store.RecordReader;
 import org.slf4j.Logger;
@@ -151,7 +152,7 @@ public class HttpdLogFormatPlugin extends EasyFormatPlugin<HttpdLogFormatPlugin.
      * @return Map with Drill field names as a key and Parser Field names as a value
      */
     private Map<String, String> makeParserFields() {
-      final Map<String, String> fieldMapping = Maps.newHashMap();
+      final Map<String, String> fieldMapping = new HashMap<>();
       for (final SchemaPath sp : getColumns()) {
         final String drillField = sp.getRootSegment().getPath();
         final String parserField = HttpdParser.parserFormattedFieldName(drillField);

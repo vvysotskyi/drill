@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -116,7 +117,7 @@ public class TestOpSerialization {
     boolean reversed = false;
     while (true) {
 
-      List<PhysicalOperator> pops = Lists.newArrayList();
+      List<PhysicalOperator> pops = new ArrayList<>();
       pops.add(s);
       pops.add(e);
       pops.add(f);

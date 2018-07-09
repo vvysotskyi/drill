@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import io.netty.buffer.DrillBuf;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
@@ -55,7 +56,6 @@ import org.apache.drill.test.DrillTest;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import org.junit.experimental.categories.Category;
 
@@ -115,7 +115,7 @@ public class TestAllocators extends DrillTest {
       assertEquals(0, drillBuf.readInt());
     }
 
-    final List<DrillBuf> toBeClean = Lists.newArrayList();
+    final List<DrillBuf> toBeClean = new ArrayList<>();
     for(DrillBuf drillBuf : iv.getBuffers(true)) {
       assertEquals(0, drillBuf.readInt());
       toBeClean.add(drillBuf);

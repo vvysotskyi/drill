@@ -314,7 +314,7 @@ public class SqlConverter {
       List<String> temporaryTableNames = ((SqlConverter.DrillCalciteCatalogReader) getCatalogReader()).getTemporaryNames(tempNode.names);
       if (temporaryTableNames != null) {
         SqlParserPos pos = tempNode.getComponentParserPosition(0);
-        List<SqlParserPos> poses = Lists.newArrayList();
+        List<SqlParserPos> poses = new ArrayList<>();
         for (int i = 0; i < temporaryTableNames.size(); i++) {
           poses.add(i, pos);
         }

@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.planner.fragment;
 
-import com.google.common.collect.Lists;
 import org.apache.drill.exec.physical.base.Exchange;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.HasAffinity;
@@ -27,6 +26,7 @@ import org.apache.drill.exec.planner.AbstractOpWrapperVisitor;
 import org.apache.drill.exec.planner.fragment.Fragment.ExchangeFragmentPair;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -67,7 +67,7 @@ public class StatsCollector extends AbstractOpWrapperVisitor<Void, RuntimeExcept
     final List<ExchangeFragmentPair> receivingExchangePairs = wrapper.getNode().getReceivingExchangePairs();
 
     // List to contain the endpoints where the fragment that send dat to this fragment are running.
-    final List<DrillbitEndpoint> sendingEndpoints = Lists.newArrayList();
+    final List<DrillbitEndpoint> sendingEndpoints = new ArrayList<>();
 
     for(ExchangeFragmentPair pair : receivingExchangePairs) {
       if (pair.getExchange() == exchange) {

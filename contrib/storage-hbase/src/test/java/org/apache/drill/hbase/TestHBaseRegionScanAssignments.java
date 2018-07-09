@@ -21,9 +21,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NavigableMap;
+import java.util.TreeMap;
 
 import org.apache.drill.categories.HbaseStorageTest;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
@@ -37,8 +39,6 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.junit.experimental.categories.Category;
 
 @Category({SlowTest.class, HbaseStorageTest.class})
@@ -98,7 +98,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
 
   @Test
   public void testHBaseGroupScanAssignmentMix() throws Exception {
-    NavigableMap<HRegionInfo,ServerName> regionsToScan = Maps.newTreeMap();
+    NavigableMap<HRegionInfo,ServerName> regionsToScan = new TreeMap<>();
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[0], splits[1]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[1], splits[2]), SERVER_B);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[2], splits[3]), SERVER_B);
@@ -108,7 +108,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[6], splits[7]), SERVER_C);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[7], splits[0]), SERVER_D);
 
-    final List<DrillbitEndpoint> endpoints = Lists.newArrayList();
+    final List<DrillbitEndpoint> endpoints = new ArrayList<>();
     final DrillbitEndpoint DB_A = DrillbitEndpoint.newBuilder().setAddress(HOST_A).setControlPort(1234).build();
     endpoints.add(DB_A);
     endpoints.add(DB_A);
@@ -135,7 +135,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
 
   @Test
   public void testHBaseGroupScanAssignmentSomeAfinedWithOrphans() throws Exception {
-    NavigableMap<HRegionInfo,ServerName> regionsToScan = Maps.newTreeMap();
+    NavigableMap<HRegionInfo,ServerName> regionsToScan = new TreeMap<>();
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[0], splits[1]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[1], splits[2]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[2], splits[3]), SERVER_B);
@@ -155,7 +155,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[16], splits[17]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[17], splits[0]), SERVER_A);
 
-    final List<DrillbitEndpoint> endpoints = Lists.newArrayList();
+    final List<DrillbitEndpoint> endpoints = new ArrayList<>();
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_A).setControlPort(1234).build());
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_B).setControlPort(1234).build());
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_C).setControlPort(1234).build());
@@ -175,7 +175,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
     scan.setHBaseScanSpec(new HBaseScanSpec(TABLE_NAME_STR, splits[0], splits[0], null));
     scan.applyAssignments(endpoints);
 
-    LinkedList<Integer> sizes = Lists.newLinkedList();
+    LinkedList<Integer> sizes = new LinkedList<>();
     sizes.add(1); sizes.add(1); sizes.add(1); sizes.add(1); sizes.add(1); sizes.add(1); sizes.add(1); sizes.add(1);
     sizes.add(2); sizes.add(2); sizes.add(2); sizes.add(2); sizes.add(2);
     for (int i = 0; i < endpoints.size(); i++) {
@@ -187,7 +187,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
 
   @Test
   public void testHBaseGroupScanAssignmentOneEach() throws Exception {
-    NavigableMap<HRegionInfo,ServerName> regionsToScan = Maps.newTreeMap();
+    NavigableMap<HRegionInfo,ServerName> regionsToScan = new TreeMap<>();
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[0], splits[1]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[1], splits[2]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[2], splits[3]), SERVER_A);
@@ -198,7 +198,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[7], splits[8]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[8], splits[0]), SERVER_A);
 
-    final List<DrillbitEndpoint> endpoints = Lists.newArrayList();
+    final List<DrillbitEndpoint> endpoints = new ArrayList<>();
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_A).setControlPort(1234).build());
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_A).setControlPort(1234).build());
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_B).setControlPort(1234).build());
@@ -229,7 +229,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
 
   @Test
   public void testHBaseGroupScanAssignmentNoAfinity() throws Exception {
-    NavigableMap<HRegionInfo,ServerName> regionsToScan = Maps.newTreeMap();
+    NavigableMap<HRegionInfo,ServerName> regionsToScan = new TreeMap<>();
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[0], splits[1]), SERVER_X);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[1], splits[2]), SERVER_X);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[2], splits[3]), SERVER_X);
@@ -239,7 +239,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[6], splits[7]), SERVER_X);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[7], splits[0]), SERVER_X);
 
-    final List<DrillbitEndpoint> endpoints = Lists.newArrayList();
+    final List<DrillbitEndpoint> endpoints = new ArrayList<>();
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_A).setControlPort(1234).build());
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_B).setControlPort(1234).build());
     endpoints.add(DrillbitEndpoint.newBuilder().setAddress(HOST_C).setControlPort(1234).build());
@@ -268,7 +268,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
 
   @Test
   public void testHBaseGroupScanAssignmentAllPreferred() throws Exception {
-    NavigableMap<HRegionInfo,ServerName> regionsToScan = Maps.newTreeMap();
+    NavigableMap<HRegionInfo,ServerName> regionsToScan = new TreeMap<>();
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[0], splits[1]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[1], splits[2]), SERVER_A);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[2], splits[3]), SERVER_B);
@@ -278,7 +278,7 @@ public class TestHBaseRegionScanAssignments extends BaseHBaseTest {
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[6], splits[7]), SERVER_D);
     regionsToScan.put(new HRegionInfo(TABLE_NAME, splits[7], splits[0]), SERVER_D);
 
-    final List<DrillbitEndpoint> endpoints = Lists.newArrayList();
+    final List<DrillbitEndpoint> endpoints = new ArrayList<>();
     final DrillbitEndpoint DB_A = DrillbitEndpoint.newBuilder().setAddress(HOST_A).setControlPort(1234).build();
     endpoints.add(DB_A);
     final DrillbitEndpoint DB_B = DrillbitEndpoint.newBuilder().setAddress(HOST_B).setControlPort(1234).build();

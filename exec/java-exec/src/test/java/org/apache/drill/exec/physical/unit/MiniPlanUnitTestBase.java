@@ -229,7 +229,8 @@ public class MiniPlanUnitTestBase extends PhysicalOpUnitTestBase {
     protected long initReservation = INIT_ALLOCATION;
     protected long maxAllocation = MAX_ALLOCATION;
 
-    final private List<RecordBatch> inputs = Lists.newArrayList();
+    final private List<RecordBatch> inputs = new ArrayList<>();
+
     final PopBuilder parent ;
 
     public PopBuilder() {
@@ -341,7 +342,7 @@ public class MiniPlanUnitTestBase extends PhysicalOpUnitTestBase {
 
     @SuppressWarnings("unchecked")
     public T columnsToRead(String ... columnsToRead) {
-      this.columnsToRead = Lists.newArrayList();
+      this.columnsToRead = new ArrayList<>();
 
       for (String column : columnsToRead) {
 

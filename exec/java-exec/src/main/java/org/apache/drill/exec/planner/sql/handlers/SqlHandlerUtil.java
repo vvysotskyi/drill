@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.planner.sql.handlers;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexBuilder;
@@ -41,6 +40,7 @@ import org.apache.calcite.rel.type.RelDataType;
 
 import java.io.IOException;
 import java.util.AbstractList;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
@@ -143,8 +143,8 @@ public class SqlHandlerUtil {
 
     final RelDataType inputRowType = input.getRowType();
 
-    final List<RexNode> colRefStarExprs = Lists.newArrayList();
-    final List<String> colRefStarNames = Lists.newArrayList();
+    final List<RexNode> colRefStarExprs = new ArrayList<>();
+    final List<String> colRefStarNames = new ArrayList<>();
     final RexBuilder builder = input.getCluster().getRexBuilder();
     final int originalFieldSize = inputRowType.getFieldCount();
 
@@ -159,7 +159,7 @@ public class SqlHandlerUtil {
         if (SchemaPath.DYNAMIC_STAR.equals(field.getName())) {
           colRefStarNames.add(col);
 
-          final List<RexNode> operands = Lists.newArrayList();
+          final List<RexNode> operands = new ArrayList<>();
           operands.add(new RexInputRef(field.getIndex(), field.getType()));
           operands.add(builder.makeLiteral(col));
           final RexNode item = builder.makeCall(SqlStdOperatorTable.ITEM, operands);

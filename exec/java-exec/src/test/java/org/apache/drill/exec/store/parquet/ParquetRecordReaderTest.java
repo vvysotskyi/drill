@@ -27,6 +27,7 @@ import io.netty.buffer.DrillBuf;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +78,6 @@ import org.junit.Test;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 
 @Ignore
@@ -330,10 +330,11 @@ public class ParquetRecordReaderTest extends BaseTestQuery {
   }
 
  private static class MockOutputMutator implements OutputMutator {
-    private final List<MaterializedField> removedFields = Lists.newArrayList();
-    private final List<ValueVector> addFields = Lists.newArrayList();
+    private final List<MaterializedField> removedFields = new ArrayList<>();
 
-    List<MaterializedField> getRemovedFields() {
+   private final List<ValueVector> addFields = new ArrayList<>();
+
+   List<MaterializedField> getRemovedFields() {
       return removedFields;
     }
 
@@ -614,7 +615,7 @@ public class ParquetRecordReaderTest extends BaseTestQuery {
     final List<Footer> footers = ParquetFileReader.readFooters(dfsConfig, new Path(fileName));
     final Footer f = footers.iterator().next();
 
-    final List<SchemaPath> columns = Lists.newArrayList();
+    final List<SchemaPath> columns = new ArrayList<>();
     columns.add(new SchemaPath("_MAP.integer", ExpressionPosition.UNKNOWN));
     columns.add(new SchemaPath("_MAP.bigInt", ExpressionPosition.UNKNOWN));
     columns.add(new SchemaPath("_MAP.f", ExpressionPosition.UNKNOWN));
