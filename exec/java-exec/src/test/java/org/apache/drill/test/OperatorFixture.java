@@ -17,18 +17,14 @@
  */
 package org.apache.drill.test;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import io.netty.buffer.DrillBuf;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.config.DrillConfig;
@@ -75,10 +71,8 @@ import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
+import java.util.LinkedList;
+import java.util.function.Function;
 
 /**
  * Test fixture for operator and (especially) "sub-operator" tests.
@@ -130,8 +124,8 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
         configBuilder.put(ClassBuilder.CODE_DIR_OPTION, dirTestWatcher.getCodegenDir().getAbsolutePath());
         configBuilder.put(ExecConstants.DRILL_TMP_DIR, dirTestWatcher.getTmpDir().getAbsolutePath());
         configBuilder.put(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH, dirTestWatcher.getStoreDir().getAbsolutePath());
-        configBuilder.put(ExecConstants.SPILL_DIRS, Lists.newArrayList(dirTestWatcher.getSpillDir().getAbsolutePath()));
-        configBuilder.put(ExecConstants.HASHJOIN_SPILL_DIRS, Lists.newArrayList(dirTestWatcher.getSpillDir().getAbsolutePath()));
+        configBuilder.put(ExecConstants.SPILL_DIRS, Collections.singletonList(dirTestWatcher.getSpillDir().getAbsolutePath()));
+        configBuilder.put(ExecConstants.HASHJOIN_SPILL_DIRS, Collections.singletonList(dirTestWatcher.getSpillDir().getAbsolutePath()));
       }
     }
 
@@ -146,13 +140,13 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
 
     public Builder setScanExecutor(final ExecutorService scanExecutor)
     {
-      this.scanExecutor = Preconditions.checkNotNull(scanExecutor);
+      this.scanExecutor = Objects.requireNonNull(scanExecutor);
       return this;
     }
 
     public Builder setScanDecoderExecutor(final ExecutorService scanDecoderExecutor)
     {
-      this.scanDecoderExecutor = Preconditions.checkNotNull(scanDecoderExecutor);
+      this.scanDecoderExecutor = Objects.requireNonNull(scanDecoderExecutor);
       return this;
     }
 
@@ -174,7 +168,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     private final BufferAllocator allocator;
     private final ExecutorService scanExecutorService;
     private final ExecutorService scanDecodeExecutorService;
-    private final List<OperatorContext> contexts = Lists.newLinkedList();
+    private final List<OperatorContext> contexts = new LinkedList<>();
 
 
     private ExecutorState executorState = new OperatorFixture.MockExecutorState();
@@ -186,9 +180,9 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
                                final ExecutorService scanExecutorService,
                                final ExecutorService scanDecodeExecutorService) {
       super(newFunctionRegistry(config, options));
-      this.config = Preconditions.checkNotNull(config);
-      this.options = Preconditions.checkNotNull(options);
-      this.allocator = Preconditions.checkNotNull(allocator);
+      this.config = Objects.requireNonNull(config);
+      this.options = Objects.requireNonNull(options);
+      this.allocator = Objects.requireNonNull(allocator);
       this.scanExecutorService = scanExecutorService;
       this.scanDecodeExecutorService = scanDecodeExecutorService;
       this.controls = new ExecutionControls(options);

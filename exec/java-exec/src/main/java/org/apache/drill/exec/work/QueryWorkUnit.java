@@ -19,6 +19,7 @@ package org.apache.drill.exec.work;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.drill.exec.physical.base.FragmentRoot;
 import org.apache.drill.exec.planner.PhysicalPlanReader;
@@ -29,7 +30,6 @@ import org.apache.drill.exec.server.options.OptionList;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.base.Preconditions;
 import org.codehaus.jackson.map.ObjectMapper;
 
 public class QueryWorkUnit {
@@ -45,7 +45,7 @@ public class QueryWorkUnit {
     private final FragmentRoot root;
     private final OptionList options;
 
-    public MinorFragmentDefn(final PlanFragment fragment, final FragmentRoot root, OptionList options) {
+    public MinorFragmentDefn(PlanFragment fragment, FragmentRoot root, OptionList options) {
       this.fragment = fragment;
       this.root = root;
       this.options = options;
@@ -76,15 +76,11 @@ public class QueryWorkUnit {
   private List<PlanFragment> fragments = new ArrayList<>();
   private final List<MinorFragmentDefn> minorFragmentDefns;
 
-  public QueryWorkUnit(final FragmentRoot rootOperator, final MinorFragmentDefn rootFragmentDefn,
-      final List<MinorFragmentDefn> minorFragmentDefns) {
-    Preconditions.checkNotNull(rootOperator);
-    Preconditions.checkNotNull(rootFragmentDefn);
-    Preconditions.checkNotNull(minorFragmentDefns);
-
-    this.rootFragmentDefn = rootFragmentDefn;
-    this.rootOperator = rootOperator;
-    this.minorFragmentDefns = minorFragmentDefns;
+  public QueryWorkUnit(FragmentRoot rootOperator, MinorFragmentDefn rootFragmentDefn,
+      List<MinorFragmentDefn> minorFragmentDefns) {
+    this.rootFragmentDefn = Objects.requireNonNull(rootFragmentDefn);
+    this.rootOperator = Objects.requireNonNull(rootOperator);
+    this.minorFragmentDefns = Objects.requireNonNull(minorFragmentDefns);
   }
 
   public PlanFragment getRootFragment() {
