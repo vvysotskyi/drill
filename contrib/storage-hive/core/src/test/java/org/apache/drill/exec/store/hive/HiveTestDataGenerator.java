@@ -28,8 +28,8 @@ import java.sql.Timestamp;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.collect.Sets;
-import com.google.common.io.Resources;
+import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
+import org.apache.drill.shaded.guava.com.google.common.io.Resources;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.drill.test.BaseDirTestWatcher;
@@ -42,7 +42,7 @@ import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
 import org.apache.hadoop.hive.ql.Driver;
 import org.apache.hadoop.hive.ql.session.SessionState;
 
-import com.google.common.collect.Maps;
+import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.hadoop.hive.serde.serdeConstants;
 
 import static org.apache.drill.exec.hive.HiveTestUtilities.executeQuery;

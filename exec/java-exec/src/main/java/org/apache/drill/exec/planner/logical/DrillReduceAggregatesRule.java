@@ -24,8 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Maps;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.InvalidRelException;
@@ -62,7 +62,7 @@ import org.apache.calcite.util.CompositeList;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 
-import com.google.common.collect.ImmutableList;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.exec.planner.sql.TypeInferenceUtils;
 import org.apache.drill.exec.planner.sql.parser.DrillCalciteWrapperUtility;
 import org.slf4j.Logger;

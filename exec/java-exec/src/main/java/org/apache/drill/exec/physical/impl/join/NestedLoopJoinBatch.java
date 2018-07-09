@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Map;
 
-import com.google.common.collect.ImmutableMap;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -52,7 +52,7 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.AllocationHelper;
 
-import com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import com.sun.codemodel.JExpr;
 import com.sun.codemodel.JExpression;
 import com.sun.codemodel.JVar;

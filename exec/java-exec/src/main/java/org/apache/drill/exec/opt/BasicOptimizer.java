@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.opt;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 import org.apache.drill.common.JSONOptions;
 import org.apache.drill.common.config.DrillConfig;

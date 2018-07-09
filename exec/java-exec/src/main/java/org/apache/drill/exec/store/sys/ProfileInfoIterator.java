@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.store.sys;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Iterators;
+import org.apache.drill.shaded.guava.com.google.common.base.Function;
+import org.apache.drill.shaded.guava.com.google.common.collect.Iterators;
 
 import org.apache.drill.exec.ops.ExecutorFragmentContext;
 import org.apache.drill.exec.proto.UserBitShared;
