@@ -31,6 +31,8 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -170,7 +172,7 @@ public class KafkaPartitionScanSpecBuilder extends
 
   private List<KafkaPartitionScanSpec> createScanSpecForTimestamp(String functionName,
                                                                   Long fieldValue) {
-    List<KafkaPartitionScanSpec> scanSpec = Lists.newArrayList();
+    List<KafkaPartitionScanSpec> scanSpec = new ArrayList<>();
     Map<TopicPartition, Long> timesValMap = Maps.newHashMap();
     ImmutableSet<TopicPartition> topicPartitions = fullScanSpec.keySet();
 
@@ -199,7 +201,7 @@ public class KafkaPartitionScanSpecBuilder extends
 
   private List<KafkaPartitionScanSpec> createScanSpecForOffset(String functionName,
                                                                Long fieldValue) {
-    List<KafkaPartitionScanSpec> scanSpec = Lists.newArrayList();
+    List<KafkaPartitionScanSpec> scanSpec = new ArrayList<>();
     ImmutableSet<TopicPartition> topicPartitions = fullScanSpec.keySet();
 
     /*
@@ -267,7 +269,7 @@ public class KafkaPartitionScanSpecBuilder extends
 
   private List<KafkaPartitionScanSpec> createScanSpecForPartition(String functionName,
                                                                   Long fieldValue) {
-    List<KafkaPartitionScanSpec> scanSpecList = Lists.newArrayList();
+    List<KafkaPartitionScanSpec> scanSpecList = new ArrayList<>();
     ImmutableSet<TopicPartition> topicPartitions = fullScanSpec.keySet();
 
     switch (functionName) {

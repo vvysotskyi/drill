@@ -28,7 +28,6 @@ import org.apache.drill.exec.planner.physical.ScanPrel;
 import org.apache.drill.exec.planner.physical.ScreenPrel;
 import org.apache.calcite.rel.RelNode;
 
-import com.google.common.collect.Lists;
 import org.apache.drill.exec.planner.physical.UnnestPrel;
 
 public class ExcessiveExchangeIdentifier extends BasePrelVisitor<Prel, ExcessiveExchangeIdentifier.MajorFragmentStat, RuntimeException> {
@@ -85,7 +84,7 @@ public class ExcessiveExchangeIdentifier extends BasePrelVisitor<Prel, Excessive
 
   @Override
   public Prel visitLateral(LateralJoinPrel prel, MajorFragmentStat s) throws RuntimeException {
-    List<RelNode> children = Lists.newArrayList();
+    List<RelNode> children = new ArrayList<>();
     s.add(prel);
 
     for (Prel p : prel) {

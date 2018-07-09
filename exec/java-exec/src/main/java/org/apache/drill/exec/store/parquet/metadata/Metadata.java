@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -206,8 +205,8 @@ public class Metadata {
    */
   private Pair<ParquetTableMetadata_v3, ParquetTableMetadataDirs> createMetaFilesRecursively(final String path, FileSystem fs) throws IOException {
     Stopwatch timer = logger.isDebugEnabled() ? Stopwatch.createStarted() : null;
-    List<ParquetFileMetadata_v3> metaDataList = Lists.newArrayList();
-    List<String> directoryList = Lists.newArrayList();
+    List<ParquetFileMetadata_v3> metaDataList = new ArrayList<>();
+    List<String> directoryList = new ArrayList<>();
     ConcurrentHashMap<ColumnTypeMetadata_v3.Key, ColumnTypeMetadata_v3> columnTypeInfoSet =
         new ConcurrentHashMap<>();
     Path p = new Path(path);
@@ -264,7 +263,7 @@ public class Metadata {
       ParquetTableMetadataDirs parquetTableMetadataDirs = new ParquetTableMetadataDirs(directoryList);
       return Pair.of(parquetTableMetadata, parquetTableMetadataDirs);
     }
-    List<String> emptyDirList = Lists.newArrayList();
+    List<String> emptyDirList = new ArrayList<>();
     if (timer != null) {
       logger.debug("Creating metadata files recursively took {} ms", timer.elapsed(TimeUnit.MILLISECONDS));
       timer.stop();
@@ -437,7 +436,7 @@ public class Metadata {
       colTypeInfoMap.put(SchemaPath.getCompoundPath(path), getColTypeInfo(schema, schema, path, 0));
     }
 
-    List<RowGroupMetadata_v3> rowGroupMetadataList = Lists.newArrayList();
+    List<RowGroupMetadata_v3> rowGroupMetadataList = new ArrayList<>();
 
     ArrayList<SchemaPath> ALL_COLS = new ArrayList<>();
     ALL_COLS.add(SchemaPath.STAR_COLUMN);
@@ -447,7 +446,7 @@ public class Metadata {
       logger.debug(containsCorruptDates.toString());
     }
     for (BlockMetaData rowGroup : metadata.getBlocks()) {
-      List<ColumnMetadata_v3> columnMetadataList = Lists.newArrayList();
+      List<ColumnMetadata_v3> columnMetadataList = new ArrayList<>();
       long length = 0;
       for (ColumnChunkMetaData col : rowGroup.getColumns()) {
         ColumnMetadata_v3 columnMetadata;
