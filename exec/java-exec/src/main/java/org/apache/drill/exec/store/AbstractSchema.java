@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -46,7 +47,7 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
   private static final Expression EXPRESSION = new DefaultExpression(Object.class);
 
   public AbstractSchema(List<String> parentSchemaPath, String name) {
-    schemaPath = Lists.newArrayList();
+    schemaPath = new ArrayList<>();
     schemaPath.addAll(parentSchemaPath);
     schemaPath.add(name);
     this.name = name;
@@ -234,7 +235,7 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
    * @return the collection of requested tables
    */
   public List<Pair<String, ? extends Table>> getTablesByNames(final List<String> tableNames) {
-    final List<Pair<String, ? extends Table>> tables = Lists.newArrayList();
+    final List<Pair<String, ? extends Table>> tables = new ArrayList<>();
     for (String tableName : tableNames) {
       final Table table = getTable(tableName);
       if (table == null) {
@@ -249,7 +250,7 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
 
   public List<Pair<String, Schema.TableType>> getTableNamesAndTypes(boolean bulkLoad, int bulkSize) {
     final List<String> tableNames = Lists.newArrayList(getTableNames());
-    final List<Pair<String, Schema.TableType>> tableNamesAndTypes = Lists.newArrayList();
+    final List<Pair<String, Schema.TableType>> tableNamesAndTypes = new ArrayList<>();
     final List<Pair<String, ? extends Table>> tables;
     if (bulkLoad) {
       tables = getTablesByNamesByBulkLoad(tableNames, bulkSize);

@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.kudu;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -63,7 +64,6 @@ import org.apache.kudu.client.RowResultIterator;
 import org.apache.kudu.client.shaded.com.google.common.collect.ImmutableMap;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 public class KuduRecordReader extends AbstractRecordReader {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(KuduRecordReader.class);
@@ -102,7 +102,7 @@ public class KuduRecordReader extends AbstractRecordReader {
 
       KuduScannerBuilder builder = client.newScannerBuilder(table);
       if (!isStarQuery()) {
-        List<String> colNames = Lists.newArrayList();
+        List<String> colNames = new ArrayList<>();
         for (SchemaPath p : this.getColumns()) {
           colNames.add(p.getRootSegmentPath());
         }

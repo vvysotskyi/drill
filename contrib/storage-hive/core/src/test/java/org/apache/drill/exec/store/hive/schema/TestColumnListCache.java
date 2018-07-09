@@ -24,6 +24,7 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -35,7 +36,7 @@ public class TestColumnListCache {
   @Test
   public void testTableColumnsIndex() {
     ColumnListsCache cache = new ColumnListsCache();
-    List<FieldSchema> columns = Lists.newArrayList();
+    List<FieldSchema> columns = new ArrayList<>();
     columns.add(new FieldSchema("f1", "int", null));
     columns.add(new FieldSchema("f2", "int", null));
     assertEquals(0, cache.addOrGet(columns));
@@ -44,7 +45,7 @@ public class TestColumnListCache {
   @Test
   public void testPartitionColumnsIndex() {
     ColumnListsCache cache = new ColumnListsCache();
-    List<FieldSchema> columns = Lists.newArrayList();
+    List<FieldSchema> columns = new ArrayList<>();
     columns.add(new FieldSchema("f1", "int", null));
     columns.add(new FieldSchema("f2", "int", null));
     cache.addOrGet(columns);
@@ -55,7 +56,7 @@ public class TestColumnListCache {
   @Test
   public void testColumnListUnique() {
     ColumnListsCache cache = new ColumnListsCache();
-    List<FieldSchema> columns = Lists.newArrayList();
+    List<FieldSchema> columns = new ArrayList<>();
     columns.add(new FieldSchema("f1", "int", null));
     columns.add(new FieldSchema("f2", "int", null));
     cache.addOrGet(columns);
@@ -66,7 +67,7 @@ public class TestColumnListCache {
   @Test
   public void testPartitionColumnListAccess() {
     ColumnListsCache cache = new ColumnListsCache();
-    List<FieldSchema> columns = Lists.newArrayList();
+    List<FieldSchema> columns = new ArrayList<>();
     columns.add(new FieldSchema("f1", "int", null));
     columns.add(new FieldSchema("f2", "int", null));
     cache.addOrGet(columns);
@@ -83,7 +84,7 @@ public class TestColumnListCache {
   @Test
   public void testPartitionColumnCaching() {
     ColumnListsCache cache = new ColumnListsCache();
-    List<FieldSchema> columns = Lists.newArrayList();
+    List<FieldSchema> columns = new ArrayList<>();
     columns.add(new FieldSchema("f1", "int", null));
     columns.add(new FieldSchema("f2", "int", null));
     // sum of all indexes from cache
@@ -91,13 +92,13 @@ public class TestColumnListCache {
     indexSum += cache.addOrGet(columns);
     List<FieldSchema> sameColumns = Lists.newArrayList(columns);
     indexSum += cache.addOrGet(sameColumns);
-    List<FieldSchema> otherColumns = Lists.newArrayList();
+    List<FieldSchema> otherColumns = new ArrayList<>();
     otherColumns.add(new FieldSchema("f3", "int", null));
     otherColumns.add(new FieldSchema("f4", "int", null));
     // sum of all indexes from cache
     int secondIndexSum = cache.addOrGet(otherColumns);
     secondIndexSum += cache.addOrGet(otherColumns);
-    List<FieldSchema> sameOtherColumns = Lists.newArrayList();
+    List<FieldSchema> sameOtherColumns = new ArrayList<>();
     sameOtherColumns.add(new FieldSchema("f3", "int", null));
     sameOtherColumns.add(new FieldSchema("f4", "int", null));
     secondIndexSum += cache.addOrGet(sameOtherColumns);

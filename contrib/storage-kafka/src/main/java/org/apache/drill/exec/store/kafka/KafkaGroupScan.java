@@ -17,8 +17,10 @@
  */
 package org.apache.drill.exec.store.kafka;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -57,8 +59,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 @JsonTypeName("kafka-scan")
 public class KafkaGroupScan extends AbstractGroupScan {
@@ -153,15 +153,15 @@ public class KafkaGroupScan extends AbstractGroupScan {
    * corresponding topicPartition
    */
   private void init() {
-    partitionWorkMap = Maps.newHashMap();
+    partitionWorkMap = new HashMap<>();
     Collection<DrillbitEndpoint> endpoints = kafkaStoragePlugin.getContext().getBits();
-    Map<String, DrillbitEndpoint> endpointMap = Maps.newHashMap();
+    Map<String, DrillbitEndpoint> endpointMap = new HashMap<>();
     for (DrillbitEndpoint endpoint : endpoints) {
       endpointMap.put(endpoint.getAddress(), endpoint);
     }
 
-    Map<TopicPartition, Long> startOffsetsMap = Maps.newHashMap();
-    Map<TopicPartition, Long> endOffsetsMap = Maps.newHashMap();
+    Map<TopicPartition, Long> startOffsetsMap = new HashMap<>();
+    Map<TopicPartition, Long> endOffsetsMap = new HashMap<>();
     List<PartitionInfo> topicPartitions = null;
     String topicName = kafkaScanSpec.getTopicName();
 
@@ -221,13 +221,13 @@ public class KafkaGroupScan extends AbstractGroupScan {
 
   @Override
   public void applyAssignments(List<DrillbitEndpoint> incomingEndpoints) {
-    assignments = AssignmentCreator.getMappings(incomingEndpoints, Lists.newArrayList(partitionWorkMap.values()));
+    assignments = AssignmentCreator.getMappings(incomingEndpoints, new ArrayList<>(partitionWorkMap.values()));
   }
 
   @Override
   public KafkaSubScan getSpecificScan(int minorFragmentId) {
     List<PartitionScanWork> workList = assignments.get(minorFragmentId);
-    List<KafkaPartitionScanSpec> scanSpecList = Lists.newArrayList();
+    List<KafkaPartitionScanSpec> scanSpecList = new ArrayList<>();
 
     for (PartitionScanWork work : workList) {
       scanSpecList.add(work.partitionScanSpec);
@@ -264,7 +264,7 @@ public class KafkaGroupScan extends AbstractGroupScan {
   @Override
   public List<EndpointAffinity> getOperatorAffinity() {
     if (affinities == null) {
-      affinities = AffinityCreator.getAffinityMap(Lists.newArrayList(partitionWorkMap.values()));
+      affinities = AffinityCreator.getAffinityMap(new ArrayList<>(partitionWorkMap.values()));
     }
     return affinities;
   }
@@ -326,7 +326,7 @@ public class KafkaGroupScan extends AbstractGroupScan {
 
   @JsonIgnore
   public List<KafkaPartitionScanSpec> getPartitionScanSpecList() {
-    List<KafkaPartitionScanSpec> partitionScanSpecList = Lists.newArrayList();
+    List<KafkaPartitionScanSpec> partitionScanSpecList = new ArrayList<>();
     for (PartitionScanWork work : partitionWorkMap.values()) {
       partitionScanSpecList.add(work.partitionScanSpec.clone());
     }

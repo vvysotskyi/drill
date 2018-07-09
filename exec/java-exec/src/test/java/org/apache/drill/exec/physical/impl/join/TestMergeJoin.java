@@ -50,7 +50,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 
 import org.junit.experimental.categories.Category;
@@ -136,7 +135,7 @@ public class TestMergeJoin extends PopUnitTestBase {
       sb.append("       t1                 t2\n");
 
       for (int valueIdx = 0; valueIdx < exec.getRecordCount(); valueIdx++) {
-        final List<Object> row = Lists.newArrayList();
+        final List<Object> row = new ArrayList<>();
         for (final ValueVector v : exec) {
           row.add(v.getField().getName() + ":" + v.getAccessor().getObject(valueIdx));
         }
@@ -190,7 +189,7 @@ public class TestMergeJoin extends PopUnitTestBase {
       sb.append("       t1                 t2\n");
 
       for (int valueIdx = 0; valueIdx < exec.getRecordCount(); valueIdx++) {
-        final List<Object> row = Lists.newArrayList();
+        final List<Object> row = new ArrayList<>();
         for (final ValueVector v : exec) {
           row.add(v.getField().getName() + ":" + v.getAccessor().getObject(valueIdx));
         }
@@ -241,7 +240,7 @@ public class TestMergeJoin extends PopUnitTestBase {
       sb.append(String.format("got next with record count: %d (total: %d):\n", exec.getRecordCount(), totalRecordCount));
 
       for (int valueIdx = 0; valueIdx < exec.getRecordCount(); valueIdx++) {
-        final List<Object> row = Lists.newArrayList();
+        final List<Object> row = new ArrayList<>();
         for (final ValueVector v : exec) {
           row.add(v.getField().getName() + ":" + v.getAccessor().getObject(valueIdx));
         }

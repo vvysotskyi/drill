@@ -17,6 +17,7 @@
  */
 package org.apache.drill.common.logical.data;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -27,7 +28,6 @@ import org.apache.drill.common.logical.data.visitors.LogicalVisitor;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 
 @JsonTypeName("groupingaggregate")
 public class GroupingAggregate extends SingleInputOperator{
@@ -65,8 +65,8 @@ public class GroupingAggregate extends SingleInputOperator{
   }
 
   public static class Builder extends AbstractSingleBuilder<GroupingAggregate, Builder>{
-    private List<NamedExpression> keys = Lists.newArrayList();
-    private List<NamedExpression> exprs = Lists.newArrayList();
+    private List<NamedExpression> keys = new ArrayList<>();
+    private List<NamedExpression> exprs = new ArrayList<>();
 
     public Builder addKey(FieldReference ref, LogicalExpression expr){
       keys.add(new NamedExpression(expr, ref));

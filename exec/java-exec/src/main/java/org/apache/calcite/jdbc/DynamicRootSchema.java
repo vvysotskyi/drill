@@ -17,7 +17,6 @@
  */
 package org.apache.calcite.jdbc;
 
-import com.google.common.collect.Lists;
 import org.apache.calcite.DataContext;
 
 import org.apache.calcite.linq4j.tree.Expression;
@@ -32,6 +31,7 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.SubSchemaWrapper;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -96,7 +96,7 @@ public class DynamicRootSchema extends DynamicSchema {
 
         // Load second level schemas for this storage plugin
         final SchemaPlus firstlevelSchema = thisPlus.getSubSchema(paths[0]);
-        final List<SchemaPlus> secondLevelSchemas = Lists.newArrayList();
+        final List<SchemaPlus> secondLevelSchemas = new ArrayList<>();
         for (String secondLevelSchemaName : firstlevelSchema.getSubSchemaNames()) {
           secondLevelSchemas.add(firstlevelSchema.getSubSchema(secondLevelSchemaName));
         }

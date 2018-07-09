@@ -175,7 +175,7 @@ public class CreateTableHandler extends DefaultSqlHandler {
 
     @Override
     public Prel visitPrel(Prel prel, Void value) throws RuntimeException {
-      List<RelNode> children = Lists.newArrayList();
+      List<RelNode> children = new ArrayList<>();
       for(Prel child : prel){
         child = child.accept(this, null);
         children.add(child);

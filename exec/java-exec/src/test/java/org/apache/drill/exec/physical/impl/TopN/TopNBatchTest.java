@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.TopN;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
@@ -108,7 +109,7 @@ public class TopNBatchTest extends PopUnitTestBase {
           batchSchema.getSelectionVectorMode());
       }
 
-      List<RecordBatchData> testBatches = Lists.newArrayList();
+      List<RecordBatchData> testBatches = new ArrayList<>();
 
       try {
         final Random random = new Random();

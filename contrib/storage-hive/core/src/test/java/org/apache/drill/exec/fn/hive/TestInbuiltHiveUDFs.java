@@ -33,7 +33,7 @@ import org.apache.drill.test.TestBuilder;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import com.google.common.collect.Lists;
+import java.util.ArrayList;
 
 @Category({SlowTest.class, HiveStorageTest.class})
 public class TestInbuiltHiveUDFs extends HiveTestBase {
@@ -71,7 +71,7 @@ public class TestInbuiltHiveUDFs extends HiveTestBase {
         .setMode(TypeProtos.DataMode.OPTIONAL)
         .build();
 
-    final List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = Lists.newArrayList();
+    final List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = new ArrayList<>();
     expectedSchema.add(Pair.of(SchemaPath.getSimplePath("col"), majorType));
 
     testBuilder()

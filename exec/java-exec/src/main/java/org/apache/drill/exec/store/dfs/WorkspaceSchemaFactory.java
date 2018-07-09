@@ -27,6 +27,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -112,8 +113,8 @@ public class WorkspaceSchemaFactory {
     this.plugin = plugin;
     this.config = config;
     this.mapper = logicalPlanPersistence.getMapper();
-    this.fileMatchers = Lists.newArrayList();
-    this.dirMatchers = Lists.newArrayList();
+    this.fileMatchers = new ArrayList<>();
+    this.dirMatchers = new ArrayList<>();
     this.storageEngineName = storageEngineName;
     this.schemaName = schemaName;
     this.wsPath = new Path(config.getLocation());
@@ -453,7 +454,7 @@ public class WorkspaceSchemaFactory {
     }
 
     private Set<String> getViews() {
-      Set<String> viewSet = Sets.newHashSet();
+      Set<String> viewSet = new HashSet<>();
       // Look for files with ".view.drill" extension.
       List<DotDrillFile> files;
       try {
@@ -781,7 +782,7 @@ public class WorkspaceSchemaFactory {
 
     @Override
     public List<Pair<String, TableType>> getTableNamesAndTypes(boolean bulkLoad, int bulkSize) {
-      final List<Pair<String, TableType>> tableNamesAndTypes = Lists.newArrayList();
+      final List<Pair<String, TableType>> tableNamesAndTypes = new ArrayList<>();
 
       // Look for raw tables first
       if (!tables.isEmpty()) {

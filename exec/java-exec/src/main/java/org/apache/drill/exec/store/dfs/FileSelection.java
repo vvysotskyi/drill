@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.dfs;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -124,7 +125,7 @@ public class FileSelection {
     Stopwatch timer = logger.isDebugEnabled() ? Stopwatch.createStarted() : null;
 
     if (statuses == null)  {
-      final List<FileStatus> newStatuses = Lists.newArrayList();
+      final List<FileStatus> newStatuses = new ArrayList<>();
       for (final String pathStr:files) {
         newStatuses.add(fs.getFileStatus(new Path(pathStr)));
       }
@@ -141,7 +142,7 @@ public class FileSelection {
 
   public List<String> getFiles() {
     if (files == null) {
-      final List<String> newFiles = Lists.newArrayList();
+      final List<String> newFiles = new ArrayList<>();
       for (final FileStatus status:statuses) {
         newFiles.add(status.getPath().toString());
       }
@@ -170,7 +171,7 @@ public class FileSelection {
     Stopwatch timer = logger.isDebugEnabled() ? Stopwatch.createStarted() : null;
     List<FileStatus> statuses = getStatuses(fs);
 
-    List<FileStatus> nonDirectories = Lists.newArrayList();
+    List<FileStatus> nonDirectories = new ArrayList<>();
     for (FileStatus status : statuses) {
       nonDirectories.addAll(DrillFileSystemUtil.listFiles(fs, status.getPath(), true));
     }
@@ -339,7 +340,7 @@ public class FileSelection {
       throw new DrillRuntimeException("List of directories is null or empty");
     }
 
-    List<String> dirs = Lists.newArrayList();
+    List<String> dirs = new ArrayList<>();
 
     if (selection.hadWildcard()) { // for wildcard the directory list should have already been expanded
       for (FileStatus status : selection.getFileStatuses()) {

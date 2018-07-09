@@ -17,18 +17,18 @@
  */
 package org.apache.drill.exec.schema;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 public class DataRecord {
     private final Map<Integer, Object> dataMap;
 
     public DataRecord() {
-        this.dataMap = Maps.newHashMap();
+      this.dataMap = new HashMap<>();
     }
 
     public void addData(int fieldId, Object data, boolean isList) {

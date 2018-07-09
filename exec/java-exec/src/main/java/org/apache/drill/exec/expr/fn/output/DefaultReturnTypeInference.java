@@ -17,13 +17,13 @@
  */
 package org.apache.drill.exec.expr.fn.output;
 
-import com.google.common.collect.Sets;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.expr.fn.FunctionAttributes;
 import org.apache.drill.exec.expr.fn.FunctionUtils;
 import org.apache.drill.exec.expr.fn.ValueReference;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -45,7 +45,7 @@ public class DefaultReturnTypeInference implements ReturnTypeInference {
   @Override
   public TypeProtos.MajorType getType(List<LogicalExpression> logicalExpressions, FunctionAttributes attributes) {
     if (attributes.getReturnValue().getType().getMinorType() == TypeProtos.MinorType.UNION) {
-      final Set<TypeProtos.MinorType> subTypes = Sets.newHashSet();
+      final Set<TypeProtos.MinorType> subTypes = new HashSet<>();
       for (final ValueReference ref : attributes.getParameters()) {
         subTypes.add(ref.getType().getMinorType());
       }

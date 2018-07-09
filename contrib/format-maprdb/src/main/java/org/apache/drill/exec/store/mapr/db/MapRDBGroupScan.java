@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -145,17 +146,17 @@ public abstract class MapRDBGroupScan extends AbstractGroupScan {
     /*
      * another map with endpoint (hostname => corresponding index list) in 'incomingEndpoints' list
      */
-    Map<String, Queue<Integer>> endpointHostIndexListMap = Maps.newHashMap();
+    Map<String, Queue<Integer>> endpointHostIndexListMap = new HashMap<>();
 
     /*
      * Initialize these two maps
      */
     for (int i = 0; i < numSlots; ++i) {
-      endpointFragmentMapping.put(i, new ArrayList<MapRDBSubScanSpec>(maxPerEndpointSlot));
+      endpointFragmentMapping.put(i, new ArrayList<>(maxPerEndpointSlot));
       String hostname = incomingEndpoints.get(i).getAddress();
       Queue<Integer> hostIndexQueue = endpointHostIndexListMap.get(hostname);
       if (hostIndexQueue == null) {
-        hostIndexQueue = Lists.newLinkedList();
+        hostIndexQueue = new LinkedList<>();
         endpointHostIndexListMap.put(hostname, hostIndexQueue);
       }
       hostIndexQueue.add(i);

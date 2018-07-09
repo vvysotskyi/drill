@@ -35,8 +35,6 @@ import org.apache.drill.exec.planner.sql.DrillOperatorTable;
 import org.apache.drill.exec.planner.types.RelDataTypeDrillImpl;
 import org.apache.drill.exec.planner.types.RelDataTypeHolder;
 
-import com.google.common.collect.Lists;
-
 public class RewriteProjectToFlatten extends BasePrelVisitor<Prel, Object, RelConversionException> {
 
   RelDataTypeFactory factory;
@@ -50,7 +48,7 @@ public class RewriteProjectToFlatten extends BasePrelVisitor<Prel, Object, RelCo
 
   @Override
   public Prel visitPrel(Prel prel, Object value) throws RelConversionException {
-    List<RelNode> children = Lists.newArrayList();
+    List<RelNode> children = new ArrayList<>();
     for(Prel child : prel){
       child = child.accept(this, null);
       children.add(child);

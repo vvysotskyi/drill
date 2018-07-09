@@ -19,6 +19,7 @@ package org.apache.drill.exec.schema;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -31,7 +32,7 @@ public class ListSchema implements RecordSchema {
     private List<Field> fields;
 
     public ListSchema() {
-        this.fields = Lists.newArrayList();
+      this.fields = new ArrayList<>();
     }
 
     @Override

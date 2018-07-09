@@ -79,7 +79,6 @@ import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.sun.codemodel.JConditional;
 import com.sun.codemodel.JExpr;
 
@@ -201,7 +200,7 @@ public class MergingRecordBatch extends AbstractRecordBatch<MergingReceiverPOP> 
       schemaChanged = true; // first iteration is always a schema change
 
       // set up each (non-empty) incoming record batch
-      final List<RawFragmentBatch> rawBatches = Lists.newArrayList();
+      final List<RawFragmentBatch> rawBatches = new ArrayList<>();
       int p = 0;
       for (@SuppressWarnings("unused") final RawFragmentBatchProvider provider : fragProviders) {
         RawFragmentBatch rawBatch;

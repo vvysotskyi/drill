@@ -18,19 +18,18 @@
 package org.apache.drill.exec.dotdrill;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 
-import com.google.common.collect.Lists;
-
 public class DotDrillUtil {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DotDrillUtil.class);
 
   private static List<DotDrillFile> getDrillFiles(DrillFileSystem fs, FileStatus[] statuses, DotDrillType... types){
-    List<DotDrillFile> files = Lists.newArrayList();
+    List<DotDrillFile> files = new ArrayList<>();
     for(FileStatus s : statuses){
       DotDrillFile f = DotDrillFile.create(fs, s);
       if(f != null){

@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl;
 
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -39,7 +40,6 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Lists;
 
 /**
  * Create RecordBatch tree (PhysicalOperator implementations) for a given PhysicalOperator tree.
@@ -47,7 +47,7 @@ import com.google.common.collect.Lists;
 public class ImplCreator {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ImplCreator.class);
 
-  private final LinkedList<CloseableRecordBatch> operators = Lists.newLinkedList();
+  private final LinkedList<CloseableRecordBatch> operators = new LinkedList<>();
 
   private ImplCreator() {}
 
@@ -177,7 +177,7 @@ public class ImplCreator {
 
   /** Helper method to traverse the children of given PhysicalOperator and create RecordBatches for children recursively */
   private List<RecordBatch> getChildren(final PhysicalOperator op, final ExecutorFragmentContext context) throws ExecutionSetupException {
-    List<RecordBatch> children = Lists.newArrayList();
+    List<RecordBatch> children = new ArrayList<>();
     for (PhysicalOperator child : op) {
       children.add(getRecordBatch(child, context));
     }

@@ -17,10 +17,10 @@
  */
 package org.apache.drill.exec.resolver;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import com.google.common.collect.Lists;
 import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.types.TypeProtos;
@@ -40,7 +40,7 @@ public class DefaultFunctionResolver implements FunctionResolver {
     final List<DrillFuncHolder> bestMatchAlternatives = new LinkedList<>();
 
     for (DrillFuncHolder h : methods) {
-      final List<TypeProtos.MajorType> argumentTypes = Lists.newArrayList();
+      final List<TypeProtos.MajorType> argumentTypes = new ArrayList<>();
       for (LogicalExpression expression : call.args) {
         argumentTypes.add(expression.getMajorType());
       }

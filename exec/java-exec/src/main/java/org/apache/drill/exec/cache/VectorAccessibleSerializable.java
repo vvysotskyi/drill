@@ -22,6 +22,7 @@ import io.netty.buffer.DrillBuf;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.expr.TypeHelper;
@@ -40,7 +41,6 @@ import org.apache.drill.exec.vector.ValueVector;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 /**
  * A wrapper around a VectorAccessible. Will serialize a VectorAccessible and
@@ -121,7 +121,7 @@ public class VectorAccessibleSerializable extends AbstractStreamSerializable {
   @SuppressWarnings("resource")
   private void readVectors(InputStream input, RecordBatchDef batchDef) throws IOException {
     final VectorContainer container = new VectorContainer();
-    final List<ValueVector> vectorList = Lists.newArrayList();
+    final List<ValueVector> vectorList = new ArrayList<>();
     final List<SerializedField> fieldList = batchDef.getFieldList();
     for (SerializedField metaData : fieldList) {
       final int dataLength = metaData.getBufferLength();
@@ -153,7 +153,7 @@ public class VectorAccessibleSerializable extends AbstractStreamSerializable {
       sv2.getBuffer().setBytes(0, input, recordCount * SelectionVector2.RECORD_SIZE);
       svMode = BatchSchema.SelectionVectorMode.TWO_BYTE;
     }
-    final List<ValueVector> vectorList = Lists.newArrayList();
+    final List<ValueVector> vectorList = new ArrayList<>();
     final List<SerializedField> fieldList = batchDef.getFieldList();
     for (SerializedField metaData : fieldList) {
       final int dataLength = metaData.getBufferLength();

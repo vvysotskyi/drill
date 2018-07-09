@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.impl.window;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.google.common.collect.Iterables;
@@ -47,7 +48,6 @@ import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 
-import com.google.common.collect.Lists;
 import com.sun.codemodel.JExpr;
 import org.apache.drill.exec.vector.ValueVector;
 
@@ -63,7 +63,7 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
 
   private WindowFramer[] framers;
   private boolean hasOrderBy; // true if window definition contains an order-by clause
-  private final List<WindowFunction> functions = Lists.newArrayList();
+  private final List<WindowFunction> functions = new ArrayList<>();
 
   private boolean noMoreBatches; // true when downstream returns NONE
   private BatchSchema schema;
@@ -73,7 +73,7 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
   public WindowFrameRecordBatch(WindowPOP popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
     super(popConfig, context);
     this.incoming = incoming;
-    batches = Lists.newArrayList();
+    batches = new ArrayList<>();
   }
 
   /**
@@ -259,8 +259,8 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
 
     logger.trace("creating framer(s)");
 
-    final List<LogicalExpression> keyExprs = Lists.newArrayList();
-    final List<LogicalExpression> orderExprs = Lists.newArrayList();
+    final List<LogicalExpression> keyExprs = new ArrayList<>();
+    final List<LogicalExpression> orderExprs = new ArrayList<>();
     boolean requireFullPartition = false;
 
     boolean useDefaultFrame = false; // at least one window function uses the DefaultFrameTemplate

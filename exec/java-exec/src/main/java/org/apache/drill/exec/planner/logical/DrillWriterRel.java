@@ -17,10 +17,10 @@
  */
 package org.apache.drill.exec.planner.logical;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.drill.common.logical.data.LogicalOperator;
@@ -57,7 +57,7 @@ public class DrillWriterRel extends DrillWriterRelBase implements DrillRel {
 
 
   private List<Integer> resolvePartitionKeys(){
-    final List<Integer> keys = Lists.newArrayList();
+    final List<Integer> keys = new ArrayList<>();
     final RelDataType inputRowType = getInput().getRowType();
     final List<String> partitionCol = getCreateTableEntry().getPartitionColumns();
 

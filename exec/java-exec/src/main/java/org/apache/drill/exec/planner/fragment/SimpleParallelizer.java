@@ -19,6 +19,7 @@ package org.apache.drill.exec.planner.fragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -51,8 +52,6 @@ import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 
 /**
  * The simple parallelizer determines the level of parallelization of a plan based on the cost of the underlying
@@ -210,7 +209,7 @@ public class SimpleParallelizer implements ParallelizationParameters {
     // parallelization info. First assume all fragments are leaf fragments. Go through the fragments one by one and
     // remove the fragment on which the current fragment depends on.
 
-    final Set<Wrapper> roots = Sets.newHashSet();
+    final Set<Wrapper> roots = new HashSet<>();
     for(Wrapper w : planningSet) {
       roots.add(w);
     }
@@ -331,7 +330,7 @@ public class SimpleParallelizer implements ParallelizationParameters {
     private static final CountRequiredFragments INSTANCE = new CountRequiredFragments();
 
     public static List<Collector> getCollectors(PhysicalOperator root) {
-      List<Collector> collectors = Lists.newArrayList();
+      List<Collector> collectors = new ArrayList<>();
       root.accept(INSTANCE, collectors);
       return collectors;
     }

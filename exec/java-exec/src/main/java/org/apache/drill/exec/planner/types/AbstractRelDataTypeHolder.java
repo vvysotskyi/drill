@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -58,7 +59,7 @@ public abstract class AbstractRelDataTypeHolder {
    * Returns list with names of RelDataTypeField fields.
    */
   public List<String> getFieldNames() {
-    List<String> fieldNames = Lists.newArrayList();
+    List<String> fieldNames = new ArrayList<>();
     for(RelDataTypeField f : fields) {
       fieldNames.add(f.getName());
     }

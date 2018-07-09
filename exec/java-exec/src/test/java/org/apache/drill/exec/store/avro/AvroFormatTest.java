@@ -39,6 +39,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -161,7 +162,7 @@ public class AvroFormatTest extends BaseTestQuery {
   private List<Map<String, Object>> project(
       List<Map<String,Object>> incomingRecords,
       List<String> projectCols) {
-    List<Map<String,Object>> output = Lists.newArrayList();
+    List<Map<String,Object>> output = new ArrayList<>();
     for (Map<String, Object> incomingRecord : incomingRecords) {
       final JsonStringHashMap<String, Object> newRecord = new JsonStringHashMap<>();
       for (String s : incomingRecord.keySet()) {
@@ -561,7 +562,7 @@ public class AvroFormatTest extends BaseTestQuery {
         .unOrdered()
         .baselineColumns("nested_key1", "nested_key2");
 
-    final List<Object> expectedList = Lists.newArrayList();
+    final List<Object> expectedList = new ArrayList<>();
     for (int i = 0; i < AvroTestUtil.ARRAY_SIZE; i++) {
       expectedList.add((double)i);
     }

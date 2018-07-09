@@ -19,7 +19,6 @@ package org.apache.drill.exec.planner.sql.handlers;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelShuttleImpl;
@@ -85,7 +84,7 @@ public class FindLimit0Visitor extends RelShuttleImpl {
    */
   public static DrillRel getDirectScanRelIfFullySchemaed(RelNode rel) {
     final List<RelDataTypeField> fieldList = rel.getRowType().getFieldList();
-    final List<TypeProtos.MajorType> columnTypes = Lists.newArrayList();
+    final List<TypeProtos.MajorType> columnTypes = new ArrayList<>();
 
 
     for (final RelDataTypeField field : fieldList) {

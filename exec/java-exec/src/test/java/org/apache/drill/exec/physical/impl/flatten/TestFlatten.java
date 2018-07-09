@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.test.BaseTestQuery;
@@ -161,12 +162,12 @@ public class TestFlatten extends BaseTestQuery {
       List<JsonStringHashMap<String,Object>> incomingRecords,
       String colToFlatten,
       String flattenedDataColName) {
-    List<JsonStringHashMap<String,Object>> output = Lists.newArrayList();
+    List<JsonStringHashMap<String,Object>> output = new ArrayList<>();
     for (JsonStringHashMap<String, Object> incomingRecord : incomingRecords) {
       List<?> dataToFlatten = (List<?>) incomingRecord.get(colToFlatten);
-      for (int i = 0; i < dataToFlatten.size(); i++) {
+      for (Object aDataToFlatten : dataToFlatten) {
         final JsonStringHashMap<String, Object> newRecord = new JsonStringHashMap<>();
-        newRecord.put(flattenedDataColName, dataToFlatten.get(i));
+        newRecord.put(flattenedDataColName, aDataToFlatten);
         for (String s : incomingRecord.keySet()) {
           if (s.equals(colToFlatten)) {
             continue;
@@ -181,7 +182,7 @@ public class TestFlatten extends BaseTestQuery {
 
   @Test
   public void testFlatten_Drill2162_simple() throws Exception {
-    List<Long> inputList = Lists.newArrayList();
+    List<Long> inputList = new ArrayList<>();
     String jsonRecord = "{ \"int_list\" : [";
     final int listSize = 30;
     for (int i = 1; i < listSize; i++ ) {
@@ -213,7 +214,7 @@ public class TestFlatten extends BaseTestQuery {
       }
     }
     builder.go();
-  };
+  }
 
   @Test
   @Category(UnlikelyTest.class)

@@ -19,16 +19,16 @@ package org.apache.drill.exec.testing.store;
 
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 
 import org.apache.drill.exec.store.sys.BasePersistentStore;
 import org.apache.drill.exec.store.sys.PersistentStoreMode;
 
 public class NoWriteLocalStore<V> extends BasePersistentStore<V> {
-  private final ConcurrentMap<String, V> store = Maps.newConcurrentMap();
+  private final ConcurrentMap<String, V> store = new ConcurrentHashMap<>();
 
   @Override
   public void delete(final String key) {

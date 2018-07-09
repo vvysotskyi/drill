@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.unnest;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.exec.ExecConstants;
@@ -40,6 +39,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.OK;
@@ -370,7 +370,7 @@ public class UnnestRecordBatch extends AbstractTableFunctionRecordBatch<UnnestPO
   }
 
   private TransferPair resetUnnestTransferPair() throws SchemaChangeException {
-    final List<TransferPair> transfers = Lists.newArrayList();
+    final List<TransferPair> transfers = new ArrayList<>();
     final FieldReference fieldReference = new FieldReference(popConfig.getColumn());
     final TransferPair transferPair = getUnnestFieldTransferPair(fieldReference);
     transfers.add(transferPair);

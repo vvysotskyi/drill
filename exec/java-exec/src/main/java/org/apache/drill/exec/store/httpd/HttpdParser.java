@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.httpd;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Maps;
 import io.netty.buffer.DrillBuf;
 import nl.basjes.parse.core.Casts;
 import nl.basjes.parse.core.Parser;
@@ -242,7 +241,7 @@ public class HttpdParser {
        * Use all possible paths that the parser has determined from the specified log format.
        */
       LOG.debug("No fields defined by user, defaulting to all possible fields.");
-      requestedPaths = Maps.newHashMap();
+      requestedPaths = new HashMap<>();
       for (final String parserPath : allParserPaths) {
         requestedPaths.put(drillFormattedFieldName(parserPath), parserPath);
       }

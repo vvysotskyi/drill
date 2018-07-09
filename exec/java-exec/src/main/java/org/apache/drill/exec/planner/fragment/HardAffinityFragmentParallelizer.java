@@ -17,14 +17,14 @@
  */
 package org.apache.drill.exec.planner.fragment;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.drill.exec.physical.EndpointAffinity;
 import org.apache.drill.exec.physical.PhysicalOperatorSetupException;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -52,7 +52,7 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
     int totalMaxWidth = 0;
 
     // Go through the affinity map and extract the endpoints that have mandatory assignment requirement
-    final Map<DrillbitEndpoint, EndpointAffinity> endpointPool = Maps.newHashMap();
+    final Map<DrillbitEndpoint, EndpointAffinity> endpointPool = new HashMap<>();
     for(Entry<DrillbitEndpoint, EndpointAffinity> entry : pInfo.getEndpointAffinityMap().entrySet()) {
       if (entry.getValue().isAssignmentRequired()) {
         endpointPool.put(entry.getKey(), entry.getValue());
@@ -94,7 +94,7 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
     width = Math.min(totalMaxWidth, width);
 
     // Step 2: Select the endpoints
-    final Map<DrillbitEndpoint, Integer> endpoints = Maps.newHashMap();
+    final Map<DrillbitEndpoint, Integer> endpoints = new HashMap<>();
 
     // 2.1 First add each endpoint from the pool once so that the mandatory assignment requirement is fulfilled.
     for(Entry<DrillbitEndpoint, EndpointAffinity> entry : endpointPool.entrySet()) {
@@ -129,7 +129,7 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
       }
     }
 
-    final List<DrillbitEndpoint> assignedEndpoints = Lists.newArrayList();
+    final List<DrillbitEndpoint> assignedEndpoints = new ArrayList<>();
     for(Entry<DrillbitEndpoint, Integer> entry : endpoints.entrySet()) {
       for(int i=0; i < entry.getValue(); i++) {
         assignedEndpoints.add(entry.getKey());

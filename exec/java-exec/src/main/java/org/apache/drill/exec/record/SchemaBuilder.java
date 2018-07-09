@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.record;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.exception.SchemaChangeException;
@@ -30,7 +31,7 @@ import com.google.common.collect.Lists;
  * builder will always check that this schema is a equal or more materialized version of the current schema.
  */
 public class SchemaBuilder {
-  private List<MaterializedField> fields = Lists.newArrayList();
+  private List<MaterializedField> fields = new ArrayList<>();
 
   private BatchSchema.SelectionVectorMode selectionVectorMode = SelectionVectorMode.NONE;
 

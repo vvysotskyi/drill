@@ -19,6 +19,7 @@ package org.apache.drill.exec.expr.fn;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,7 +41,6 @@ import org.apache.drill.exec.vector.complex.reader.FieldReader;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
 
 /**
  * Converts FunctionCalls to Java Expressions.
@@ -66,8 +66,8 @@ public class FunctionConverter {
     }
 
     // start by getting field information.
-    List<ValueReference> params = Lists.newArrayList();
-    List<WorkspaceReference> workspaceFields = Lists.newArrayList();
+    List<ValueReference> params = new ArrayList<>();
+    List<WorkspaceReference> workspaceFields = new ArrayList<>();
 
     ValueReference outputField = null;
 

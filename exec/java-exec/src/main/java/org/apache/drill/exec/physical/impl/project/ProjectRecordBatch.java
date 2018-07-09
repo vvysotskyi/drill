@@ -20,7 +20,6 @@ package org.apache.drill.exec.physical.impl.project;
 import com.carrotsearch.hppc.IntHashSet;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.apache.drill.common.expression.ConvertExpression;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -70,6 +69,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -96,7 +96,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     public boolean isStar = false;
     public List<String> outputNames;
     public String prefix = "";
-    public HashMap<String, Integer> prefixMap = Maps.newHashMap();
+    public HashMap<String, Integer> prefixMap = new HashMap<>();
+
     public CaseInsensitiveMap outputMap = new CaseInsensitiveMap();
     private final CaseInsensitiveMap sequenceMap = new CaseInsensitiveMap();
 
@@ -371,8 +372,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
         v.clear();
       }
     }
-    this.allocationVectors = Lists.newArrayList();
-
+    this.allocationVectors = new ArrayList<>();
     if (complexWriters != null) {
       container.clear();
     } else {
@@ -387,7 +387,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
     final List<NamedExpression> exprs = getExpressionList();
     final ErrorCollector collector = new ErrorCollectorImpl();
-    final List<TransferPair> transfers = Lists.newArrayList();
+    final List<TransferPair> transfers = new ArrayList<>();
 
     final ClassGenerator<Projector> cg = CodeGenerator.getRoot(Projector.TEMPLATE_DEFINITION, context.getOptions());
     cg.getCodeGenerator().plainJavaCapable(true);
@@ -468,7 +468,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       } else {
         // For the columns which do not needed to be classified,
         // it is still necessary to ensure the output column name is unique
-        result.outputNames = Lists.newArrayList();
+        result.outputNames = new ArrayList<>();
         final String outputName = getRef(namedExpression).getRootSegment().getPath(); //moved to before the if
         addToResultMaps(outputName, result, true);
       }
@@ -519,7 +519,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
         // Need to process ComplexWriter function evaluation.
         // Lazy initialization of the list of complex writers, if not done yet.
         if (complexWriters == null) {
-          complexWriters = Lists.newArrayList();
+          complexWriters = new ArrayList<>();
         } else {
           complexWriters.clear();
         }
@@ -528,7 +528,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
         ((DrillFuncHolderExpr) expr).getFieldReference(namedExpression.getRef());
         cg.addExpr(expr, ClassGenerator.BlkCreateMode.TRUE_IF_BOUND);
         if (complexFieldReferencesList == null) {
-          complexFieldReferencesList = Lists.newArrayList();
+          complexFieldReferencesList = new ArrayList<>();
         } else {
           complexFieldReferencesList.clear();
         }
@@ -595,14 +595,14 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       return popConfig.getExprs();
     }
 
-    final List<NamedExpression> exprs = Lists.newArrayList();
+    final List<NamedExpression> exprs = new ArrayList<>();
     for (final MaterializedField field : incoming.getSchema()) {
       String fieldName = field.getName();
       if (Types.isComplex(field.getType()) || Types.isRepeated(field.getType())) {
         final LogicalExpression convertToJson = FunctionCallFactory.createConvert(ConvertExpression.CONVERT_TO, "JSON",
                                                             SchemaPath.getSimplePath(fieldName), ExpressionPosition.UNKNOWN);
         final String castFuncName = CastFunctions.getCastFunc(MinorType.VARCHAR);
-        final List<LogicalExpression> castArgs = Lists.newArrayList();
+        final List<LogicalExpression> castArgs = new ArrayList<>();
         castArgs.add(convertToJson);  //input_expr
         // implicitly casting to varchar, since we don't know actual source length, cast to undefined length, which will preserve source length
         castArgs.add(new ValueExpressions.LongExpression(Types.MAX_VARCHAR_LENGTH, null));
@@ -716,7 +716,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       final String[] components = ref.getPath().split(StarColumnHelper.PREFIX_DELIMITER, 2);
       assert(components.length == 2);
       final String prefix = components[0];
-      result.outputNames = Lists.newArrayList();
+      result.outputNames = new ArrayList<>();
       for (final VectorWrapper<?> wrapper : incoming) {
         final ValueVector vvIn = wrapper.getValueVector();
         final String name = vvIn.getField().getName();
@@ -757,7 +757,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
           k++;
         }
       } else {
-        result.outputNames = Lists.newArrayList();
+        result.outputNames = new ArrayList<>();
         if (exprContainsStar) {
           for (final VectorWrapper<?> wrapper : incoming) {
             final ValueVector vvIn = wrapper.getValueVector();
@@ -781,7 +781,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
     // input is wildcard and it is not the first wildcard
     else if (exprIsStar) {
-      result.outputNames = Lists.newArrayList();
+      result.outputNames = new ArrayList<>();
       for (final VectorWrapper<?> wrapper : incoming) {
         final ValueVector vvIn = wrapper.getValueVector();
         final String incomingName = vvIn.getField().getName();
@@ -791,7 +791,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
     // only the output has prefix
     else if (!exprHasPrefix && refHasPrefix) {
-      result.outputNames = Lists.newArrayList();
+      result.outputNames = new ArrayList<>();
       final String newName = ref.getPath();
       addToResultMaps(newName, result, false);
     }
@@ -839,7 +839,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
       // if the incoming schema's column name matches the expression name of the Project,
       // then we just want to pick the ref name as the output column name
 
-      result.outputNames = Lists.newArrayList();
+      result.outputNames = new ArrayList<>();
       for (final VectorWrapper<?> wrapper : incoming) {
         final ValueVector vvIn = wrapper.getValueVector();
         final String incomingName = vvIn.getField().getName();

@@ -28,6 +28,7 @@ import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SHRD_COL_T
 import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.SHRD_COL_TABLE_SCHEMA;
 import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.TBLS_COL_TABLE_TYPE;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -262,7 +263,7 @@ public abstract class InfoSchemaRecordGenerator<S> {
   }
 
   public static class Schemata extends InfoSchemaRecordGenerator<Records.Schema> {
-    List<Records.Schema> records = Lists.newArrayList();
+    List<Records.Schema> records = new ArrayList<>();
 
     public Schemata(OptionManager optionManager) {
       super(optionManager);
@@ -283,7 +284,7 @@ public abstract class InfoSchemaRecordGenerator<S> {
   }
 
   public static class Tables extends InfoSchemaRecordGenerator<Records.Table> {
-    List<Records.Table> records = Lists.newArrayList();
+    List<Records.Table> records = new ArrayList<>();
 
     public Tables(OptionManager optionManager) {
       super(optionManager);
@@ -334,7 +335,7 @@ public abstract class InfoSchemaRecordGenerator<S> {
   }
 
   public static class Views extends InfoSchemaRecordGenerator<Records.View> {
-    List<Records.View> records = Lists.newArrayList();
+    List<Records.View> records = new ArrayList<>();
 
     public Views(OptionManager optionManager) {
       super(optionManager);
@@ -356,7 +357,8 @@ public abstract class InfoSchemaRecordGenerator<S> {
   }
 
   public static class Columns extends InfoSchemaRecordGenerator<Records.Column> {
-    List<Records.Column> records = Lists.newArrayList();
+    List<Records.Column> records = new ArrayList<>();
+
     public Columns(OptionManager optionManager) {
       super(optionManager);
     }

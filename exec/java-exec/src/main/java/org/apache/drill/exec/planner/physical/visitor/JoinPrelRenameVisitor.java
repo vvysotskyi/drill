@@ -25,8 +25,6 @@ import org.apache.drill.exec.planner.physical.LateralJoinPrel;
 import org.apache.drill.exec.planner.physical.Prel;
 import org.apache.calcite.rel.RelNode;
 
-import com.google.common.collect.Lists;
-
 public class JoinPrelRenameVisitor extends BasePrelVisitor<Prel, Void, RuntimeException>{
 
   private static JoinPrelRenameVisitor INSTANCE = new JoinPrelRenameVisitor();
@@ -41,7 +39,7 @@ public class JoinPrelRenameVisitor extends BasePrelVisitor<Prel, Void, RuntimeEx
   }
 
   private List<RelNode> getChildren(Prel prel) {
-    List<RelNode> children = Lists.newArrayList();
+    List<RelNode> children = new ArrayList<>();
     for(Prel child : prel){
       child = child.accept(this, null);
       children.add(child);
@@ -60,7 +58,7 @@ public class JoinPrelRenameVisitor extends BasePrelVisitor<Prel, Void, RuntimeEx
 
     final int leftCount = children.get(0).getRowType().getFieldCount();
 
-    List<RelNode> reNamedChildren = Lists.newArrayList();
+    List<RelNode> reNamedChildren = new ArrayList<>();
 
     RelNode left = prel.getJoinInput(0, children.get(0));
     RelNode right = prel.getJoinInput(leftCount, children.get(1));

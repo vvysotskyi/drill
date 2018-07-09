@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.hive.schema;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.rel.type.RelDataType;
@@ -35,6 +34,8 @@ import org.apache.drill.exec.store.hive.HiveStoragePluginConfig;
 import org.apache.drill.exec.store.hive.schema.HiveSchemaFactory.HiveSchema;
 import org.apache.thrift.TException;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -69,7 +70,7 @@ public class HiveDatabaseSchema extends AbstractSchema{
         tables = Sets.newHashSet(mClient.getTableNames(this.name, schemaConfig.getIgnoreAuthErrors()));
       } catch (final TException e) {
         logger.warn("Failure while attempting to access HiveDatabase '{}'.", this.name, e.getCause());
-        tables = Sets.newHashSet(); // empty set.
+        tables = new HashSet<>(); // empty set.
       }
     }
     return tables;
@@ -87,7 +88,7 @@ public class HiveDatabaseSchema extends AbstractSchema{
     final List<org.apache.hadoop.hive.metastore.api.Table> tables = DrillHiveMetaStoreClient
         .getTablesByNamesByBulkLoadHelper(mClient, tableNames, schemaName, bulkSize);
 
-    final List<Pair<String, ? extends Table>> tableNameToTable = Lists.newArrayList();
+    final List<Pair<String, ? extends Table>> tableNameToTable = new ArrayList<>();
     for (final org.apache.hadoop.hive.metastore.api.Table table : tables) {
       if (table == null) {
         continue;

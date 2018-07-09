@@ -18,6 +18,7 @@
 package org.apache.drill.exec.planner.sql;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -314,7 +315,7 @@ public class SqlConverter {
       List<String> temporaryTableNames = ((SqlConverter.DrillCalciteCatalogReader) getCatalogReader()).getTemporaryNames(tempNode.names);
       if (temporaryTableNames != null) {
         SqlParserPos pos = tempNode.getComponentParserPosition(0);
-        List<SqlParserPos> poses = Lists.newArrayList();
+        List<SqlParserPos> poses = new ArrayList<>();
         for (int i = 0; i < temporaryTableNames.size(); i++) {
           poses.add(i, pos);
         }

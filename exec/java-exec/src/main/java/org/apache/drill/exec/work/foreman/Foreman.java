@@ -18,7 +18,6 @@
 package org.apache.drill.exec.work.foreman;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.Future;
@@ -67,6 +66,7 @@ import org.apache.drill.exec.work.foreman.rm.QueryResourceManager;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -420,7 +420,7 @@ public class Foreman implements Runnable {
     // need to set QueryId, MinorFragment for incoming Fragments
     PlanFragment rootFragment = null;
     boolean isFirst = true;
-    final List<PlanFragment> planFragments = Lists.newArrayList();
+    final List<PlanFragment> planFragments = new ArrayList<>();
     for (PlanFragment myFragment : fragmentsList) {
       final FragmentHandle handle = myFragment.getHandle();
       // though we have new field in the FragmentHandle - parentQueryId

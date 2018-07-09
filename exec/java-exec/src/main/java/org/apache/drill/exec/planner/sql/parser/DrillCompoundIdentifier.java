@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.planner.sql.parser;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -59,7 +60,7 @@ public class DrillCompoundIdentifier extends SqlIdentifier {
   }
 
   public static class Builder {
-    private List<IdentifierHolder> identifiers = Lists.newArrayList();
+    private List<IdentifierHolder> identifiers = new ArrayList<>();
 
     public DrillCompoundIdentifier build() {
       return new DrillCompoundIdentifier(identifiers);

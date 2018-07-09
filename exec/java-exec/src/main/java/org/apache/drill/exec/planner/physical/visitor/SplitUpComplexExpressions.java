@@ -57,7 +57,7 @@ public class SplitUpComplexExpressions extends BasePrelVisitor<Prel, Object, Rel
 
   @Override
   public Prel visitPrel(Prel prel, Object value) throws RelConversionException {
-    List<RelNode> children = Lists.newArrayList();
+    List<RelNode> children = new ArrayList<>();
     for(Prel child : prel){
       child = child.accept(this, null);
       children.add(child);

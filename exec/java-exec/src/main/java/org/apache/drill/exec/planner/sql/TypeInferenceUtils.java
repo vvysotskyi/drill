@@ -53,6 +53,7 @@ import org.apache.drill.exec.resolver.FunctionResolver;
 import org.apache.drill.exec.resolver.FunctionResolverFactory;
 import org.apache.drill.exec.resolver.TypeCastRules;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -893,7 +894,7 @@ public class TypeInferenceUtils {
    * @return FunctionCall the converted FunctionCall
    */
   public static FunctionCall convertSqlOperatorBindingToFunctionCall(final SqlOperatorBinding opBinding) {
-    final List<LogicalExpression> args = Lists.newArrayList();
+    final List<LogicalExpression> args = new ArrayList<>();
 
     for (int i = 0; i < opBinding.getOperandCount(); ++i) {
       final RelDataType type = opBinding.getOperandType(i);

@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.mongo.schema;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +45,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.mongodb.MongoException;
 import com.mongodb.client.MongoDatabase;
@@ -126,10 +126,10 @@ public class MongoSchemaFactory implements SchemaFactory {
 
   class MongoSchema extends AbstractSchema {
 
-    private final Map<String, MongoDatabaseSchema> schemaMap = Maps.newHashMap();
+    private final Map<String, MongoDatabaseSchema> schemaMap = new HashMap<>();
 
     public MongoSchema(String name) {
-      super(ImmutableList.<String> of(), name);
+      super(ImmutableList.of(), name);
     }
 
     @Override

@@ -18,6 +18,7 @@
 package org.apache.drill.exec.cache;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.google.common.io.Files;
@@ -44,7 +45,6 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Rule;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
 import org.junit.rules.TestRule;
 
 public class TestWriteToDisk extends ExecTest {
@@ -53,7 +53,7 @@ public class TestWriteToDisk extends ExecTest {
   @Test
   @SuppressWarnings("static-method")
   public void test() throws Exception {
-    final List<ValueVector> vectorList = Lists.newArrayList();
+    final List<ValueVector> vectorList = new ArrayList<>();
     final DrillConfig config = DrillConfig.create();
     try (final RemoteServiceSet serviceSet = RemoteServiceSet
         .getLocalServiceSet();

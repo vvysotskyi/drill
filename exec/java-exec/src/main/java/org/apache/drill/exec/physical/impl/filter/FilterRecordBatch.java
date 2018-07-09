@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.impl.filter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.ErrorCollector;
@@ -39,8 +40,6 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
-
-import com.google.common.collect.Lists;
 
 public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
   private SelectionVector2 sv2;
@@ -132,7 +131,7 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
 
   protected Filterer generateSV4Filterer() throws SchemaChangeException {
     final ErrorCollector collector = new ErrorCollectorImpl();
-    final List<TransferPair> transfers = Lists.newArrayList();
+    final List<TransferPair> transfers = new ArrayList<>();
     final ClassGenerator<Filterer> cg = CodeGenerator.getRoot(Filterer.TEMPLATE_DEFINITION4, context.getOptions());
 
     final LogicalExpression expr = ExpressionTreeMaterializer.materialize(popConfig.getExpr(), incoming, collector, context.getFunctionRegistry());
@@ -166,7 +165,7 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter> {
 
   protected Filterer generateSV2Filterer() throws SchemaChangeException {
     final ErrorCollector collector = new ErrorCollectorImpl();
-    final List<TransferPair> transfers = Lists.newArrayList();
+    final List<TransferPair> transfers = new ArrayList<>();
     final ClassGenerator<Filterer> cg = CodeGenerator.getRoot(Filterer.TEMPLATE_DEFINITION2, context.getOptions());
     // Uncomment below lines to enable saving generated code file for debugging
     // cg.getCodeGenerator().plainJavaCapable(true);

@@ -22,7 +22,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -174,13 +178,13 @@ public class MongoGroupScan extends AbstractGroupScan implements
   private void init() throws IOException {
 
     List<String> h = storagePluginConfig.getHosts();
-    List<ServerAddress> addresses = Lists.newArrayList();
+    List<ServerAddress> addresses = new ArrayList<>();
     for (String host : h) {
       addresses.add(new ServerAddress(host));
     }
     MongoClient client = storagePlugin.getClient();
-    chunksMapping = Maps.newHashMap();
-    chunksInverseMapping = Maps.newLinkedHashMap();
+    chunksMapping = new HashMap<>();
+    chunksInverseMapping = new LinkedHashMap<>();
     if (isShardedCluster(client)) {
       MongoDatabase db = client.getDatabase(CONFIG);
       MongoCollection<Document> chunksCollection = db.getCollection(CHUNKS);
@@ -221,7 +225,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
           List<String> chunkHosts = Arrays.asList(hosts);
           Set<ServerAddress> addressList = getPreferredHosts(storagePlugin.getClient(addresses), chunkHosts);
           if (addressList == null) {
-            addressList = Sets.newHashSet();
+            addressList = new HashSet<>();
             for (String host : chunkHosts) {
               addressList.add(new ServerAddress(host));
             }
@@ -231,17 +235,17 @@ public class MongoGroupScan extends AbstractGroupScan implements
           List<ChunkInfo> chunkList = chunksInverseMapping.get(address
               .getHost());
           if (chunkList == null) {
-            chunkList = Lists.newArrayList();
+            chunkList = new ArrayList<>();
             chunksInverseMapping.put(address.getHost(), chunkList);
           }
-          List<String> chunkHostsList = new ArrayList<String>();
+          List<String> chunkHostsList = new ArrayList<>();
           for (ServerAddress serverAddr : addressList) {
             chunkHostsList.add(serverAddr.toString());
           }
           ChunkInfo chunkInfo = new ChunkInfo(chunkHostsList, chunkId);
           Document minMap = (Document) chunkObj.get(MIN);
 
-          Map<String, Object> minFilters = Maps.newHashMap();
+          Map<String, Object> minFilters = new HashMap<>();
           Set keySet = minMap.keySet();
           for (Object keyObj : keySet) {
             Object object = minMap.get(keyObj);
@@ -251,7 +255,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
           }
           chunkInfo.setMinFilters(minFilters);
 
-          Map<String, Object> maxFilters = Maps.newHashMap();
+          Map<String, Object> maxFilters = new HashMap<>();
           Map maxMap = (Document) chunkObj.get(MAX);
           keySet = maxMap.keySet();
           for (Object keyObj : keySet) {
@@ -279,7 +283,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
 
   private void handleUnshardedCollection(List<String> hosts) {
     String chunkName = Joiner.on('.').join(scanSpec.getDbName(), scanSpec.getCollectionName());
-    Set<ServerAddress> addressList = Sets.newHashSet();
+    Set<ServerAddress> addressList = new HashSet<>();
 
     for (String host : hosts) {
       addressList.add(new ServerAddress(host));
@@ -291,7 +295,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
     ChunkInfo chunkInfo = new ChunkInfo(hosts, chunkName);
     chunkInfo.setMinFilters(Collections.<String, Object> emptyMap());
     chunkInfo.setMaxFilters(Collections.<String, Object> emptyMap());
-    List<ChunkInfo> chunksList = Lists.newArrayList();
+    List<ChunkInfo> chunksList = new ArrayList<>();
     chunksList.add(chunkInfo);
     chunksInverseMapping.put(address.getHost(), chunksList);
   }
@@ -324,7 +328,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
 
   @SuppressWarnings("unchecked")
   private Set<ServerAddress> getPreferredHosts(MongoClient client, List<String> hosts) {
-    Set<ServerAddress> addressList = Sets.newHashSet();
+    Set<ServerAddress> addressList = new HashSet<>();
     MongoDatabase db = client.getDatabase(scanSpec.getDbName());
     ReadPreference readPreference = client.getReadPreference();
     Document command = db.runCommand(new Document("isMaster", 1));
@@ -395,7 +399,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
         .ceil((double) totalAssignmentsTobeDone / numSlots);
 
     endpointFragmentMapping = Maps.newHashMapWithExpectedSize(numSlots);
-    Map<String, Queue<Integer>> endpointHostIndexListMap = Maps.newHashMap();
+    Map<String, Queue<Integer>> endpointHostIndexListMap = new HashMap<>();
 
     for (int i = 0; i < numSlots; ++i) {
       endpointFragmentMapping.put(i, new ArrayList<MongoSubScanSpec>(
@@ -403,7 +407,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
       String hostname = endpoints.get(i).getAddress();
       Queue<Integer> hostIndexQueue = endpointHostIndexListMap.get(hostname);
       if (hostIndexQueue == null) {
-        hostIndexQueue = Lists.newLinkedList();
+        hostIndexQueue = new LinkedList<>();
         endpointHostIndexListMap.put(hostname, hostIndexQueue);
       }
       hostIndexQueue.add(i);
@@ -530,13 +534,13 @@ public class MongoGroupScan extends AbstractGroupScan implements
     watch.reset();
     watch.start();
 
-    Map<String, DrillbitEndpoint> endpointMap = Maps.newHashMap();
+    Map<String, DrillbitEndpoint> endpointMap = new HashMap<>();
     for (DrillbitEndpoint endpoint : storagePlugin.getContext().getBits()) {
       endpointMap.put(endpoint.getAddress(), endpoint);
       logger.debug("Endpoint address: {}", endpoint.getAddress());
     }
 
-    Map<DrillbitEndpoint, EndpointAffinity> affinityMap = Maps.newHashMap();
+    Map<DrillbitEndpoint, EndpointAffinity> affinityMap = new HashMap<>();
     // As of now, considering only the first replica, though there may be
     // multiple replicas for each chunk.
     for (Set<ServerAddress> addressList : chunksMapping.values()) {

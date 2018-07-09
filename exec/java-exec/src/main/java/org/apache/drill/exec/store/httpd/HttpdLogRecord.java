@@ -18,9 +18,9 @@
 package org.apache.drill.exec.store.httpd;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.Maps;
 import io.netty.buffer.DrillBuf;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
 import nl.basjes.parse.core.Casts;
 import nl.basjes.parse.core.Parser;
@@ -34,13 +34,13 @@ import org.slf4j.LoggerFactory;
 public class HttpdLogRecord {
 
   private static final Logger LOG = LoggerFactory.getLogger(HttpdLogRecord.class);
-  private final Map<String, VarCharWriter> strings = Maps.newHashMap();
-  private final Map<String, BigIntWriter> longs = Maps.newHashMap();
-  private final Map<String, Float8Writer> doubles = Maps.newHashMap();
-  private final Map<String, MapWriter> wildcards = Maps.newHashMap();
-  private final Map<String, String> cleanExtensions = Maps.newHashMap();
-  private final Map<String, MapWriter> startedWildcards = Maps.newHashMap();
-  private final Map<String, MapWriter> wildcardWriters = Maps.newHashMap();
+  private final Map<String, VarCharWriter> strings = new HashMap<>();
+  private final Map<String, BigIntWriter> longs = new HashMap<>();
+  private final Map<String, Float8Writer> doubles = new HashMap<>();
+  private final Map<String, MapWriter> wildcards = new HashMap<>();
+  private final Map<String, String> cleanExtensions = new HashMap<>();
+  private final Map<String, MapWriter> startedWildcards = new HashMap<>();
+  private final Map<String, MapWriter> wildcardWriters = new HashMap<>();
   private DrillBuf managedBuffer;
 
   public HttpdLogRecord(final DrillBuf managedBuffer) {
