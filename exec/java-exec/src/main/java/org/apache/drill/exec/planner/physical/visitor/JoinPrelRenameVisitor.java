@@ -25,7 +25,7 @@ import org.apache.drill.exec.planner.physical.LateralJoinPrel;
 import org.apache.drill.exec.planner.physical.Prel;
 import org.apache.calcite.rel.RelNode;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
 public class JoinPrelRenameVisitor extends BasePrelVisitor<Prel, Void, RuntimeException>{
 

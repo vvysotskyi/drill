@@ -17,7 +17,7 @@
  */
 package org.apache.calcite.jdbc;
 
-import com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.calcite.DataContext;
 
 import org.apache.calcite.linq4j.tree.Expression;

@@ -26,7 +26,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.drill.exec.planner.types.DrillRelDataTypeSystem;
 import org.slf4j.Logger;
 
-import com.google.common.base.MoreObjects;
+import org.apache.drill.shaded.guava.com.google.common.base.MoreObjects;
 
 public class Records {
 
