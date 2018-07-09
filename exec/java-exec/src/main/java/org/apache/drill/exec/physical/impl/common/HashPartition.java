@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.common;
 
-import com.google.common.collect.Lists;
 import org.apache.drill.common.exceptions.RetryAfterSpillException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.cache.VectorSerializer;
@@ -119,7 +118,8 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
   private RecordBatch probeBatch;
   private int cycleNum;
   private int numPartitions;
-  private List<HashJoinMemoryCalculator.BatchStat> inMemoryBatchStats = Lists.newArrayList();
+  private List<HashJoinMemoryCalculator.BatchStat> inMemoryBatchStats = new ArrayList<>();
+
   private long partitionInMemorySize;
   private long numInMemoryRecords;
 
@@ -287,7 +287,7 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
     } catch(SchemaChangeException sce) {}
 
     VectorContainer container = new VectorContainer();
-    List<ValueVector> vectors = Lists.newArrayList();
+    List<ValueVector> vectors = new ArrayList<>();
 
     for (VectorWrapper<?> v : batch) {
       TransferPair tp = v.getValueVector().getTransferPair(allocator);
