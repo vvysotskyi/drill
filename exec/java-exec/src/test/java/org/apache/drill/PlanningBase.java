@@ -20,8 +20,6 @@ package org.apache.drill;
 import java.io.IOException;
 import java.net.URL;
 
-import com.google.common.base.Function;
-import io.netty.buffer.DrillBuf;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.config.DrillConfig;
@@ -29,7 +27,6 @@ import org.apache.drill.common.config.LogicalPlanPersistence;
 import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.common.types.TypeProtos;
-import org.apache.drill.exec.expr.holders.ValueHolder;
 import org.apache.drill.exec.vector.ValueHolderHelper;
 import org.apache.drill.test.TestTools;
 import org.apache.drill.exec.ExecTest;
@@ -59,9 +56,8 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -126,13 +122,13 @@ public class PlanningBase extends ExecTest {
     // mocks for org.apache.drill.TestTpchPlanning#tpch06 test.
     // With changes for decimal types, subtract udf for decimals is used.
     when(context.getManagedBuffer()).thenReturn(allocator.buffer(4));
-    when(context.getConstantValueHolder(eq("0.03"),
-        eq(TypeProtos.MinorType.VARDECIMAL),
-        Matchers.<Function<DrillBuf, ValueHolder>>any()))
+    when(context.getConstantValueHolder(ArgumentMatchers.eq("0.03"),
+        ArgumentMatchers.eq(TypeProtos.MinorType.VARDECIMAL),
+        ArgumentMatchers.any()))
       .thenReturn(ValueHolderHelper.getVarDecimalHolder(allocator.buffer(4), "0.03"));
-    when(context.getConstantValueHolder(eq("0.01"),
-        eq(TypeProtos.MinorType.VARDECIMAL),
-        Matchers.<Function<DrillBuf, ValueHolder>>any()))
+    when(context.getConstantValueHolder(ArgumentMatchers.eq("0.01"),
+        ArgumentMatchers.eq(TypeProtos.MinorType.VARDECIMAL),
+        ArgumentMatchers.any()))
       .thenReturn(ValueHolderHelper.getVarDecimalHolder(allocator.buffer(4), "0.01"));
 
 

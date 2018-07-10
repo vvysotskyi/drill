@@ -20,8 +20,8 @@ package org.apache.drill.exec.planner.sql.parser;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
-import com.google.common.base.Function;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
@@ -34,11 +34,7 @@ import com.google.common.collect.Lists;
 
 public class DrillCompoundIdentifier extends SqlIdentifier {
 
-  private static final Function<String, String> STAR_TO_EMPTY = new Function<String, String>() {
-    public String apply(String s) {
-      return s.equals("*") ? "" : s;
-    }
-  };
+  private static final Function<String, String> STAR_TO_EMPTY = s -> s.equals("*") ? "" : s;
 
   private final List<IdentifierHolder> ids;
 

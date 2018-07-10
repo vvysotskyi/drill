@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 
 public class ObjectSchema implements RecordSchema {
@@ -72,18 +71,15 @@ public class ObjectSchema implements RecordSchema {
     @Override
     public Iterable<? extends Field> removeUnreadFields() {
       final List<Field> removedFields = new ArrayList<>();
-        Iterables.removeIf(fields.values(), new Predicate<Field>() {
-            @Override
-            public boolean apply(Field field) {
-                if (!field.isRead()) {
-                    removedFields.add(field);
-                    return true;
-                } else if (field.hasSchema()) {
-                    Iterables.addAll(removedFields, field.getAssignedSchema().removeUnreadFields());
-                }
-
-                return false;
+        fields.values().removeIf(field -> {
+            if (!field.isRead()) {
+                removedFields.add(field);
+                return true;
+            } else if (field.hasSchema()) {
+                Iterables.addAll(removedFields, field.getAssignedSchema().removeUnreadFields());
             }
+
+            return false;
         });
         return removedFields;
     }

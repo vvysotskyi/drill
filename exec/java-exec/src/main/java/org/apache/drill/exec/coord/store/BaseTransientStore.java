@@ -21,17 +21,13 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.StreamSupport;
 
-import javax.annotation.Nullable;
-
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Maps;
 
 public abstract class BaseTransientStore<V> implements TransientStore<V> {
-  private final Set<TransientStoreListener> listeners = Collections.newSetFromMap(
-      Maps.<TransientStoreListener, Boolean>newConcurrentMap());
+  private final Set<TransientStoreListener> listeners = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
   protected final TransientStoreConfig<V> config;
 
@@ -45,24 +41,18 @@ public abstract class BaseTransientStore<V> implements TransientStore<V> {
 
   @Override
   public Iterator<String> keys() {
-    return Iterators.transform(entries(), new Function<Map.Entry<String, V>, String>() {
-      @Nullable
-      @Override
-      public String apply(@Nullable Map.Entry<String, V> input) {
-        return input.getKey();
-      }
-    });
+    Iterable<Map.Entry<String, V>> iterable = this::entries;
+    return StreamSupport.stream(iterable.spliterator(), false)
+        .map(Map.Entry::getKey)
+        .iterator();
   }
 
   @Override
   public Iterator<V> values() {
-    return Iterators.transform(entries(), new Function<Map.Entry<String, V>, V>() {
-      @Nullable
-      @Override
-      public V apply(final Map.Entry<String, V> entry) {
-        return entry.getValue();
-      }
-    });
+    Iterable<Map.Entry<String, V>> iterable = this::entries;
+    return StreamSupport.stream(iterable.spliterator(), false)
+      .map(Map.Entry::getValue)
+      .iterator();
   }
 
   protected void fireListeners(final TransientStoreEvent event) {

@@ -20,12 +20,10 @@ package org.apache.drill.exec.coord.zk;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
-
-import javax.annotation.Nullable;
+import java.util.function.Function;
+import java.util.stream.StreamSupport;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.collect.Iterators;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
 import org.apache.drill.common.collections.ImmutableEntry;
@@ -111,18 +109,18 @@ public class ZkEphemeralStore<V> extends BaseTransientStore<V> {
 
   @Override
   public Iterator<Map.Entry<String, V>> entries() {
-    return Iterators.transform(getClient().entries(), new Function<Map.Entry<String, byte[]>, Map.Entry<String, V>>() {
-      @Nullable
-      @Override
-      public Map.Entry<String, V> apply(@Nullable Map.Entry<String, byte[]> input) {
-        try {
-          final V value = config.getSerializer().deserialize(input.getValue());
-          return new ImmutableEntry<>(input.getKey(), value);
-        } catch (final IOException e) {
-          throw new DrillRuntimeException(String.format("unable to deserialize value at key %s", input.getKey()), e);
-        }
+    Iterable<Map.Entry<String, byte[]>> iterable = () -> getClient().entries();
+    Function<Map.Entry<String, byte[]>, Map.Entry<String, V>> valueDeserializeFunction = entry -> {
+      try {
+        V value = config.getSerializer().deserialize(entry.getValue());
+        return new ImmutableEntry<>(entry.getKey(), value);
+      } catch (IOException e) {
+        throw new DrillRuntimeException(String.format("Unable to deserialize value at key %s", entry.getKey()), e);
       }
-    });
+    };
+    return StreamSupport.stream(iterable.spliterator(), false)
+        .map(valueDeserializeFunction)
+        .iterator();
   }
 
   @Override

@@ -17,15 +17,13 @@
  */
 package org.apache.drill.exec.server.options;
 
-import java.util.Collection;
 import java.util.Map;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.rpc.user.UserSession;
-
-import com.google.common.base.Predicate;
-import com.google.common.collect.Collections2;
 
 /**
  * {@link OptionManager} that holds options within {@link org.apache.drill.exec.rpc.user.UserSession} context. Options
@@ -49,7 +47,7 @@ public class SessionOptionManager extends InMemoryOptionManager {
     CaseInsensitiveMap.newConcurrentMap();
 
   public SessionOptionManager(final OptionManager systemOptions, final UserSession session) {
-    super(systemOptions, CaseInsensitiveMap.<OptionValue>newConcurrentMap());
+    super(systemOptions, CaseInsensitiveMap.newConcurrentMap());
     this.session = session;
   }
 
@@ -98,18 +96,16 @@ public class SessionOptionManager extends InMemoryOptionManager {
     return start <= queryNumber && queryNumber < end;
   }
 
-  private final Predicate<OptionValue> isLive = new Predicate<OptionValue>() {
-    @Override
-    public boolean apply(final OptionValue value) {
-      final String name = value.name;
-      return !shortLivedOptions.containsKey(name) || withinRange(name);
-    }
+  private final Predicate<OptionValue> isLive = value -> {
+    final String name = value.name;
+    return !shortLivedOptions.containsKey(name) || withinRange(name);
   };
 
   @Override
   Iterable<OptionValue> getLocalOptions() {
-    final Collection<OptionValue> liveOptions = Collections2.filter(options.values(), isLive);
-    return liveOptions;
+    return options.values().stream()
+        .filter(isLive)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -117,8 +113,7 @@ public class SessionOptionManager extends InMemoryOptionManager {
    * @return The SystemOptionManager.
    */
   public SystemOptionManager getSystemOptionManager() {
-    final SystemOptionManager systemOptionManager = (SystemOptionManager) fallback;
-    return systemOptionManager;
+    return (SystemOptionManager) fallback;
   }
 
   @Override
