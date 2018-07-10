@@ -25,6 +25,8 @@ import java.sql.Statement;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.drill.common.logical.LogicalPlan;
@@ -47,8 +49,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
 import org.junit.experimental.categories.Category;
@@ -111,18 +111,16 @@ public class JdbcDataTest extends JdbcTestBase {
   /** Load driver, make a connection, prepare a statement. */
   @Test
   public void testPrepare() throws Exception {
-    withModel(MODEL, "DONUTS").withConnection(new Function<Connection, Void>() {
-      @Override
-      public Void apply(Connection connection) {
-        try {
-          final Statement statement = connection.prepareStatement("select * from donuts");
-          statement.close();
-          return null;
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
-      }
-    });
+    withModel(MODEL, "DONUTS").withConnection(
+        (Function<Connection, Void>) connection -> {
+          try {
+            final Statement statement = connection.prepareStatement("select * from donuts");
+            statement.close();
+            return null;
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   /** Simple query against JSON. */
@@ -224,12 +222,9 @@ public class JdbcDataTest extends JdbcTestBase {
   }
 
   private static <T extends LogicalOperator> Iterable<T> findOperator(LogicalPlan plan, final Class<T> operatorClazz) {
-    return (Iterable<T>) Iterables.filter(plan.getSortedOperators(), new Predicate<LogicalOperator>() {
-      @Override
-      public boolean apply(LogicalOperator input) {
-        return input.getClass().equals(operatorClazz);
-      }
-    });
+    return (Iterable<T>) plan.getSortedOperators().stream()
+        .filter(input -> input.getClass().equals(operatorClazz))
+        .collect(Collectors.toList());
   }
 
   private static <T extends LogicalOperator> T findOnlyOperator(LogicalPlan plan, final Class<T> operatorClazz) {

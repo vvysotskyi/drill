@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.planner.logical;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
@@ -31,6 +30,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.schema.Table;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * This class extends from EnumerableTableScan. It puts the file selection string into it's digest.
@@ -59,17 +59,12 @@ public class DirPrunedEnumerableTableScan extends EnumerableTableScan {
       RelOptTable relOptTable, String digestFromSelection) {
     final Table table = relOptTable.unwrap(Table.class);
     Class elementType = EnumerableTableScan.deduceElementType(table);
+    List<RelCollation> relCollations = Optional.ofNullable(table)
+        .map(t -> t.getStatistic().getCollations())
+        .orElse(ImmutableList.of());
     final RelTraitSet traitSet =
         cluster.traitSetOf(EnumerableConvention.INSTANCE)
-            .replaceIfs(RelCollationTraitDef.INSTANCE,
-                new Supplier<List<RelCollation>>() {
-                  public List<RelCollation> get() {
-                    if (table != null) {
-                      return table.getStatistic().getCollations();
-                    }
-                    return ImmutableList.of();
-                  }
-                });
+            .replaceIfs(RelCollationTraitDef.INSTANCE, () -> relCollations);
     return new DirPrunedEnumerableTableScan(cluster, traitSet, relOptTable, elementType, digestFromSelection);
   }
 

@@ -29,8 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import javax.annotation.Nullable;
+import java.util.function.Function;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.drill.common.collections.ImmutableEntry;
@@ -45,9 +44,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import org.apache.hadoop.fs.PathFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,15 +121,12 @@ public class LocalPersistentStore<V> extends BasePersistentStore<V> {
         files.add(s.substring(0, s.length() - DRILL_SYS_FILE_SUFFIX.length()));
       }
 
-      Collections.sort(files);
-
-      return Iterables.transform(Iterables.limit(Iterables.skip(files, skip), take), new Function<String, Entry<String, V>>() {
-        @Nullable
-        @Override
-        public Entry<String, V> apply(String key) {
-          return new ImmutableEntry<>(key, get(key));
-        }
-      }).iterator();
+      return files.stream()
+          .sorted()
+          .skip(skip)
+          .limit(take)
+          .map((Function<String, Entry<String, V>>) key -> new ImmutableEntry<>(key, get(key)))
+          .iterator();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

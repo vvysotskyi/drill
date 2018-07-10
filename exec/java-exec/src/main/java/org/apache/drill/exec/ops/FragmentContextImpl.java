@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.config.DrillConfig;
@@ -63,9 +64,7 @@ import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.exec.util.ImpersonationUtil;
 import org.apache.drill.exec.work.batch.IncomingBuffers;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Maps;
 
 import io.netty.buffer.DrillBuf;
 
@@ -484,7 +483,7 @@ public class FragmentContextImpl extends BaseFragmentContext implements Executor
   @Override
   public ValueHolder getConstantValueHolder(String value, MinorType type, Function<DrillBuf, ValueHolder> holderInitializer) {
     if (!constantValueHolderCache.containsKey(value)) {
-      constantValueHolderCache.put(value, Maps.<MinorType, ValueHolder>newHashMap());
+      constantValueHolderCache.put(value, new HashMap<>());
     }
 
     Map<MinorType, ValueHolder> holdersByType = constantValueHolderCache.get(value);

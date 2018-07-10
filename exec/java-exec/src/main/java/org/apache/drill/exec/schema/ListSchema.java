@@ -24,7 +24,6 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 
 public class ListSchema implements RecordSchema {
@@ -90,18 +89,15 @@ public class ListSchema implements RecordSchema {
     @Override
     public Iterable<? extends Field> removeUnreadFields() {
       final List<Field> removedFields = new ArrayList<>();
-        Iterables.removeIf(fields, new Predicate<Field>() {
-            @Override
-            public boolean apply(Field field) {
-                if (!field.isRead()) {
-                    removedFields.add(field);
-                    return true;
-                } else if (field.hasSchema()) {
-                    Iterables.addAll(removedFields, field.getAssignedSchema().removeUnreadFields());
-                }
-
-                return false;
+        fields.removeIf(field -> {
+            if (!field.isRead()) {
+                removedFields.add(field);
+                return true;
+            } else if (field.hasSchema()) {
+                Iterables.addAll(removedFields, field.getAssignedSchema().removeUnreadFields());
             }
+
+            return false;
         });
         return removedFields;
     }

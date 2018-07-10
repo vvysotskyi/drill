@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 
 import com.google.common.base.Preconditions;
@@ -84,10 +85,7 @@ import org.apache.drill.exec.resolver.FunctionResolver;
 import org.apache.drill.exec.resolver.FunctionResolverFactory;
 import org.apache.drill.exec.resolver.TypeCastRules;
 
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import org.apache.drill.exec.store.parquet.stat.ColumnStatistics;
 import org.apache.drill.exec.util.DecimalUtility;
 
@@ -661,22 +659,13 @@ public class ExpressionTreeMaterializer {
       allExpressions.add(conditions.expression);
       allExpressions.add(newElseExpr);
 
-      boolean containsNullExpr = Iterables.any(allExpressions, new Predicate<LogicalExpression>() {
-        @Override
-        public boolean apply(LogicalExpression input) {
-          return input instanceof NullExpression;
-        }
-      });
+      boolean containsNullExpr = allExpressions.stream()
+          .anyMatch(input -> input instanceof NullExpression);
 
       if (containsNullExpr) {
-        Optional<LogicalExpression> nonNullExpr = Iterables.tryFind(allExpressions,
-          new Predicate<LogicalExpression>() {
-            @Override
-            public boolean apply(LogicalExpression input) {
-              return !input.getMajorType().getMinorType().equals(TypeProtos.MinorType.NULL);
-            }
-          }
-        );
+        Optional<LogicalExpression> nonNullExpr = allExpressions.stream()
+            .filter(input -> !input.getMajorType().getMinorType().equals(TypeProtos.MinorType.NULL))
+            .findFirst();
 
         if(nonNullExpr.isPresent()) {
           MajorType type = nonNullExpr.get().getMajorType();

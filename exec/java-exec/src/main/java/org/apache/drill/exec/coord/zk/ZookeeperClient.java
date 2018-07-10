@@ -19,13 +19,10 @@ package org.apache.drill.exec.coord.zk;
 
 import java.util.Iterator;
 import java.util.Map;
+import java.util.function.Function;
 
-import javax.annotation.Nullable;
-
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.ChildData;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
@@ -348,16 +345,15 @@ public class ZookeeperClient implements AutoCloseable {
    * Returns an iterator of (key, value) pairs residing under {@link #getRoot() root} path.
    */
   public Iterator<Map.Entry<String, byte[]>> entries() {
-    final String prefix = PathUtils.join(root, "/");
-    return Iterables.transform(getCache().getCurrentData(), new Function<ChildData, Map.Entry<String, byte[]>>() {
-      @Nullable
-      @Override
-      public Map.Entry<String, byte[]> apply(final ChildData data) {
-        // normalize key name removing the root prefix. resultant key must be a relative path, not beginning with a '/'.
-        final String key = data.getPath().replace(prefix, "");
-        return new ImmutableEntry<>(key, data.getData());
-      }
-    }).iterator();
+    String prefix = PathUtils.join(root, "/");
+    return getCache().getCurrentData().stream()
+        .map(
+            (Function<ChildData, Map.Entry<String, byte[]>>) data -> {
+              // normalize key name removing the root prefix. resultant key must be a relative path, not beginning with a '/'.
+              String key = data.getPath().replace(prefix, "");
+              return new ImmutableEntry<>(key, data.getData());
+            })
+        .iterator();
   }
 
   @Override
