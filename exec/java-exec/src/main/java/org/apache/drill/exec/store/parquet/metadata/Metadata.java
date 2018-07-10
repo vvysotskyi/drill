@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Maps;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.tuple.Pair;
@@ -63,6 +62,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -429,7 +429,7 @@ public class Metadata {
     MessageType schema = metadata.getFileMetaData().getSchema();
 
 //    Map<SchemaPath, OriginalType> originalTypeMap = Maps.newHashMap();
-    Map<SchemaPath, ColTypeInfo> colTypeInfoMap = Maps.newHashMap();
+    Map<SchemaPath, ColTypeInfo> colTypeInfoMap = new HashMap<>();
     schema.getPaths();
     for (String[] path : schema.getPaths()) {
       colTypeInfoMap.put(SchemaPath.getCompoundPath(path), getColTypeInfo(schema, schema, path, 0));
@@ -510,7 +510,7 @@ public class Metadata {
   private Map<String, Float> getHostAffinity(FileStatus fileStatus, FileSystem fs, long start, long length)
       throws IOException {
     BlockLocation[] blockLocations = fs.getFileBlockLocations(fileStatus, start, length);
-    Map<String, Float> hostAffinityMap = Maps.newHashMap();
+    Map<String, Float> hostAffinityMap = new HashMap<>();
     for (BlockLocation blockLocation : blockLocations) {
       for (String host : blockLocation.getHosts()) {
         Float currentAffinity = hostAffinityMap.get(host);

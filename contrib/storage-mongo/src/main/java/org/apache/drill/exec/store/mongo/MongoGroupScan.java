@@ -68,7 +68,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.mongodb.MongoClient;
 import com.mongodb.ReadPreference;
@@ -391,11 +390,11 @@ public class MongoGroupScan extends AbstractGroupScan implements
     final int maxPerEndpointSlot = (int) Math
         .ceil((double) totalAssignmentsTobeDone / numSlots);
 
-    endpointFragmentMapping = Maps.newHashMapWithExpectedSize(numSlots);
+    endpointFragmentMapping = new HashMap<>(numSlots);
     Map<String, Queue<Integer>> endpointHostIndexListMap = new HashMap<>();
 
     for (int i = 0; i < numSlots; ++i) {
-      endpointFragmentMapping.put(i, new ArrayList<MongoSubScanSpec>(
+      endpointFragmentMapping.put(i, new ArrayList<>(
           maxPerEndpointSlot));
       String hostname = endpoints.get(i).getAddress();
       Queue<Integer> hostIndexQueue = endpointHostIndexListMap.get(hostname);
