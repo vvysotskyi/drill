@@ -18,7 +18,6 @@
 package org.apache.drill.exec.planner.fragment;
 
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import org.apache.drill.exec.physical.EndpointAffinity;
 import org.apache.drill.exec.physical.PhysicalOperatorSetupException;
@@ -148,7 +147,7 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
           }
         }
       } else {
-        endpointsWithNoAffinity = Lists.newArrayList(activeEndpoints); // Need to create a copy instead of an
+        endpointsWithNoAffinity = new ArrayList<>(activeEndpoints); // Need to create a copy instead of an
         // immutable copy, because we need to shuffle the list (next statement) and Collections.shuffle() doesn't
         // support immutable copy as input.
       }

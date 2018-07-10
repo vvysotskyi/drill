@@ -49,7 +49,6 @@ import org.apache.drill.exec.store.pojo.PojoRecordReader;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 
 /**
  * Generates records for POJO RecordReader by scanning the given schema. At every level (catalog, schema, table, field),
@@ -225,7 +224,7 @@ public abstract class InfoSchemaRecordGenerator<S> {
    */
   public void visitTables(String schemaPath, SchemaPlus schema) {
     final AbstractSchema drillSchema = schema.unwrap(AbstractSchema.class);
-    final List<String> tableNames = Lists.newArrayList(schema.getTableNames());
+    final List<String> tableNames = new ArrayList<>(schema.getTableNames());
     for(Pair<String, ? extends Table> tableNameToTable : drillSchema.getTablesByNames(tableNames)) {
       final String tableName = tableNameToTable.getKey();
       final Table table = tableNameToTable.getValue();

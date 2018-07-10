@@ -18,9 +18,9 @@
 package org.apache.drill.exec.vector.complex;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import io.netty.buffer.DrillBuf;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -262,7 +262,7 @@ public class RepeatedListVector extends AbstractContainerVector
     super(field, allocator, callBack);
     this.delegate = Preconditions.checkNotNull(delegate);
 
-    final List<MaterializedField> children = Lists.newArrayList(field.getChildren());
+    final List<MaterializedField> children = new ArrayList<>(field.getChildren());
     final int childSize = children.size();
     assert childSize < 3;
     final boolean hasChild = childSize > 0;

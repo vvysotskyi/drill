@@ -46,7 +46,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.mongodb.MongoClient;
 import com.mongodb.ServerAddress;
@@ -155,12 +154,12 @@ public class MongoRecordReader extends AbstractRecordReader {
     // Default is BsonReader and all text mode will not be honored in
     // BsonRecordReader
     if (isBsonRecordReader) {
-      this.bsonReader = new BsonRecordReader(fragmentContext.getManagedBuffer(), Lists.newArrayList(getColumns()),
+      this.bsonReader = new BsonRecordReader(fragmentContext.getManagedBuffer(), new ArrayList<>(getColumns()),
           readNumbersAsDouble);
       logger.debug("Initialized BsonRecordReader. ");
     } else {
       this.jsonReader = new JsonReader.Builder(fragmentContext.getManagedBuffer())
-          .schemaPathColumns(Lists.newArrayList(getColumns()))
+          .schemaPathColumns(new ArrayList<>(getColumns()))
           .allTextMode(enableAllTextMode)
           .readNumbersAsDouble(readNumbersAsDouble)
           .enableNanInf(enableNanInf)
