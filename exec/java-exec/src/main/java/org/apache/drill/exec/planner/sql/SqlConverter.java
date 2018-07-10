@@ -27,7 +27,6 @@ import java.util.Set;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
@@ -257,7 +256,7 @@ public class SqlConverter {
             DrillCalciteCatalogReader catalogReader = (SqlConverter.DrillCalciteCatalogReader) getCatalogReader();
 
             // Check the schema and throw a valid SchemaNotFound exception instead of TableNotFound exception.
-            if (catalogReader.getTable(Lists.newArrayList(tempNode.names)) == null) {
+            if (catalogReader.getTable(new ArrayList<>(tempNode.names)) == null) {
               catalogReader.isValidSchema(tempNode.names);
             }
             changeNamesIfTableIsTemporary(tempNode);
@@ -627,7 +626,7 @@ public class SqlConverter {
       if (mightBeTemporaryTable(names, session.getDefaultSchemaPath(), drillConfig)) {
         String temporaryTableName = session.resolveTemporaryTableName(names.get(names.size() - 1));
         if (temporaryTableName != null) {
-          return Lists.newArrayList(temporarySchema, temporaryTableName);
+          return Arrays.asList(temporarySchema, temporaryTableName);
         }
       }
       return null;

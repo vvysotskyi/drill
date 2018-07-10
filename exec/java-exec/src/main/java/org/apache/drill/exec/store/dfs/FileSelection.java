@@ -20,13 +20,13 @@ package org.apache.drill.exec.store.dfs;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
@@ -276,7 +276,7 @@ public class FileSelection {
     if (statuses == null) {
       return null;
     }
-    final FileSelection fileSel = create(Lists.newArrayList(statuses), null, combined.toUri().getPath());
+    final FileSelection fileSel = create(Arrays.asList(statuses), null, combined.toUri().getPath());
     if (timer != null) {
       logger.debug("FileSelection.create() took {} ms ", timer.elapsed(TimeUnit.MILLISECONDS));
       timer.stop();

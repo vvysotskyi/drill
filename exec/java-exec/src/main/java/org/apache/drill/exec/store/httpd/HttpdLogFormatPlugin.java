@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.httpd;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -55,7 +56,6 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.google.common.collect.Lists;
 
 import java.util.Map;
 import org.apache.drill.exec.store.RecordReader;
@@ -72,7 +72,7 @@ public class HttpdLogFormatPlugin extends EasyFormatPlugin<HttpdLogFormatPlugin.
       final StoragePluginConfig storageConfig, final HttpdLogFormatConfig formatConfig) {
 
     super(name, context, fsConf, storageConfig, formatConfig, true, false, true, true,
-        Lists.newArrayList(PLUGIN_EXTENSION), PLUGIN_EXTENSION);
+        Collections.singletonList(PLUGIN_EXTENSION), PLUGIN_EXTENSION);
   }
 
   /**

@@ -19,6 +19,7 @@ package org.apache.drill.exec.expr.fn.registry;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,7 +30,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.scanner.persistence.AnnotatedClassDescriptor;
@@ -81,7 +81,7 @@ public class LocalFunctionRegistry {
   public LocalFunctionRegistry(ScanResult classpathScan) {
     registryHolder = new FunctionRegistryHolder();
     validate(BUILT_IN, classpathScan);
-    register(Lists.newArrayList(new JarScan(BUILT_IN, classpathScan, this.getClass().getClassLoader())), 0);
+    register(Collections.singletonList(new JarScan(BUILT_IN, classpathScan, this.getClass().getClassLoader())), 0);
     if (logger.isTraceEnabled()) {
       StringBuilder allFunctions = new StringBuilder();
       for (DrillFuncHolder method: registryHolder.getAllFunctionsWithHolders().values()) {
