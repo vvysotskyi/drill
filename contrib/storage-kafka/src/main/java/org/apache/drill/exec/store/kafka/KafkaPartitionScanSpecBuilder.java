@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.FunctionCall;
@@ -32,6 +31,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -86,7 +86,7 @@ public class KafkaPartitionScanSpecBuilder extends
   public List<KafkaPartitionScanSpec> visitBooleanOperator(BooleanOperator op, Void value)
       throws RuntimeException {
 
-    Map<TopicPartition, KafkaPartitionScanSpec> specMap = Maps.newHashMap();
+    Map<TopicPartition, KafkaPartitionScanSpec> specMap = new HashMap<>();
     ImmutableList<LogicalExpression> args = op.args;
     if(op.getName().equals("booleanOr")) {
 
@@ -172,7 +172,7 @@ public class KafkaPartitionScanSpecBuilder extends
   private List<KafkaPartitionScanSpec> createScanSpecForTimestamp(String functionName,
                                                                   Long fieldValue) {
     List<KafkaPartitionScanSpec> scanSpec = new ArrayList<>();
-    Map<TopicPartition, Long> timesValMap = Maps.newHashMap();
+    Map<TopicPartition, Long> timesValMap = new HashMap<>();
     ImmutableSet<TopicPartition> topicPartitions = fullScanSpec.keySet();
 
     for(TopicPartition partitions : topicPartitions) {

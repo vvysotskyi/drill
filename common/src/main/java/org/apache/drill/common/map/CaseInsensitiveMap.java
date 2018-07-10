@@ -18,7 +18,6 @@
 package org.apache.drill.common.map;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -65,7 +64,7 @@ public class CaseInsensitiveMap<VALUE> implements Map<String, VALUE> {
    * @return key case-insensitive hash map
    */
   public static <VALUE> CaseInsensitiveMap<VALUE> newHashMapWithExpectedSize(final int expectedSize) {
-    return new CaseInsensitiveMap<>(Maps.newHashMapWithExpectedSize(expectedSize));
+    return new CaseInsensitiveMap<>(new HashMap<>(expectedSize));
   }
 
   /**

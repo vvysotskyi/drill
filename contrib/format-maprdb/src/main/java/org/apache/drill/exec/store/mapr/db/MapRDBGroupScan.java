@@ -43,7 +43,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 public abstract class MapRDBGroupScan extends AbstractGroupScan {
@@ -65,12 +64,7 @@ public abstract class MapRDBGroupScan extends AbstractGroupScan {
 
   private Stopwatch watch = Stopwatch.createUnstarted();
 
-  private static final Comparator<List<MapRDBSubScanSpec>> LIST_SIZE_COMPARATOR = new Comparator<List<MapRDBSubScanSpec>>() {
-    @Override
-    public int compare(List<MapRDBSubScanSpec> list1, List<MapRDBSubScanSpec> list2) {
-      return list1.size() - list2.size();
-    }
-  };
+  private static final Comparator<List<MapRDBSubScanSpec>> LIST_SIZE_COMPARATOR = Comparator.comparingInt(List::size);
 
   private static final Comparator<List<MapRDBSubScanSpec>> LIST_SIZE_COMPARATOR_REV = Collections.reverseOrder(LIST_SIZE_COMPARATOR);
 
@@ -97,12 +91,12 @@ public abstract class MapRDBGroupScan extends AbstractGroupScan {
   public List<EndpointAffinity> getOperatorAffinity() {
     watch.reset();
     watch.start();
-    Map<String, DrillbitEndpoint> endpointMap = new HashMap<String, DrillbitEndpoint>();
+    Map<String, DrillbitEndpoint> endpointMap = new HashMap<>();
     for (DrillbitEndpoint ep : formatPlugin.getContext().getBits()) {
       endpointMap.put(ep.getAddress(), ep);
     }
 
-    Map<DrillbitEndpoint, EndpointAffinity> affinityMap = new HashMap<DrillbitEndpoint, EndpointAffinity>();
+    Map<DrillbitEndpoint, EndpointAffinity> affinityMap = new HashMap<>();
     for (String serverName : regionsToScan.values()) {
       DrillbitEndpoint ep = endpointMap.get(serverName);
       if (ep != null) {
@@ -140,7 +134,7 @@ public abstract class MapRDBGroupScan extends AbstractGroupScan {
     /*
      * initialize (endpoint index => HBaseSubScanSpec list) map
      */
-    endpointFragmentMapping = Maps.newHashMapWithExpectedSize(numSlots);
+    endpointFragmentMapping = new HashMap<>(numSlots);
 
     /*
      * another map with endpoint (hostname => corresponding index list) in 'incomingEndpoints' list
