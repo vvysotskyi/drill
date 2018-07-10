@@ -19,7 +19,6 @@ package org.apache.drill.exec.planner.sql;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
@@ -27,6 +26,7 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.dfs.WorkspaceSchemaFactory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -156,7 +156,7 @@ public class SchemaUtilites {
       return Collections.emptyList();
     }
 
-    List<String> path = Lists.newArrayListWithCapacity(5);
+    List<String> path = new ArrayList<>(5);
     while(schema != null) {
       final String name = schema.getName();
       if (!Strings.isNullOrEmpty(name)) {
@@ -164,8 +164,8 @@ public class SchemaUtilites {
       }
       schema = schema.getParentSchema();
     }
-
-    return Lists.reverse(path);
+    Collections.reverse(path);
+    return path;
   }
 
   /** Utility method to throw {@link UserException} with context information */
@@ -232,7 +232,7 @@ public class SchemaUtilites {
    */
   public static AbstractSchema getTemporaryWorkspace(SchemaPlus defaultSchema, DrillConfig config) {
     String temporarySchema = config.getString(ExecConstants.DEFAULT_TEMPORARY_WORKSPACE);
-    List<String> temporarySchemaPath = Lists.newArrayList(temporarySchema);
+    List<String> temporarySchemaPath = Collections.singletonList(temporarySchema);
     SchemaPlus schema = findSchema(defaultSchema, temporarySchemaPath);
     return schema == null ? null : unwrapAsDrillSchemaInstance(schema);
   }

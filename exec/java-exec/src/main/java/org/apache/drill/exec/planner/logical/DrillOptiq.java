@@ -19,6 +19,8 @@ package org.apache.drill.exec.planner.logical;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.LinkedList;
 import java.util.List;
@@ -58,7 +60,6 @@ import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.NlsString;
 
-import com.google.common.collect.Lists;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.work.ExecErrorConstants;
 
@@ -80,7 +81,7 @@ public class DrillOptiq {
    * @return converted expression
    */
   public static LogicalExpression toDrill(DrillParseContext context, RelNode input, RexNode expr) {
-    return toDrill(context, Lists.newArrayList(input), expr);
+    return toDrill(context, Collections.singletonList(input), expr);
   }
 
   /**
@@ -188,7 +189,7 @@ public class DrillOptiq {
             caseArgs.add(r.accept(this));
           }
 
-          caseArgs = Lists.reverse(caseArgs);
+          Collections.reverse(caseArgs);
           // number of arguements are always going to be odd, because
           // Optiq adds "null" for the missing else expression at the end
           assert caseArgs.size()%2 == 1;
@@ -245,13 +246,12 @@ public class DrillOptiq {
       }
 
       if (FunctionCallFactory.isBooleanOperator(funcName)) {
-        LogicalExpression func = FunctionCallFactory.createBooleanOperator(funcName, args);
-        return func;
+        return FunctionCallFactory.createBooleanOperator(funcName, args);
       } else {
-        args = Lists.reverse(args);
+        Collections.reverse(args);
         LogicalExpression lastArg = args.get(0);
         for(int i = 1; i < args.size(); i++){
-          lastArg = FunctionCallFactory.createExpression(funcName, Lists.newArrayList(args.get(i), lastArg));
+          lastArg = FunctionCallFactory.createExpression(funcName, Arrays.asList(args.get(i), lastArg));
         }
 
         return lastArg;

@@ -27,6 +27,8 @@ import java.io.FileWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.drill.test.BaseTestQuery;
@@ -42,8 +44,6 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
-import com.google.common.collect.Lists;
 
 @Category(OperatorTest.class)
 public class TestFlatten extends BaseTestQuery {
@@ -90,7 +90,7 @@ public class TestFlatten extends BaseTestQuery {
         .createFiles(1, numCopies, "json");
 
     @SuppressWarnings("unchecked")
-    List<JsonStringHashMap<String,Object>> data = Lists.newArrayList(
+    List<JsonStringHashMap<String,Object>> data = Arrays.asList(
         mapOf("uid", 1l,
             "lst_lst_0", listOf(1l, 2l, 3l, 4l, 5l),
             "lst_lst_1", listOf(2l, 3l, 4l, 5l, 6l),
@@ -125,7 +125,7 @@ public class TestFlatten extends BaseTestQuery {
   @Test
   public void testFlattenReferenceImpl() throws Exception {
     @SuppressWarnings("unchecked")
-    List<JsonStringHashMap<String,Object>> data = Lists.newArrayList(
+    List<JsonStringHashMap<String,Object>> data = Arrays.asList(
         mapOf("a",1,
               "b",2,
               "list_col", listOf(10,9),
@@ -135,7 +135,7 @@ public class TestFlatten extends BaseTestQuery {
             )));
     List<JsonStringHashMap<String, Object>> result = flatten(flatten(flatten(data, "list_col"), "nested_list_col"), "nested_list_col");
      @SuppressWarnings("unchecked")
-    List<JsonStringHashMap<String, Object>> expectedResult = Lists.newArrayList(
+    List<JsonStringHashMap<String, Object>> expectedResult = Arrays.asList(
         mapOf("nested_list_col", 100,  "list_col", 10,"a", 1, "b",2),
         mapOf("nested_list_col", 99,   "list_col", 10,"a", 1, "b",2),
         mapOf("nested_list_col", 1000, "list_col", 10,"a", 1, "b",2),
@@ -197,7 +197,7 @@ public class TestFlatten extends BaseTestQuery {
         .createFiles(1, numRecords, "json");
 
     @SuppressWarnings("unchecked")
-    List<JsonStringHashMap<String,Object>> data = Lists.newArrayList(
+    List<JsonStringHashMap<String,Object>> data = Collections.singletonList(
         mapOf("int_list", inputList)
     );
 

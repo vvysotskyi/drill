@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.svremover;
 
-import com.google.common.collect.Lists;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.exception.SchemaChangeException;
@@ -31,6 +30,7 @@ import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 public abstract class AbstractGenericCopierTest {
@@ -129,7 +129,7 @@ public abstract class AbstractGenericCopierTest {
     MaterializedField colC = MaterializedField.create("colC", Types.repeated(TypeProtos.MinorType.FLOAT4));
     MaterializedField colD = MaterializedField.create("colD", Types.repeated(TypeProtos.MinorType.VARCHAR));
 
-    List<MaterializedField> cols = Lists.newArrayList(colA, colB, colC, colD);
+    List<MaterializedField> cols = Arrays.asList(colA, colB, colC, colD);
     BatchSchema batchSchema = new BatchSchema(mode, cols);
     return batchSchema;
   }

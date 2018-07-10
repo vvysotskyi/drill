@@ -19,6 +19,7 @@ package org.apache.drill.exec.record;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -35,7 +36,6 @@ import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 public class VectorContainer implements VectorAccessible {
@@ -198,7 +198,7 @@ public class VectorContainer implements VectorAccessible {
   public static VectorContainer getTransferClone(VectorAccessible incoming, VectorWrapper<?>[] ignoreWrappers, OperatorContext oContext) {
     Iterable<VectorWrapper<?>> wrappers = incoming;
     if (ignoreWrappers != null) {
-      final List<VectorWrapper<?>> ignored = Lists.newArrayList(ignoreWrappers);
+      final List<VectorWrapper<?>> ignored = Arrays.asList(ignoreWrappers);
       final Set<VectorWrapper<?>> resultant = Sets.newLinkedHashSet(incoming);
       resultant.removeAll(ignored);
       wrappers = resultant;

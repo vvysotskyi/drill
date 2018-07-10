@@ -33,15 +33,15 @@ public class DataRecord {
 
     public void addData(int fieldId, Object data, boolean isList) {
         //TODO: Rethink lists vs object data handling
-        if(!dataMap.containsKey(fieldId)) {
-            if(isList) {
+        if (!dataMap.containsKey(fieldId)) {
+            if (isList) {
                 dataMap.put(fieldId, Lists.newArrayList(data));
             } else {
                 dataMap.put(fieldId, data);
             }
         } else {
-            if(isList) {
-                ((List<Object>)dataMap.get(fieldId)).add(data);
+            if (isList) {
+                ((List<Object>) dataMap.get(fieldId)).add(data);
             } else {
                 throw new IllegalStateException("Overriding field id existing data!");
             }

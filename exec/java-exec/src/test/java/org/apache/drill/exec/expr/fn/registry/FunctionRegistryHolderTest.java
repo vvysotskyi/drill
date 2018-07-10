@@ -19,7 +19,6 @@ package org.apache.drill.exec.expr.fn.registry;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import org.apache.drill.categories.SqlFunctionTest;
 import org.apache.drill.exec.expr.fn.DrillFuncHolder;
 import org.junit.Before;
@@ -28,6 +27,7 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -54,10 +54,10 @@ public class FunctionRegistryHolderTest {
     newJars = new HashMap<>();
     FunctionHolder lower = new FunctionHolder("lower", "lower(VARCHAR-REQUIRED)", mock(DrillFuncHolder.class));
     FunctionHolder upper = new FunctionHolder("upper", "upper(VARCHAR-REQUIRED)", mock(DrillFuncHolder.class));
-    newJars.put(built_in, Lists.newArrayList(lower, upper));
+    newJars.put(built_in, Arrays.asList(lower, upper));
     FunctionHolder custom_lower = new FunctionHolder("custom_lower", "lower(VARCHAR-REQUIRED)", mock(DrillFuncHolder.class));
     FunctionHolder custom_upper = new FunctionHolder("custom_upper", "custom_upper(VARCHAR-REQUIRED)", mock(DrillFuncHolder.class));
-    newJars.put(udf_jar, Lists.newArrayList(custom_lower, custom_upper));
+    newJars.put(udf_jar, Arrays.asList(custom_lower, custom_upper));
   }
 
   @Before

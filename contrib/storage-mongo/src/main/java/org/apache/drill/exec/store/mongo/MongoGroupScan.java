@@ -83,17 +83,11 @@ import com.mongodb.client.MongoDatabase;
 public class MongoGroupScan extends AbstractGroupScan implements
     DrillMongoConstants {
 
-  private static final Integer select = Integer.valueOf(1);
+  private static final Integer select = 1;
 
   static final Logger logger = LoggerFactory.getLogger(MongoGroupScan.class);
 
-  private static final Comparator<List<MongoSubScanSpec>> LIST_SIZE_COMPARATOR = new Comparator<List<MongoSubScanSpec>>() {
-    @Override
-    public int compare(List<MongoSubScanSpec> list1,
-        List<MongoSubScanSpec> list2) {
-      return list1.size() - list2.size();
-    }
-  };
+  private static final Comparator<List<MongoSubScanSpec>> LIST_SIZE_COMPARATOR = Comparator.comparingInt(List::size);
 
   private static final Comparator<List<MongoSubScanSpec>> LIST_SIZE_COMPARATOR_REV = Collections
       .reverseOrder(LIST_SIZE_COMPARATOR);
@@ -323,7 +317,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
     String[] tagAndHost = StringUtils.split(hostEntry, '/');
     String[] hosts = tagAndHost.length > 1 ? StringUtils.split(tagAndHost[1],
         ',') : StringUtils.split(tagAndHost[0], ',');
-    return Lists.newArrayList(hosts);
+    return Arrays.asList(hosts);
   }
 
   @SuppressWarnings("unchecked")

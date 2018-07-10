@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.unit;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.directory.api.util.Strings;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -1252,7 +1251,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   @Test
   public void testMergeJoinMultipleOutputBatches() throws Exception {
     MergeJoinPOP mergeJoin = new MergeJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
     mockOpContext(mergeJoin, initReservation, maxAllocation);
 
     // create left input rows like this.
@@ -1307,7 +1306,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
       .expectedNumBatches(4)  // verify number of batches
       .expectedBatchSize(totalSize / 2) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -1319,7 +1318,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   @Test
   public void testMergeJoinSingleOutputBatch() throws Exception {
     MergeJoinPOP mergeJoin = new MergeJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
     mockOpContext(mergeJoin, initReservation, maxAllocation);
 
     // create multiple batches from both sides.
@@ -1377,7 +1376,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
       .expectedNumBatches(1)  // verify number of batches
       .expectedBatchSize(totalSize) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -1390,7 +1389,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   public void testMergeJoinUpperLimit() throws Exception {
     // test the upper limit of 65535 records per batch.
     MergeJoinPOP mergeJoin = new MergeJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.LEFT);
+      Arrays.asList(joinCond("c1", "EQUALS", "c2")), JoinRelType.LEFT);
     mockOpContext(mergeJoin, initReservation, maxAllocation);
 
     numRows = 100000;
@@ -1430,7 +1429,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .physicalOperator(mergeJoin)
       .baselineColumns("a1", "c1", "a2", "c2")
       .expectedNumBatches(2)  // verify number of batches
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, i, 6l, i);
@@ -1443,7 +1442,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   public void testMergeJoinLowerLimit() throws Exception {
     // test the lower limit of at least one batch
     MergeJoinPOP mergeJoin = new MergeJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.RIGHT);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.RIGHT);
     mockOpContext(mergeJoin, initReservation, maxAllocation);
 
     numRows = 10;
@@ -1485,7 +1484,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .physicalOperator(mergeJoin)
       .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
       .expectedNumBatches(10)  // verify number of batches
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -1554,7 +1553,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1", "b1", "c1")
       .expectedNumBatches(2)  // verify number of batches
       .expectedBatchSize(totalSize) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i);
@@ -1625,7 +1624,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1", "b1", "c1")
       .expectedNumBatches(4)  // verify number of batches
       .expectedBatchSize(totalSize) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i);
@@ -1697,7 +1696,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1","b1", "c1")
       .expectedNumBatches(22)  // verify number of batches
       .expectedBatchSize(totalSize) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i);
@@ -1713,7 +1712,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   @Test
   public void testHashJoinMultipleOutputBatches() throws Exception {
     HashJoinPOP hashJoin = new HashJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
     mockOpContext(hashJoin, initReservation, maxAllocation);
 
     numRows = 4000 * 2;
@@ -1769,7 +1768,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
       .expectedNumBatches(4)  // verify number of batches
       .expectedBatchSize(totalSize / 2) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows+1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -1781,7 +1780,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   @Test
   public void testHashJoinSingleOutputBatch() throws Exception {
     HashJoinPOP hashJoin = new HashJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
     mockOpContext(hashJoin, initReservation, maxAllocation);
 
     // create multiple batches from both sides.
@@ -1839,7 +1838,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
       .expectedNumBatches(1)  // verify number of batches
       .expectedBatchSize(totalSize) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -1852,7 +1851,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   public void testHashJoinUpperLimit() throws Exception {
     // test the upper limit of 65535 records per batch.
     HashJoinPOP hashJoin = new HashJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
     mockOpContext(hashJoin, initReservation, maxAllocation);
 
     numRows = 100000;
@@ -1892,7 +1891,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .physicalOperator(hashJoin)
       .baselineColumns("a1", "c1", "a2", "c2")
       .expectedNumBatches(2)  // verify number of batches
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, i, 6l, i);
@@ -1905,7 +1904,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   public void testHashJoinLowerLimit() throws Exception {
     // test the lower limit of at least one batch
     HashJoinPOP hashJoin = new HashJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.INNER);
     mockOpContext(hashJoin, initReservation, maxAllocation);
 
     numRows = 10;
@@ -1947,7 +1946,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .physicalOperator(hashJoin)
       .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
       .expectedNumBatches(10)  // verify number of batches
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -1960,7 +1959,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   public void testRightOuterHashJoin() throws Exception {
 
     HashJoinPOP hashJoin = new HashJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.RIGHT);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.RIGHT);
     mockOpContext(hashJoin, initReservation, maxAllocation);
 
     numRows = 4000 * 2;
@@ -2016,7 +2015,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
       .expectedNumBatches(4)  // verify number of batches
       .expectedBatchSize(totalSize / 2) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -2029,7 +2028,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   public void testLeftOuterHashJoin() throws Exception {
 
     HashJoinPOP hashJoin = new HashJoinPOP(null, null,
-      Lists.newArrayList(joinCond("c1", "EQUALS", "c2")), JoinRelType.LEFT);
+      Collections.singletonList(joinCond("c1", "EQUALS", "c2")), JoinRelType.LEFT);
     mockOpContext(hashJoin, initReservation, maxAllocation);
 
     numRows = 4000 * 2;
@@ -2085,7 +2084,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
       .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
       .expectedNumBatches(4)  // verify number of batches
       .expectedBatchSize(totalSize / 2) // verify batch size
-      .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+      .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows+1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -2098,7 +2097,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
   @Test
   public void testSimpleHashAgg() {
     HashAggregate aggConf = new HashAggregate(null, AggPrelBase.OperatorPhase.PHASE_1of1, parseExprs("a", "a"), parseExprs("sum(b)", "b_sum"), 1.0f);
-    List<String> inputJsonBatches = Lists.newArrayList(
+    List<String> inputJsonBatches = Arrays.asList(
        "[{\"a\": 5, \"b\" : 1 }]",
          "[{\"a\": 5, \"b\" : 5},{\"a\": 3, \"b\" : 8}]");
 
@@ -2355,7 +2354,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
             .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
             .expectedNumBatches(4)  // verify number of batches
             .expectedBatchSize(totalSize / 2) // verify batch size
-            .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+            .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows+1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -2429,7 +2428,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
             .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
             .expectedNumBatches(1)  // verify number of batches
             .expectedBatchSize(totalSize) // verify batch size
-            .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+            .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -2486,7 +2485,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
             .physicalOperator(nestedLoopJoin)
             .baselineColumns("a1", "c1", "a2", "c2")
             .expectedNumBatches(2)  // verify number of batches
-            .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+            .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows+1; i++) {
       for (long j = i+1; j < numRows+1; j++) {
@@ -2546,7 +2545,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
             .physicalOperator(nestedLoopJoin)
             .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
             .expectedNumBatches(10)  // verify number of batches
-            .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+            .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows + 1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
@@ -2617,7 +2616,7 @@ public class TestOutputBatchSize extends PhysicalOpUnitTestBase {
             .baselineColumns("a1", "b1", "c1", "a2", "b2", "c2")
             .expectedNumBatches(4)  // verify number of batches
             .expectedBatchSize(totalSize / 2) // verify batch size
-            .inputDataStreamsJson(Lists.newArrayList(leftJsonBatches, rightJsonBatches));
+            .inputDataStreamsJson(Arrays.asList(leftJsonBatches, rightJsonBatches));
 
     for (long i = 0; i < numRows+1; i++) {
       opTestBuilder.baselineValues(5l, wideString, i, 6l, wideString, i);
