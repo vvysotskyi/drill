@@ -48,7 +48,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectWriter;
-import com.google.common.collect.Lists;
 
 public class TestOpSerialization {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestOpSerialization.class);
@@ -124,7 +123,7 @@ public class TestOpSerialization {
       pops.add(screen);
 
       if (reversed) {
-        pops = Lists.reverse(pops);
+        Collections.reverse(pops);
       }
       PhysicalPlan plan1 = new PhysicalPlan(PlanProperties.builder().build(), pops);
       String json = plan1.unparse(writer);

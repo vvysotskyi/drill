@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.join;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.LinkedList;
@@ -31,7 +30,7 @@ public class PartitionStatImpl implements HashJoinMemoryCalculator.PartitionStat
   private boolean spilled;
   private long numRecords;
   private long partitionSize;
-  private LinkedList<HashJoinMemoryCalculator.BatchStat> batchStats = Lists.newLinkedList();
+  private LinkedList<HashJoinMemoryCalculator.BatchStat> batchStats = new LinkedList<>();
 
   public PartitionStatImpl() {
   }

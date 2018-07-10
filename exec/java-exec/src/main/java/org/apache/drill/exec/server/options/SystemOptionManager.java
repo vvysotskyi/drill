@@ -42,7 +42,6 @@ import org.apache.drill.exec.store.sys.store.provider.InMemoryStoreProvider;
 import org.apache.drill.exec.util.AssertionUtil;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
 
 /**
  *  <p> {@link OptionManager} that holds options within {@link org.apache.drill.exec.server.DrillbitContext}.
@@ -305,7 +304,8 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
   public SystemOptionManager init() throws Exception {
     options = provider.getOrCreateStore(config);
     // if necessary, deprecate and replace options from persistent store
-    for (final Entry<String, PersistedOptionValue> option : Lists.newArrayList(options.getAll())) {
+    Iterable<Entry<String, PersistedOptionValue>> allOptions = () -> options.getAll();
+    for (Entry<String, PersistedOptionValue> option : allOptions) {
       final String name = option.getKey();
       final OptionDefinition definition = definitions.get(name);
       if (definition == null) {
@@ -336,7 +336,8 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
       buildList.put(entry.getKey(), entry.getValue());
     }
     // override if changed
-    for (final Map.Entry<String, PersistedOptionValue> entry : Lists.newArrayList(options.getAll())) {
+    Iterable<Entry<String, PersistedOptionValue>> allOptions = () -> options.getAll();
+    for (Entry<String, PersistedOptionValue> entry : allOptions) {
       final String name = entry.getKey();
       final OptionDefinition optionDefinition = getOptionDefinition(name);
       final PersistedOptionValue persistedOptionValue = entry.getValue();

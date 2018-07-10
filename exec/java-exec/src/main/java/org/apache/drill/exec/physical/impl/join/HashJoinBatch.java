@@ -22,8 +22,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import org.apache.commons.io.FileUtils;
@@ -461,8 +461,9 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
   }
 
   private void setupHashTable() throws SchemaChangeException {
-    final List<Comparator> comparators = Lists.newArrayListWithExpectedSize(conditions.size());
-    conditions.forEach(cond->comparators.add(JoinUtils.checkAndReturnSupportedJoinComparator(cond)));
+    final List<Comparator> comparators = conditions.stream()
+        .map(JoinUtils::checkAndReturnSupportedJoinComparator)
+        .collect(Collectors.toList());
 
     // Setup the hash table configuration object
     List<NamedExpression> leftExpr = new ArrayList<>(conditions.size());

@@ -19,7 +19,6 @@ package org.apache.drill.exec.physical.impl.project;
 
 import com.carrotsearch.hppc.IntHashSet;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.apache.drill.common.expression.ConvertExpression;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -732,8 +731,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
         assert exprPrefix != null;
 
         int k = 0;
-        result.outputNames = Lists.newArrayListWithCapacity(incomingSchemaSize);
-        for (int j=0; j < incomingSchemaSize; j++) {
+        result.outputNames = new ArrayList<>(incomingSchemaSize);
+        for (int j = 0; j < incomingSchemaSize; j++) {
           result.outputNames.add(EMPTY_STRING);  // initialize
         }
 
@@ -798,8 +797,8 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     // input has prefix but output does not
     else if (exprHasPrefix && !refHasPrefix) {
       int k = 0;
-      result.outputNames = Lists.newArrayListWithCapacity(incomingSchemaSize);
-      for (int j=0; j < incomingSchemaSize; j++) {
+      result.outputNames = new ArrayList<>(incomingSchemaSize);
+      for (int j = 0; j < incomingSchemaSize; j++) {
         result.outputNames.add(EMPTY_STRING);  // initialize
       }
 
