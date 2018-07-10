@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -30,7 +31,6 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 public class DrillCompoundIdentifier extends SqlIdentifier {
 
@@ -39,11 +39,9 @@ public class DrillCompoundIdentifier extends SqlIdentifier {
   private final List<IdentifierHolder> ids;
 
   private static List<String> getNames(List<IdentifierHolder> identifiers) {
-    List<String> names = Lists.newArrayListWithCapacity(identifiers.size());
-    for (IdentifierHolder h : identifiers) {
-      names.add(h.value);
-    }
-    return names;
+    return identifiers.stream()
+        .map(identifier -> identifier.value)
+        .collect(Collectors.toList());
   }
 
   public DrillCompoundIdentifier(List<IdentifierHolder> identifiers) {
@@ -104,8 +102,8 @@ public class DrillCompoundIdentifier extends SqlIdentifier {
   }
 
   public SqlNode getAsCompoundIdentifier() {
-    List<String> names = Lists.newArrayListWithCapacity(ids.size());
-    List<SqlParserPos> pos = Lists.newArrayListWithCapacity(ids.size());
+    List<String> names = new ArrayList<>(ids.size());
+    List<SqlParserPos> pos = new ArrayList<>(ids.size());
     for (IdentifierHolder holder : ids) {
       names.add(holder.value);
       pos.add(holder.parserPos);

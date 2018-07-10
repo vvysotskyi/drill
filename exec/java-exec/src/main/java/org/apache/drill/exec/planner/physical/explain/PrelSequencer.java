@@ -20,6 +20,7 @@ package org.apache.drill.exec.planner.physical.explain;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -219,10 +220,9 @@ public class PrelSequencer extends BasePrelVisitor<Void, PrelSequencer.Frag, Run
         }
 
         if (!isExchange || p == f.root) {
-          List<Prel> children = Lists.reverse(Lists.newArrayList(p.iterator()));
-          for (Prel child : children) {
-            ops.add(child);
-          }
+          List<Prel> children = Lists.newArrayList(p.iterator());
+          Collections.reverse(children);
+          ops.addAll(children);
         }
       }
     }

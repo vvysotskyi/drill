@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
@@ -60,7 +61,6 @@ import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 public class CreateTableHandler extends DefaultSqlHandler {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CreateTableHandler.class);
@@ -194,12 +194,11 @@ public class CreateTableHandler extends DefaultSqlHandler {
 
       final RelOptCluster cluster = prel.getCluster();
 
-      final List<RexNode> exprs = Lists.newArrayListWithExpectedSize(queryRowType.getFieldCount() + 1);
       final List<String> fieldNames = new ArrayList<>(queryRowType.getFieldNames());
 
-      for (final RelDataTypeField field : queryRowType.getFieldList()) {
-        exprs.add(RexInputRef.of(field.getIndex(), queryRowType));
-      }
+      final List<RexNode> exprs = queryRowType.getFieldList().stream()
+          .map(field -> RexInputRef.of(field.getIndex(), queryRowType))
+          .collect(Collectors.toList());
 
       // No partition columns.
       if (partitionColumns.size() == 0) {
@@ -207,10 +206,10 @@ public class CreateTableHandler extends DefaultSqlHandler {
             cluster.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL), child, exprs, queryRowType);
 
         return prel.copy(projectUnderWriter.getTraitSet(),
-            Collections.singletonList( (RelNode) projectUnderWriter));
+            Collections.singletonList(projectUnderWriter));
       } else {
         // find list of partition columns.
-        final List<RexNode> partitionColumnExprs = Lists.newArrayListWithExpectedSize(partitionColumns.size());
+        final List<RexNode> partitionColumnExprs = new ArrayList<>(partitionColumns.size());
         for (final String colName : partitionColumns) {
           final RelDataTypeField field = childRowType.getField(colName, false, false);
 
@@ -237,7 +236,7 @@ public class CreateTableHandler extends DefaultSqlHandler {
             cluster.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL), child, exprs, rowTypeWithPCComp);
 
         return prel.copy(projectUnderWriter.getTraitSet(),
-            Collections.singletonList( (RelNode) projectUnderWriter));
+            Collections.singletonList(projectUnderWriter));
       }
     }
 
@@ -246,11 +245,9 @@ public class CreateTableHandler extends DefaultSqlHandler {
   private RexNode createPartitionColComparator(final RexBuilder rexBuilder, List<RexNode> inputs) {
     final DrillSqlOperator op = new DrillSqlOperator(WriterPrel.PARTITION_COMPARATOR_FUNC, 1, true, false);
 
-    final List<RexNode> compFuncs = Lists.newArrayListWithExpectedSize(inputs.size());
-
-    for (final RexNode input : inputs) {
-      compFuncs.add(rexBuilder.makeCall(op, ImmutableList.of(input)));
-    }
+    final List<RexNode> compFuncs = inputs.stream()
+        .map(input -> rexBuilder.makeCall(op, ImmutableList.of(input)))
+        .collect(Collectors.toList());
 
     return composeDisjunction(rexBuilder, compFuncs);
   }
