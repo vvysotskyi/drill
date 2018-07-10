@@ -37,7 +37,6 @@ import org.apache.drill.exec.dotdrill.View;
 import org.apache.drill.exec.planner.logical.CreateTableEntry;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
 
 public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer, AutoCloseable {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractSchema.class);
@@ -249,7 +248,7 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
   }
 
   public List<Pair<String, Schema.TableType>> getTableNamesAndTypes(boolean bulkLoad, int bulkSize) {
-    final List<String> tableNames = Lists.newArrayList(getTableNames());
+    final List<String> tableNames = new ArrayList<>(getTableNames());
     final List<Pair<String, Schema.TableType>> tableNamesAndTypes = new ArrayList<>();
     final List<Pair<String, ? extends Table>> tables;
     if (bulkLoad) {

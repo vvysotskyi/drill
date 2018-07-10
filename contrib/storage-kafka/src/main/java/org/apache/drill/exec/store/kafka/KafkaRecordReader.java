@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.kafka;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -39,7 +40,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 public class KafkaRecordReader extends AbstractRecordReader {
@@ -91,7 +91,7 @@ public class KafkaRecordReader extends AbstractRecordReader {
   public void setup(OperatorContext context, OutputMutator output) throws ExecutionSetupException {
     this.writer = new VectorContainerWriter(output, unionEnabled);
     messageReader = MessageReaderFactory.getMessageReader(kafkaMsgReader);
-    messageReader.init(context.getManagedBuffer(), Lists.newArrayList(getColumns()), this.writer,
+    messageReader.init(context.getManagedBuffer(), new ArrayList<>(getColumns()), this.writer,
         this.enableAllTextMode, this.readNumbersAsDouble);
     msgItr = new MessageIterator(messageReader.getConsumer(plugin), subScanSpec, kafkaPollTimeOut);
   }

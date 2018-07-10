@@ -68,7 +68,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.mongodb.MongoClient;
@@ -556,7 +555,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
     logger.debug("Took {} µs to get operator affinity",
         watch.elapsed(TimeUnit.NANOSECONDS) / 1000);
     logger.debug("Affined drillbits : " + affinityMap.values());
-    return Lists.newArrayList(affinityMap.values());
+    return new ArrayList<>(affinityMap.values());
   }
 
   @JsonProperty

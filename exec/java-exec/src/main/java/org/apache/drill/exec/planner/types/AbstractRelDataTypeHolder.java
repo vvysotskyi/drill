@@ -18,7 +18,6 @@
 package org.apache.drill.exec.planner.types;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 
@@ -33,7 +32,7 @@ public abstract class AbstractRelDataTypeHolder {
   protected RelDataTypeFactory typeFactory;
 
   public AbstractRelDataTypeHolder(List<RelDataTypeField> fields) {
-    this.fields = Lists.newArrayList(fields);
+    this.fields = new ArrayList<>(fields);
   }
 
   /**
