@@ -20,6 +20,7 @@ package org.apache.drill.exec.server.rest;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeSet;
 import javax.annotation.security.PermitAll;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -164,8 +165,8 @@ public class DrillRoot {
   @Path("/cluster.json")
   @Produces(MediaType.APPLICATION_JSON)
   public ClusterInfo getClusterInfoJSON() {
-    final Collection<DrillbitInfo> drillbits = Sets.newTreeSet();
-    final Collection<String> mismatchedVersions = Sets.newTreeSet();
+    final Collection<DrillbitInfo> drillbits = new TreeSet<>();
+    final Collection<String> mismatchedVersions = new TreeSet<>();
 
     final DrillbitContext dbContext = work.getContext();
     final DrillbitEndpoint currentDrillbit = dbContext.getEndpoint();

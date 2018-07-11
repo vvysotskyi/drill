@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -54,7 +55,6 @@ import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Sets;
 
 public class HBaseRecordReader extends AbstractRecordReader implements DrillHBaseConstants {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HBaseRecordReader.class);
@@ -110,7 +110,7 @@ public class HBaseRecordReader extends AbstractRecordReader implements DrillHBas
    */
   @Override
   protected Collection<SchemaPath> transformColumns(Collection<SchemaPath> columns) {
-    Set<SchemaPath> transformed = Sets.newLinkedHashSet();
+    Set<SchemaPath> transformed = new LinkedHashSet<>();
     completeFamilies = new HashSet<>();
 
     rowKeyOnly = true;

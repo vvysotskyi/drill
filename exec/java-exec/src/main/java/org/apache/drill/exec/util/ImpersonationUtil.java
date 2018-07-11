@@ -22,6 +22,8 @@ import java.security.PrivilegedExceptionAction;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.ops.OperatorStats;
@@ -34,7 +36,6 @@ import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.Sets;
 
 /**
  * Utilities for impersonation purpose.
@@ -239,7 +240,9 @@ public class ImpersonationUtil {
       return true;
     }
 
-    final Set<String> adminUsersSet = Sets.newHashSet(SPLITTER.split(adminUsers));
+    final Set<String> adminUsersSet =
+        StreamSupport.stream(SPLITTER.split(adminUsers).spliterator(), false)
+            .collect(Collectors.toSet());
     if (adminUsersSet.contains(userName)) {
       return true;
     }
@@ -250,7 +253,8 @@ public class ImpersonationUtil {
       return false;
     }
 
-    final Set<String> adminUserGroupsSet = Sets.newHashSet(SPLITTER.split(adminGroups));
+    final Set<String> adminUserGroupsSet = StreamSupport.stream(SPLITTER.split(adminGroups).spliterator(), false)
+        .collect(Collectors.toSet());
     for (String userGroup : userGroups) {
       if (adminUserGroupsSet.contains(userGroup)) {
         return true;

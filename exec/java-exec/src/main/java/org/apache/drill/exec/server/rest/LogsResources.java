@@ -20,7 +20,6 @@ package org.apache.drill.exec.server.rest;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.work.WorkManager;
@@ -50,6 +49,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import static org.apache.drill.exec.server.rest.auth.DrillUserPrincipal.ADMIN_ROLE;
 
@@ -82,7 +82,7 @@ public class LogsResources {
   @Path("/logs.json")
   @Produces(MediaType.APPLICATION_JSON)
   public Set<Log> getLogsJSON() {
-    Set<Log> logs = Sets.newTreeSet();
+    Set<Log> logs = new TreeSet<>();
     File[] files = getLogFolder().listFiles(file_filter);
 
     for (File file : files) {

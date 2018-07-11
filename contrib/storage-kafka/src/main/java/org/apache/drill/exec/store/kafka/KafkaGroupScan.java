@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
@@ -284,7 +283,7 @@ public class KafkaGroupScan extends AbstractGroupScan {
 
   public GroupScan cloneWithNewSpec(List<KafkaPartitionScanSpec> partitionScanSpecList) {
     KafkaGroupScan clone = new KafkaGroupScan(this);
-    HashSet<TopicPartition> partitionsInSpec = Sets.newHashSet();
+    HashSet<TopicPartition> partitionsInSpec = new HashSet<>();
 
     for(KafkaPartitionScanSpec scanSpec : partitionScanSpecList) {
       TopicPartition tp = new TopicPartition(scanSpec.getTopicName(), scanSpec.getPartitionId());

@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.mongo.schema;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,8 +29,6 @@ import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.mongo.MongoStoragePluginConfig;
 import org.apache.drill.exec.store.mongo.schema.MongoSchemaFactory.MongoSchema;
-
-import com.google.common.collect.Sets;
 
 public class MongoDatabaseSchema extends AbstractSchema {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory
@@ -43,7 +42,7 @@ public class MongoDatabaseSchema extends AbstractSchema {
       String name) {
     super(mongoSchema.getSchemaPath(), name);
     this.mongoSchema = mongoSchema;
-    this.tableNames = Sets.newHashSet(tableList);
+    this.tableNames = new HashSet<>(tableList);
   }
 
   @Override

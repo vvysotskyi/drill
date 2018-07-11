@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -32,6 +31,7 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -117,7 +117,7 @@ public class KafkaPartitionScanSpecBuilder extends
 
         //parsedSpec is null if expression cannot be pushed down
         if(parsedSpec != null) {
-          Set<TopicPartition> partitionsInNewSpec = Sets.newHashSet(); //Store topic-partitions returned from new spec.
+          Set<TopicPartition> partitionsInNewSpec = new HashSet<>(); //Store topic-partitions returned from new spec.
 
           for (KafkaPartitionScanSpec newSpec : parsedSpec) {
             TopicPartition tp = new TopicPartition(newSpec.getTopicName(), newSpec.getPartitionId());

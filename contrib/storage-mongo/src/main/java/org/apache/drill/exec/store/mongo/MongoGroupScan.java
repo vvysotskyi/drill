@@ -68,7 +68,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Sets;
 import com.mongodb.MongoClient;
 import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
@@ -405,8 +404,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
       hostIndexQueue.add(i);
     }
 
-    Set<Entry<String, List<ChunkInfo>>> chunksToAssignSet = Sets
-        .newHashSet(chunksInverseMapping.entrySet());
+    Set<Entry<String, List<ChunkInfo>>> chunksToAssignSet = new HashSet<>(chunksInverseMapping.entrySet());
 
     for (Iterator<Entry<String, List<ChunkInfo>>> chunksIterator = chunksToAssignSet
         .iterator(); chunksIterator.hasNext();) {
