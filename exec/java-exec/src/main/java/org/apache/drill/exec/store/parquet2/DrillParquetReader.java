@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +64,6 @@ import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
 
 public class DrillParquetReader extends AbstractRecordReader {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillParquetReader.class);
@@ -117,7 +117,7 @@ public class DrillParquetReader extends AbstractRecordReader {
     // parquet type.union() seems to lose ConvertedType info when merging two columns that are the same type. This can
     // happen when selecting two elements from an array. So to work around this, we use set of SchemaPath to avoid duplicates
     // and then merge the types at the end
-    Set<SchemaPath> selectedSchemaPaths = Sets.newLinkedHashSet();
+    Set<SchemaPath> selectedSchemaPaths = new LinkedHashSet<>();
 
     // get a list of modified columns which have the array elements removed from the schema path since parquet schema doesn't include array elements
     List<SchemaPath> modifiedColumns = new LinkedList<>();

@@ -24,8 +24,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.Sets;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.FieldReference;
@@ -927,7 +925,7 @@ public class HashJoinBatch extends AbstractBinaryRecordBatch<HashJoinPOP> {
     this.popConfig = popConfig;
 
     rightExpr = new ArrayList<>(conditions.size());
-    buildJoinColumns = Sets.newHashSet();
+    buildJoinColumns = new HashSet<>();
 
     for (int i = 0; i < conditions.size(); i++) {
       final SchemaPath rightPath = (SchemaPath) conditions.get(i).getRight();

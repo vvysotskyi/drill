@@ -17,10 +17,10 @@
  */
 package org.apache.drill.exec.server.options;
 
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Sets;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.util.DrillStringUtils;
 import org.apache.drill.exec.ExecConstants;
@@ -181,7 +181,7 @@ public class TypeValidators {
    * Validator that checks if the given value is included in a list of acceptable values. Case insensitive.
    */
   public static class EnumeratedStringValidator extends StringValidator {
-    private final Set<String> valuesSet = Sets.newLinkedHashSet();
+    private final Set<String> valuesSet = new LinkedHashSet<>();
 
     public EnumeratedStringValidator(String name, String... values) {
       super(name);

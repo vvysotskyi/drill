@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.kafka;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +41,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Sets;
 
 public class KafkaRecordReader extends AbstractRecordReader {
   private static final Logger logger = LoggerFactory.getLogger(KafkaRecordReader.class);
@@ -76,11 +76,9 @@ public class KafkaRecordReader extends AbstractRecordReader {
 
   @Override
   protected Collection<SchemaPath> transformColumns(Collection<SchemaPath> projectedColumns) {
-    Set<SchemaPath> transformed = Sets.newLinkedHashSet();
+    Set<SchemaPath> transformed = new LinkedHashSet<>();
     if (!isStarQuery()) {
-      for (SchemaPath column : projectedColumns) {
-        transformed.add(column);
-      }
+      transformed.addAll(projectedColumns);
     } else {
       transformed.add(SchemaPath.STAR_COLUMN);
     }

@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.mongo;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,7 +47,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Sets;
 import com.mongodb.MongoClient;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoCollection;
@@ -81,7 +81,7 @@ public class MongoRecordReader extends AbstractRecordReader {
 
     fields = new Document();
     // exclude _id field, if not mentioned by user.
-    fields.put(DrillMongoConstants.ID, Integer.valueOf(0));
+    fields.put(DrillMongoConstants.ID, 0);
     setColumns(projectedColumns);
     fragmentContext = context;
     this.plugin = plugin;
@@ -100,12 +100,12 @@ public class MongoRecordReader extends AbstractRecordReader {
 
   @Override
   protected Collection<SchemaPath> transformColumns(Collection<SchemaPath> projectedColumns) {
-    Set<SchemaPath> transformed = Sets.newLinkedHashSet();
+    Set<SchemaPath> transformed = new LinkedHashSet<>();
     if (!isStarQuery()) {
       for (SchemaPath column : projectedColumns) {
         String fieldName = column.getRootSegment().getPath();
         transformed.add(column);
-        this.fields.put(fieldName, Integer.valueOf(1));
+        this.fields.put(fieldName, 1);
       }
     } else {
       // Tale all the fields including the _id

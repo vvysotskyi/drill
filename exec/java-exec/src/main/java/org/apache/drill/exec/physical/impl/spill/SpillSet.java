@@ -30,6 +30,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
@@ -50,7 +51,6 @@ import org.apache.hadoop.fs.Path;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Sets;
 
 /**
  * Generates the set of spill files for this sort session.
@@ -394,7 +394,7 @@ public class SpillSet {
    * before writing to the directories.
    */
 
-  private Set<String> currSpillDirs = Sets.newTreeSet();
+  private Set<String> currSpillDirs = new TreeSet<>();
 
   /**
    * The base part of the file name for spill files. Each file has this

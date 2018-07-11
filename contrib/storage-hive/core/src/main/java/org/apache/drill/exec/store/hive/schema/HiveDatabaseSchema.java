@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.hive.schema;
 
-import com.google.common.collect.Sets;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -67,7 +66,7 @@ public class HiveDatabaseSchema extends AbstractSchema{
   public Set<String> getTableNames() {
     if (tables == null) {
       try {
-        tables = Sets.newHashSet(mClient.getTableNames(this.name, schemaConfig.getIgnoreAuthErrors()));
+        tables = new HashSet<>(mClient.getTableNames(this.name, schemaConfig.getIgnoreAuthErrors()));
       } catch (final TException e) {
         logger.warn("Failure while attempting to access HiveDatabase '{}'.", this.name, e.getCause());
         tables = new HashSet<>(); // empty set.

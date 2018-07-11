@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.planner.sql.handlers;
 
-import com.google.common.collect.Sets;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
@@ -115,7 +114,7 @@ public class SqlHandlerUtil {
   }
 
   private static void ensureNoDuplicateColumnNames(List<String> fieldNames) throws ValidationException {
-    final HashSet<String> fieldHashSet = Sets.newHashSetWithExpectedSize(fieldNames.size());
+    final HashSet<String> fieldHashSet = new HashSet<>(fieldNames.size());
     for(String field : fieldNames) {
       if (fieldHashSet.contains(field.toLowerCase())) {
         throw new ValidationException(String.format("Duplicate column name [%s]", field));

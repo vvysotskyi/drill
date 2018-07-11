@@ -24,9 +24,9 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.collect.Sets;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.config.DrillConfig;
@@ -121,7 +121,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private boolean first = true;
   private int targetRecordCount;
   private final String fileName;
-  private Set<Path> currSpillDirs = Sets.newTreeSet();
+  private Set<Path> currSpillDirs = new TreeSet<>();
   private int firstSpillBatchCount = 0;
   private int peakNumBatches = -1;
 

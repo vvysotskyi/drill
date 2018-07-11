@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,7 +46,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.mongodb.MongoException;
 import com.mongodb.client.MongoDatabase;
 
@@ -167,7 +167,7 @@ public class MongoSchemaFactory implements SchemaFactory {
     public Set<String> getSubSchemaNames() {
       try {
         List<String> dbs = databases.get(DATABASES);
-        return Sets.newHashSet(dbs);
+        return new HashSet<>(dbs);
       } catch (ExecutionException e) {
         logger.warn("Failure while getting Mongo database list.", e);
         return Collections.emptySet();

@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.server.rest;
 
-import com.google.common.collect.Sets;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.DrillBuf;
 import io.netty.channel.ChannelFuture;
@@ -37,6 +36,7 @@ import org.apache.drill.exec.vector.ValueVector.Accessor;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,7 +60,7 @@ public class WebUserConnection extends AbstractDisposableUserClientConnection im
 
   public final List<Map<String, String>> results = new ArrayList<>();
 
-  public final Set<String> columns = Sets.newLinkedHashSet();
+  public final Set<String> columns = new LinkedHashSet<>();
 
   WebUserConnection(WebSessionResources webSessionResources) {
     this.webSessionResources = webSessionResources;
