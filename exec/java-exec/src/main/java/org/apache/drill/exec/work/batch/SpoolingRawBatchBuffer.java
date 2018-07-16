@@ -46,7 +46,6 @@ import org.apache.hadoop.fs.Path;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Queues;
 
 /**
  * This implementation of RawBatchBuffer starts writing incoming batches to disk once the buffer size reaches a threshold.
@@ -92,7 +91,7 @@ public class SpoolingRawBatchBuffer extends BaseRawBatchBuffer<SpoolingRawBatchB
 
   private class SpoolingBufferQueue implements BufferQueue<RawFragmentBatchWrapper> {
 
-    private final LinkedBlockingDeque<RawFragmentBatchWrapper> buffer = Queues.newLinkedBlockingDeque();
+    private final LinkedBlockingDeque<RawFragmentBatchWrapper> buffer = new LinkedBlockingDeque<>();
 
     @Override
     public void addOomBatch(RawFragmentBatch batch) {
@@ -281,7 +280,7 @@ public class SpoolingRawBatchBuffer extends BaseRawBatchBuffer<SpoolingRawBatchB
     public Spooler(String name) {
       setDaemon(true);
       setName(name);
-      spoolingQueue = Queues.newLinkedBlockingDeque();
+      spoolingQueue = new LinkedBlockingDeque<>();
     }
 
     public void run() {

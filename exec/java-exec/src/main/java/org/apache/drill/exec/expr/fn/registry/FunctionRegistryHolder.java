@@ -19,7 +19,6 @@ package org.apache.drill.exec.expr.fn.registry;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Queues;
 
 import org.apache.drill.common.AutoCloseables.Closeable;
 import org.apache.drill.common.concurrent.AutoCloseableLock;
@@ -30,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -316,7 +316,7 @@ public class FunctionRegistryHolder {
       final String functionName = function.getName();
       Queue<String> jarFunctions = jar.get(functionName);
       if (jarFunctions == null) {
-        jarFunctions = Queues.newConcurrentLinkedQueue();;
+        jarFunctions = new ConcurrentLinkedQueue<>();
         jar.put(functionName, jarFunctions);
       }
       final String functionSignature = function.getSignature();

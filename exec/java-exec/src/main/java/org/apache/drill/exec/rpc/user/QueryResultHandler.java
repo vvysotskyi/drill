@@ -42,8 +42,6 @@ import org.apache.drill.exec.rpc.RpcConnectionHandler;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
 
-import com.google.common.collect.Queues;
-
 /**
  * Encapsulates the future management of query submissions.  This entails a
  * potential race condition.  Normal ordering is:
@@ -200,7 +198,7 @@ public class QueryResultHandler {
 
   private static class BufferingResultsListener implements UserResultsListener {
 
-    private ConcurrentLinkedQueue<QueryDataBatch> results = Queues.newConcurrentLinkedQueue();
+    private ConcurrentLinkedQueue<QueryDataBatch> results = new ConcurrentLinkedQueue<>();
     private volatile UserException ex;
     private volatile QueryState queryState;
     private volatile UserResultsListener output;

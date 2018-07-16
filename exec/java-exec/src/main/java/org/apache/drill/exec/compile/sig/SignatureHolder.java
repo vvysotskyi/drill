@@ -20,6 +20,7 @@ package org.apache.drill.exec.compile.sig;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
 
 public class SignatureHolder implements Iterable<CodeGeneratorMethod> {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SignatureHolder.class);
@@ -109,7 +109,7 @@ public class SignatureHolder implements Iterable<CodeGeneratorMethod> {
 
   @Override
   public Iterator<CodeGeneratorMethod> iterator() {
-    return Iterators.forArray(methods);
+    return Arrays.asList(methods).iterator();
   }
 
   public int size() {
