@@ -23,7 +23,6 @@ import java.util.Objects;
 
 import com.dyuproject.protostuff.JsonIOUtil;
 import com.dyuproject.protostuff.Schema;
-import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
 
 public class ProtoSerializer<T, B extends Message.Builder> implements InstanceSerializer<T> {
@@ -31,8 +30,8 @@ public class ProtoSerializer<T, B extends Message.Builder> implements InstanceSe
   private final Schema<T> writeSchema;
 
   public ProtoSerializer(final Schema<B> readSchema, final Schema<T> writeSchema) {
-    this.readSchema = Preconditions.checkNotNull(readSchema);
-    this.writeSchema = Preconditions.checkNotNull(writeSchema);
+    this.readSchema = Objects.requireNonNull(readSchema);
+    this.writeSchema = Objects.requireNonNull(writeSchema);
   }
 
   @Override

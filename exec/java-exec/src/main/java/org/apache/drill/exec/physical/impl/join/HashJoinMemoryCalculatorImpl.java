@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -253,8 +254,8 @@ public class HashJoinMemoryCalculatorImpl implements HashJoinMemoryCalculator {
                                      final HashJoinHelperSizeCalculator hashJoinHelperSizeCalculator,
                                      final double fragmentationFactor,
                                      final double safetyFactor) {
-      this.hashTableSizeCalculator = Preconditions.checkNotNull(hashTableSizeCalculator);
-      this.hashJoinHelperSizeCalculator = Preconditions.checkNotNull(hashJoinHelperSizeCalculator);
+      this.hashTableSizeCalculator = Objects.requireNonNull(hashTableSizeCalculator);
+      this.hashJoinHelperSizeCalculator = Objects.requireNonNull(hashJoinHelperSizeCalculator);
       this.fragmentationFactor = fragmentationFactor;
       this.safetyFactor = safetyFactor;
     }
@@ -274,9 +275,9 @@ public class HashJoinMemoryCalculatorImpl implements HashJoinMemoryCalculator {
                            int outputBatchNumRecords,
                            int outputBatchSize,
                            double loadFactor) {
-      Preconditions.checkNotNull(buildSideBatch);
-      Preconditions.checkNotNull(probeSideBatch);
-      Preconditions.checkNotNull(joinColumns);
+      Objects.requireNonNull(buildSideBatch);
+      Objects.requireNonNull(probeSideBatch);
+      Objects.requireNonNull(joinColumns);
 
       final RecordBatchSizer buildSizer = new RecordBatchSizer(buildSideBatch);
       final RecordBatchSizer probeSizer = new RecordBatchSizer(probeSideBatch);
@@ -370,7 +371,7 @@ public class HashJoinMemoryCalculatorImpl implements HashJoinMemoryCalculator {
       this.loadFactor = loadFactor;
       this.autoTune = autoTune;
       this.reserveHash = reserveHash;
-      this.keySizes = Preconditions.checkNotNull(keySizes);
+      this.keySizes = Objects.requireNonNull(keySizes);
       this.memoryAvailable = memoryAvailable;
       this.buildBatchSize = buildBatchSize;
       this.probeBatchSize = probeBatchSize;
@@ -393,7 +394,7 @@ public class HashJoinMemoryCalculatorImpl implements HashJoinMemoryCalculator {
       Preconditions.checkState(!initialized);
       initialized = true;
 
-      partitionStatsSet = Preconditions.checkNotNull(partitionStatSet);
+      partitionStatsSet = Objects.requireNonNull(partitionStatSet);
     }
 
     @Override
@@ -653,10 +654,10 @@ public class HashJoinMemoryCalculatorImpl implements HashJoinMemoryCalculator {
       this.partitionProbeBatchSize = partitionProbeBatchSize;
       this.maxProbeBatchSize = maxProbeBatchSize;
       this.maxOutputBatchSize = maxOutputBatchSize;
-      this.buildPartitionStatSet = Preconditions.checkNotNull(buildPartitionStatSet);
-      this.keySizes = Preconditions.checkNotNull(keySizes);
-      this.hashTableSizeCalculator = Preconditions.checkNotNull(hashTableSizeCalculator);
-      this.hashJoinHelperSizeCalculator = Preconditions.checkNotNull(hashJoinHelperSizeCalculator);
+      this.buildPartitionStatSet = Objects.requireNonNull(buildPartitionStatSet);
+      this.keySizes = Objects.requireNonNull(keySizes);
+      this.hashTableSizeCalculator = Objects.requireNonNull(hashTableSizeCalculator);
+      this.hashJoinHelperSizeCalculator = Objects.requireNonNull(hashJoinHelperSizeCalculator);
       this.fragmentationFactor = fragmentationFactor;
       this.safetyFactor = safetyFactor;
       this.loadFactor = loadFactor;

@@ -22,6 +22,7 @@ import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -38,7 +39,6 @@ import org.apache.drill.exec.util.AssertionUtil;
 import org.apache.drill.exec.util.ImpersonationUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 
 /**
@@ -67,8 +67,8 @@ public class ImplCreator {
    * @throws ExecutionSetupException
    */
   public static RootExec getExec(ExecutorFragmentContext context, FragmentRoot root) throws ExecutionSetupException {
-    Preconditions.checkNotNull(root);
-    Preconditions.checkNotNull(context);
+    Objects.requireNonNull(root);
+    Objects.requireNonNull(context);
 
     // Enable iterator (operator) validation if assertions are enabled (debug mode)
     // or if in production mode and the ENABLE_ITERATOR_VALIDATION option is set
@@ -112,12 +112,8 @@ public class ImplCreator {
     if (context.isImpersonationEnabled()) {
       final UserGroupInformation proxyUgi = ImpersonationUtil.createProxyUgi(root.getUserName(), context.getQueryUserName());
       try {
-        return proxyUgi.doAs(new PrivilegedExceptionAction<RootExec>() {
-          @Override
-          public RootExec run() throws Exception {
-            return ((RootCreator<PhysicalOperator>) getOpCreator(root, context)).getRoot(context, root, childRecordBatches);
-          }
-        });
+        return proxyUgi.doAs(
+            (PrivilegedExceptionAction<RootExec>) () -> ((RootCreator<PhysicalOperator>) getOpCreator(root, context)).getRoot(context, root, childRecordBatches));
       } catch (InterruptedException | IOException e) {
         final String errMsg = String.format("Failed to create RootExec for operator with id '%d'", root.getOperatorId());
         logger.error(errMsg, e);
@@ -132,22 +128,19 @@ public class ImplCreator {
   /** Create a RecordBatch and its children for given PhysicalOperator */
   @VisibleForTesting
   public RecordBatch getRecordBatch(final PhysicalOperator op, final ExecutorFragmentContext context) throws ExecutionSetupException {
-    Preconditions.checkNotNull(op);
+    Objects.requireNonNull(op);
 
     final List<RecordBatch> childRecordBatches = getChildren(op, context);
 
     if (context.isImpersonationEnabled()) {
       final UserGroupInformation proxyUgi = ImpersonationUtil.createProxyUgi(op.getUserName(), context.getQueryUserName());
       try {
-        return proxyUgi.doAs(new PrivilegedExceptionAction<RecordBatch>() {
-          @Override
-          public RecordBatch run() throws Exception {
-            @SuppressWarnings("unchecked")
-            final CloseableRecordBatch batch = ((BatchCreator<PhysicalOperator>) getOpCreator(op, context)).getBatch(
-                context, op, childRecordBatches);
-            operators.addFirst(batch);
-            return batch;
-          }
+        return proxyUgi.doAs((PrivilegedExceptionAction<RecordBatch>) () -> {
+          @SuppressWarnings("unchecked")
+          final CloseableRecordBatch batch = ((BatchCreator<PhysicalOperator>) getOpCreator(op, context)).getBatch(
+              context, op, childRecordBatches);
+          operators.addFirst(batch);
+          return batch;
         });
       } catch (InterruptedException | IOException e) {
         final String errMsg = String.format("Failed to create RecordBatch for operator with id '%d'", op.getOperatorId());

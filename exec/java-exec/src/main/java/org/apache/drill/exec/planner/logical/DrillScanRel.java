@@ -19,6 +19,7 @@ package org.apache.drill.exec.planner.logical;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.drill.common.JSONOptions;
@@ -41,7 +42,6 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.type.RelDataType;
 
-import com.google.common.base.Preconditions;
 import org.apache.drill.exec.util.Utilities;
 
 /**
@@ -82,8 +82,7 @@ public class DrillScanRel extends DrillScanRelBase implements DrillRel {
     super(DRILL_LOGICAL, cluster, traits, table);
     this.settings = PrelUtil.getPlannerSettings(cluster.getPlanner());
     this.rowType = rowType;
-    Preconditions.checkNotNull(columns);
-    this.columns = columns;
+    this.columns = Objects.requireNonNull(columns);
     this.partitionFilterPushdown = partitionFilterPushdown;
     try {
       this.groupScan = drillTable.getGroupScan().clone(this.columns);

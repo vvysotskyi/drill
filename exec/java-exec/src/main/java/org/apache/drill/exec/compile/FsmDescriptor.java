@@ -20,6 +20,7 @@ package org.apache.drill.exec.compile;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -63,9 +64,9 @@ public class FsmDescriptor {
    */
   public FsmDescriptor(final Map<String, Character> tokenMap,
       final String fsmRegex, final String lastTransition) {
-    Preconditions.checkNotNull(tokenMap);
-    Preconditions.checkNotNull(fsmRegex);
-    Preconditions.checkNotNull(lastTransition);
+    Objects.requireNonNull(tokenMap);
+    Objects.requireNonNull(fsmRegex);
+    Objects.requireNonNull(lastTransition);
     Preconditions.checkArgument(tokenMap.containsKey(lastTransition));
 
     // make sure the characters in the tokenMap are unique
@@ -120,10 +121,10 @@ public class FsmDescriptor {
    * @return the character used to represent that transition or state
    */
   char getChar(final String token) {
-    Preconditions.checkNotNull(token);
+    Objects.requireNonNull(token);
     final Character character = tokenMap.get(token);
-    Preconditions.checkNotNull(character);
-    return character.charValue();
+    Objects.requireNonNull(character);
+    return character;
   }
 
   /**

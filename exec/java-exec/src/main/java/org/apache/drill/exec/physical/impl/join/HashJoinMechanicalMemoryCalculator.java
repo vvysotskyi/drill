@@ -17,10 +17,10 @@
  */
 package org.apache.drill.exec.physical.impl.join;
 
-import com.google.common.base.Preconditions;
 import org.apache.drill.exec.record.RecordBatch;
 
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 
 public class HashJoinMechanicalMemoryCalculator implements HashJoinMemoryCalculator {
@@ -84,7 +84,7 @@ public class HashJoinMechanicalMemoryCalculator implements HashJoinMemoryCalcula
 
     @Override
     public void setPartitionStatSet(PartitionStatSet partitionStatSet) {
-      this.partitionStatSet = Preconditions.checkNotNull(partitionStatSet);
+      this.partitionStatSet = Objects.requireNonNull(partitionStatSet);
     }
 
     @Override
@@ -131,7 +131,7 @@ public class HashJoinMechanicalMemoryCalculator implements HashJoinMemoryCalcula
     public MechanicalPostBuildCalculations(int maxNumInMemBatches,
                                            PartitionStatSet partitionStatSet) {
       this.maxNumInMemBatches = maxNumInMemBatches;
-      this.partitionStatSet = Preconditions.checkNotNull(partitionStatSet);
+      this.partitionStatSet = Objects.requireNonNull(partitionStatSet);
     }
 
     @Override

@@ -30,6 +30,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
@@ -297,18 +298,18 @@ public class MongoGroupScan extends AbstractGroupScan implements
     Bson filter = new Document(ID, this.scanSpec.getDbName());
     Bson projection = new Document(PRIMARY, select);
     Document document = collection.find(filter).projection(projection).first();
-    Preconditions.checkNotNull(document);
+    Objects.requireNonNull(document);
     String shardName = document.getString(PRIMARY);
-    Preconditions.checkNotNull(shardName);
+    Objects.requireNonNull(shardName);
 
     //Identify the host(s) on which this shard resides.
     MongoCollection<Document> shardsCol = database.getCollection(SHARDS);
     filter = new Document(ID, shardName);
     projection = new Document(HOST, select);
     Document hostInfo = shardsCol.find(filter).projection(projection).first();
-    Preconditions.checkNotNull(hostInfo);
+    Objects.requireNonNull(hostInfo);
     String hostEntry = hostInfo.getString(HOST);
-    Preconditions.checkNotNull(hostEntry);
+    Objects.requireNonNull(hostEntry);
 
     String[] tagAndHost = StringUtils.split(hostEntry, '/');
     String[] hosts = tagAndHost.length > 1 ? StringUtils.split(tagAndHost[1],

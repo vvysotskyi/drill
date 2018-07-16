@@ -20,9 +20,9 @@ package org.apache.drill.exec.store.sys.store;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.StreamSupport;
 
-import com.google.common.base.Preconditions;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.drill.common.collections.ImmutableEntry;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
@@ -46,7 +46,7 @@ public class ZookeeperPersistentStore<V> extends BasePersistentStore<V> implemen
   private final ZookeeperClient client;
 
   public ZookeeperPersistentStore(final CuratorFramework framework, final PersistentStoreConfig<V> config) throws StoreException {
-    this.config = Preconditions.checkNotNull(config);
+    this.config = Objects.requireNonNull(config);
     this.client = new ZookeeperClient(framework, PathUtils.join("/", config.getName()), CreateMode.PERSISTENT);
   }
 

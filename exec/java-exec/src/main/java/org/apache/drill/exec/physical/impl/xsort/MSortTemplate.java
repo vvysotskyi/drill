@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort;
 import com.typesafe.config.ConfigException;
 import io.netty.buffer.DrillBuf;
 
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -35,8 +36,6 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.util.IndexedSortable;
-
-import com.google.common.base.Preconditions;
 
 public abstract class MSortTemplate implements MSorter, IndexedSortable {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MSortTemplate.class);
@@ -54,7 +53,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
   @Override
   public void setup(final FragmentContext context, final BufferAllocator allocator, final SelectionVector4 vector4, final VectorContainer hyperBatch) throws SchemaChangeException{
     // we pass in the local hyperBatch since that is where we'll be reading data.
-    Preconditions.checkNotNull(vector4);
+    Objects.requireNonNull(vector4);
     this.vector4 = vector4.createNewWrapperCurrent();
     this.context = context;
     vector4.clear();

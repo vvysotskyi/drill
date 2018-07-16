@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.project;
 
 import com.carrotsearch.hppc.IntHashSet;
-import com.google.common.base.Preconditions;
 import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.apache.drill.common.expression.ConvertExpression;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -71,6 +70,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.EMIT;
 
@@ -503,7 +503,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
         final ValueVectorReadExpression vectorRead = (ValueVectorReadExpression) expr;
         final TypedFieldId id = vectorRead.getFieldId();
         final ValueVector vvIn = incomingBatch.getValueAccessorById(id.getIntermediateClass(), id.getFieldIds()).getValueVector();
-        Preconditions.checkNotNull(incomingBatch);
+        Objects.requireNonNull(incomingBatch);
 
         final FieldReference ref = getRef(namedExpression);
         final ValueVector vvOut =

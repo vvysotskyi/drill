@@ -19,6 +19,7 @@ package org.apache.drill.exec.store;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -202,7 +203,7 @@ public abstract class TimedCallable<V> implements Callable<V> {
    * @throws IOException All exceptions are coerced to IOException since this was build for storage system tasks initially.
    */
   public static <V> List<V> run(final String activity, final Logger logger, final List<TimedCallable<V>> tasks, int parallelism) throws IOException {
-    Preconditions.checkArgument(!Preconditions.checkNotNull(tasks).isEmpty(), "list of tasks is empty");
+    Preconditions.checkArgument(!Objects.requireNonNull(tasks).isEmpty(), "list of tasks is empty");
     Preconditions.checkArgument(parallelism > 0);
     parallelism = Math.min(parallelism, tasks.size());
     final ExecutorService threadPool = parallelism == 1 ? MoreExecutors.newDirectExecutorService()

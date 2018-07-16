@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -42,7 +43,6 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.fn.WorkspaceReference;
 import org.apache.drill.exec.record.TypedFieldId;
 
-import com.google.common.base.Preconditions;
 import com.sun.codemodel.JBlock;
 import com.sun.codemodel.JCatchBlock;
 import com.sun.codemodel.JClass;
@@ -164,7 +164,7 @@ public class ClassGenerator<T>{
 
   public ClassGenerator<T> getInnerGenerator(String name) {
     ClassGenerator<T> inner = innerClasses.get(name);
-    Preconditions.checkNotNull(inner);
+    Objects.requireNonNull(inner);
     return inner;
   }
 
@@ -189,7 +189,7 @@ public class ClassGenerator<T>{
 
   public JBlock getBlock(String methodName) {
     JBlock blk = this.blocks[sig.get(methodName)].getLast().getBlock();
-    Preconditions.checkNotNull(blk, "Requested method name of %s was not available for signature %s.",  methodName, this.sig);
+    Objects.requireNonNull(blk, String.format("Requested method name of %s was not available for signature %s.",  methodName, this.sig));
     return blk;
   }
 
@@ -809,7 +809,7 @@ public class ClassGenerator<T>{
     }
 
     public JFieldRef getIsSet() {
-      Preconditions.checkNotNull(isSet, "You cannot access the isSet variable when operating on a non-nullable output value.");
+      Objects.requireNonNull(isSet, "You cannot access the isSet variable when operating on a non-nullable output value.");
       return isSet;
     }
 

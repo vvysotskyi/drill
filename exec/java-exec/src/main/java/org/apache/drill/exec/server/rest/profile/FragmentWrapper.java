@@ -22,14 +22,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.drill.exec.proto.UserBitShared.MajorFragmentProfile;
 import org.apache.drill.exec.proto.UserBitShared.MinorFragmentProfile;
 import org.apache.drill.exec.proto.UserBitShared.OperatorProfile;
 import org.apache.drill.exec.proto.UserBitShared.StreamProfile;
-
-import com.google.common.base.Preconditions;
 
 /**
  * Wrapper class for a major fragment profile.
@@ -39,7 +38,7 @@ public class FragmentWrapper {
   private final long start;
 
   public FragmentWrapper(final MajorFragmentProfile major, final long start) {
-    this.major = Preconditions.checkNotNull(major);
+    this.major = Objects.requireNonNull(major);
     this.start = start;
   }
 

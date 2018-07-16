@@ -31,6 +31,7 @@ import static org.apache.drill.exec.store.ischema.InfoSchemaConstants.TBLS_COL_T
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
@@ -321,7 +322,8 @@ public abstract class InfoSchemaRecordGenerator<S> {
 
     @Override
     public boolean visitTable(String schemaName, String tableName, Table table) {
-      Preconditions.checkNotNull(table, "Error. Table %s.%s provided is null.", schemaName, tableName);
+      Objects.requireNonNull(table,
+          String.format("Error. Table %s.%s provided is null.", schemaName, tableName));
 
       // skip over unknown table types
       if (table.getJdbcTableType() != null) {

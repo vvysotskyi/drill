@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.parquet.columnreaders;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import com.google.common.base.Preconditions;
@@ -126,7 +127,7 @@ public abstract class BatchReader {
     protected int readRecords(ColumnReader<?> firstColumnStatus, long recordsToRead) throws Exception {
       readAllFixedFields(recordsToRead);
 
-      Preconditions.checkNotNull(firstColumnStatus != null);
+      Objects.requireNonNull(firstColumnStatus);
       readState.setValuesReadInCurrentPass(firstColumnStatus.getRecordsReadInCurrentPass()); // get the number of rows read
 
       readState.updateCounts((int) recordsToRead); // update the shared Reader State
