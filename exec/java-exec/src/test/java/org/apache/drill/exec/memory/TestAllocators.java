@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import io.netty.buffer.DrillBuf;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -55,7 +56,6 @@ import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.test.DrillTest;
 import org.junit.Test;
 
-import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 import org.junit.experimental.categories.Category;
 
@@ -204,7 +204,7 @@ public class TestAllocators extends DrillTest {
       PhysicalPlanReader planReader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(bitContext,
           storageRegistry);
       PhysicalPlan plan = planReader.readPhysicalPlan(Files.toString(DrillFileUtils.getResourceAsFile(planFile),
-          Charsets.UTF_8));
+          StandardCharsets.UTF_8));
       List<PhysicalOperator> physicalOperators = plan.getSortedOperators();
       Iterator<PhysicalOperator> physicalOperatorIterator = physicalOperators.iterator();
 
