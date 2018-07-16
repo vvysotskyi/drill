@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.testing;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 
 /**
@@ -50,7 +50,7 @@ public class ExecutionControlsInjector implements ControlsInjector {
 
   @Override
   public void injectUnchecked(final ExecutionControls executionControls, final String desc) {
-    Preconditions.checkNotNull(executionControls);
+    Objects.requireNonNull(executionControls);
     final ExceptionInjection exceptionInjection = executionControls.lookupExceptionInjection(this, desc);
     if (exceptionInjection != null) {
       exceptionInjection.throwUnchecked();
@@ -60,7 +60,7 @@ public class ExecutionControlsInjector implements ControlsInjector {
   @Override
   public <T extends Throwable> void injectChecked(final ExecutionControls executionControls, final String desc,
                                                   final Class<T> exceptionClass) throws T {
-    Preconditions.checkNotNull(executionControls);
+    Objects.requireNonNull(executionControls);
     final ExceptionInjection exceptionInjection = executionControls.lookupExceptionInjection(this, desc);
     if (exceptionInjection != null) {
       exceptionInjection.throwChecked(exceptionClass);
@@ -69,7 +69,7 @@ public class ExecutionControlsInjector implements ControlsInjector {
 
   @Override
   public void injectPause(final ExecutionControls executionControls, final String desc, final Logger logger) {
-    Preconditions.checkNotNull(executionControls);
+    Objects.requireNonNull(executionControls);
     final PauseInjection pauseInjection =
       executionControls.lookupPauseInjection(this, desc);
 
@@ -88,7 +88,7 @@ public class ExecutionControlsInjector implements ControlsInjector {
   @Override
   public void injectInterruptiblePause(final ExecutionControls executionControls, final String desc,
       final Logger logger) throws InterruptedException {
-    Preconditions.checkNotNull(executionControls);
+    Objects.requireNonNull(executionControls);
     final PauseInjection pauseInjection = executionControls.lookupPauseInjection(this, desc);
 
     if (pauseInjection != null) {
@@ -105,7 +105,7 @@ public class ExecutionControlsInjector implements ControlsInjector {
 
   @Override
   public CountDownLatchInjection getLatch(final ExecutionControls executionControls, final String desc) {
-    Preconditions.checkNotNull(executionControls);
+    Objects.requireNonNull(executionControls);
     return executionControls.lookupCountDownLatchInjection(this, desc);
   }
 }

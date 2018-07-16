@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * <h4>Overview</h4>
@@ -73,7 +74,7 @@ public class JsonFileBuilder
    * @param rowSet The {@link RowSet} to be written to a file.
    */
   public JsonFileBuilder(RowSet rowSet) {
-    this.rowSet = Preconditions.checkNotNull(rowSet);
+    this.rowSet = Objects.requireNonNull(rowSet);
     Preconditions.checkArgument(rowSet.rowCount() > 0, "The given rowset is empty.");
   }
 
@@ -84,8 +85,8 @@ public class JsonFileBuilder
    * @return The {@link JsonFileBuilder}.
    */
   public JsonFileBuilder setCustomFormatter(final String columnName, final String columnFormatter) {
-    Preconditions.checkNotNull(columnName);
-    Preconditions.checkNotNull(columnFormatter);
+    Objects.requireNonNull(columnName);
+    Objects.requireNonNull(columnFormatter);
 
     Iterator<MaterializedField> fields = rowSet
       .batchSchema()

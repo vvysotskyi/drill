@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -38,7 +39,6 @@ import org.apache.drill.exec.vector.complex.writer.BaseWriter.MapWriter;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.base.Preconditions;
 
 public class JsonReader extends BaseJsonProcessor {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory
@@ -148,7 +148,7 @@ public class JsonReader extends BaseJsonProcessor {
       if (columns == null) {
         throw new IllegalStateException("You need to set SchemaPath columns in order to build JsonReader");
       }
-      assert Preconditions.checkNotNull(columns).size() > 0 : "JSON record reader requires at least one column";
+      assert Objects.requireNonNull(columns).size() > 0 : "JSON record reader requires at least one column";
       return new JsonReader(this);
     }
   }

@@ -21,12 +21,12 @@ import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import com.google.common.base.Preconditions;
 import io.netty.util.collection.IntObjectHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,7 +128,7 @@ public class MapWithOrdinal<K, V> implements Map<K, V> {
     @Override
     public Collection<V> values() {
       return StreamSupport.stream(secondary.entries().spliterator(), false)
-          .map(entry -> Preconditions.checkNotNull(entry).value())
+          .map(entry -> Objects.requireNonNull(entry).value())
           .collect(Collectors.toList());
     }
 

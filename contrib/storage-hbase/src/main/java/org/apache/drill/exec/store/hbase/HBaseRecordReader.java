@@ -26,6 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -53,7 +54,6 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 
 public class HBaseRecordReader extends AbstractRecordReader implements DrillHBaseConstants {
@@ -87,7 +87,7 @@ public class HBaseRecordReader extends AbstractRecordReader implements DrillHBas
   public HBaseRecordReader(Connection connection, HBaseSubScan.HBaseSubScanSpec subScanSpec, List<SchemaPath> projectedColumns) {
     this.connection = connection;
     hbaseTableName = TableName.valueOf(
-        Preconditions.checkNotNull(subScanSpec, "HBase reader needs a sub-scan spec").getTableName());
+        Objects.requireNonNull(subScanSpec, "HBase reader needs a sub-scan spec").getTableName());
     hbaseScan = new Scan(subScanSpec.getStartRow(), subScanSpec.getStopRow());
     hbaseScanColumnsOnly = new Scan();
     hbaseScan

@@ -18,7 +18,6 @@
 package org.apache.drill.exec.work;
 
 import com.codahale.metrics.Gauge;
-import com.google.common.base.Preconditions;
 import org.apache.drill.common.SelfCleaningRunnable;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.coord.ClusterCoordinator;
@@ -48,6 +47,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -262,7 +262,7 @@ public class WorkManager implements AutoCloseable {
     }
 
     public boolean cancelForeman(final QueryId queryId, DrillUserPrincipal principal) {
-      Preconditions.checkNotNull(queryId);
+      Objects.requireNonNull(queryId);
 
       final Foreman foreman = queries.get(queryId);
       if (foreman == null) {
@@ -277,22 +277,17 @@ public class WorkManager implements AutoCloseable {
             .build(logger);
       }
 
-      executor.execute(new Runnable()
-      {
-        @Override
-        public void run()
-        {
-          final Thread currentThread = Thread.currentThread();
-          final String originalName = currentThread.getName();
-          try {
-            currentThread.setName(queryIdString + ":foreman:cancel");
-            logger.debug("Canceling foreman");
-            foreman.cancel();
-          } catch (Throwable t) {
-            logger.warn("Exception while canceling foreman", t);
-          } finally {
-            currentThread.setName(originalName);
-          }
+      executor.execute(() -> {
+        final Thread currentThread = Thread.currentThread();
+        final String originalName = currentThread.getName();
+        try {
+          currentThread.setName(queryIdString + ":foreman:cancel");
+          logger.debug("Canceling foreman");
+          foreman.cancel();
+        } catch (Throwable t) {
+          logger.warn("Exception while canceling foreman", t);
+        } finally {
+          currentThread.setName(originalName);
         }
       });
       return true;
@@ -310,7 +305,7 @@ public class WorkManager implements AutoCloseable {
      * @param foreman the Foreman to retire
      */
     public void retireForeman(final Foreman foreman) {
-      Preconditions.checkNotNull(foreman);
+      Objects.requireNonNull(foreman);
 
       final QueryId queryId = foreman.getQueryId();
       final boolean wasRemoved = queries.remove(queryId, foreman);

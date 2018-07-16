@@ -26,6 +26,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * This is a {@link org.junit.rules.TestWatcher} which is used to create and delete sub directories before and after unit tests respectively.
@@ -83,10 +84,10 @@ public class SubDirTestWatcher extends TestWatcher {
   private List<Path> subDirs;
 
   protected SubDirTestWatcher(File baseDir, boolean createAtBeginning, boolean deleteAtEnd, List<Path> subDirs) {
-    this.baseDir = Preconditions.checkNotNull(baseDir);
+    this.baseDir = Objects.requireNonNull(baseDir);
     this.createAtBeginning = createAtBeginning;
     this.deleteAtEnd = deleteAtEnd;
-    this.subDirs = Preconditions.checkNotNull(subDirs);
+    this.subDirs = Objects.requireNonNull(subDirs);
 
     Preconditions.checkArgument(!subDirs.isEmpty(), "The list of subDirs is empty.");
   }
@@ -142,7 +143,7 @@ public class SubDirTestWatcher extends TestWatcher {
      * @param baseDir The baseDir is the parent directory in which all sub directories are created.
      */
     public Builder(File baseDir) {
-      this.baseDir = Preconditions.checkNotNull(baseDir);
+      this.baseDir = Objects.requireNonNull(baseDir);
     }
 
     /**
@@ -175,7 +176,7 @@ public class SubDirTestWatcher extends TestWatcher {
      * @return The {@link SubDirTestWatcher.Builder}.
      */
     public Builder addSubDir(Path subDir) {
-      Preconditions.checkNotNull(subDir);
+      Objects.requireNonNull(subDir);
       subDirs.add(subDir);
       return this;
     }

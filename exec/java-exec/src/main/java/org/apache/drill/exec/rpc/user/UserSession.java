@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -169,7 +170,7 @@ public class UserSession implements AutoCloseable {
    */
   public void replaceUserCredentials(final InboundImpersonationManager impersonationManager,
                                      final UserCredentials newCredentials) {
-    Preconditions.checkNotNull(impersonationManager, "User credentials can only be replaced by an" +
+    Objects.requireNonNull(impersonationManager, "User credentials can only be replaced by an" +
         " impersonation manager.");
     credentials = newCredentials;
   }

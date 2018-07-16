@@ -29,9 +29,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import com.google.common.base.Preconditions;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * <p>
@@ -96,7 +96,7 @@ public class PersistedOptionValue {
   private Double float_val;
 
   public PersistedOptionValue(String value) {
-    this.value = Preconditions.checkNotNull(value);
+    this.value = Objects.requireNonNull(value);
   }
 
   public PersistedOptionValue(OptionValue.Kind kind, String name,
@@ -111,19 +111,19 @@ public class PersistedOptionValue {
 
     switch (kind) {
       case BOOLEAN:
-        Preconditions.checkNotNull(bool_val);
+        Objects.requireNonNull(bool_val);
         value = bool_val.toString();
         break;
       case STRING:
-        Preconditions.checkNotNull(string_val);
+        Objects.requireNonNull(string_val);
         value = string_val;
         break;
       case DOUBLE:
-        Preconditions.checkNotNull(float_val);
+        Objects.requireNonNull(float_val);
         value = float_val.toString();
         break;
       case LONG:
-        Preconditions.checkNotNull(num_val);
+        Objects.requireNonNull(num_val);
         value = num_val.toString();
         break;
       default:
@@ -196,8 +196,8 @@ public class PersistedOptionValue {
   }
 
   public OptionValue toOptionValue(final OptionDefinition optionDefinition, final OptionValue.OptionScope optionScope) {
-    Preconditions.checkNotNull(value, "The value must be defined in order for this to be converted to an " +
-    "option value");
+    Objects.requireNonNull(value, "The value must be defined in order for this to be converted to an " +
+        "option value");
     final OptionValidator validator = optionDefinition.getValidator();
     final OptionValue.Kind kind = validator.getKind();
     final String name = validator.getOptionName();

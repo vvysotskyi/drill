@@ -19,6 +19,7 @@ package org.apache.drill.common;
 
 import com.google.common.base.Preconditions;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -70,7 +71,7 @@ public class DeferredException implements AutoCloseable {
    * @param exception the exception to add
    */
   public void addException(final Exception exception) {
-    Preconditions.checkNotNull(exception);
+    Objects.requireNonNull(exception);
 
     synchronized(this) {
       Preconditions.checkState(!isClosed);
@@ -92,7 +93,7 @@ public class DeferredException implements AutoCloseable {
   }
 
   public void addThrowable(final Throwable throwable) {
-    Preconditions.checkNotNull(throwable);
+    Objects.requireNonNull(throwable);
 
     if (throwable instanceof Exception) {
       addException((Exception) throwable);

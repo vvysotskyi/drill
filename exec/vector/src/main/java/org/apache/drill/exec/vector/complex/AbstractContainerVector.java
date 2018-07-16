@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.complex;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -29,8 +30,6 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.util.CallBack;
 import org.apache.drill.exec.vector.ValueVector;
-
-import com.google.common.base.Preconditions;
 
 /**
  * Base class for composite vectors.
@@ -45,7 +44,7 @@ public abstract class AbstractContainerVector implements ValueVector {
   protected final CallBack callBack;
 
   protected AbstractContainerVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
-    this.field = Preconditions.checkNotNull(field);
+    this.field = Objects.requireNonNull(field);
     this.allocator = allocator;
     this.callBack = callBack;
   }
@@ -82,7 +81,7 @@ public abstract class AbstractContainerVector implements ValueVector {
    */
   protected Collection<String> getChildFieldNames() {
     return field.getChildren().stream()
-        .map(field -> Preconditions.checkNotNull(field).getName())
+        .map(field -> Objects.requireNonNull(field).getName())
         .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 

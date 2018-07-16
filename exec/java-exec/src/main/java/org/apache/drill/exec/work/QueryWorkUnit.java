@@ -19,6 +19,7 @@ package org.apache.drill.exec.work;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.drill.exec.physical.base.FragmentRoot;
 import org.apache.drill.exec.planner.PhysicalPlanReader;
@@ -29,7 +30,6 @@ import org.apache.drill.exec.server.options.OptionList;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.base.Preconditions;
 import org.codehaus.jackson.map.ObjectMapper;
 
 public class QueryWorkUnit {
@@ -78,9 +78,9 @@ public class QueryWorkUnit {
 
   public QueryWorkUnit(final FragmentRoot rootOperator, final MinorFragmentDefn rootFragmentDefn,
       final List<MinorFragmentDefn> minorFragmentDefns) {
-    Preconditions.checkNotNull(rootOperator);
-    Preconditions.checkNotNull(rootFragmentDefn);
-    Preconditions.checkNotNull(minorFragmentDefns);
+    Objects.requireNonNull(rootOperator);
+    Objects.requireNonNull(rootFragmentDefn);
+    Objects.requireNonNull(minorFragmentDefns);
 
     this.rootFragmentDefn = rootFragmentDefn;
     this.rootOperator = rootOperator;

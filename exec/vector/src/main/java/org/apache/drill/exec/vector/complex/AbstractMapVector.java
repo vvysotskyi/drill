@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.drill.common.collections.MapWithOrdinal;
@@ -33,8 +34,6 @@ import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.util.CallBack;
 import org.apache.drill.exec.vector.ValueVector;
-
-import com.google.common.base.Preconditions;
 
 /**
  * Base class for MapVectors. Currently used by RepeatedMapVector and MapVector
@@ -192,8 +191,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    */
   protected void putVector(String name, ValueVector vector) {
     final ValueVector old = vectors.put(
-        Preconditions.checkNotNull(name, "field name cannot be null").toLowerCase(),
-        Preconditions.checkNotNull(vector, "vector cannot be null")
+        Objects.requireNonNull(name, "field name cannot be null").toLowerCase(),
+        Objects.requireNonNull(vector, "vector cannot be null")
     );
     if (old != null && old != vector) {
       logger.debug("Field [{}] mutated from [{}] to [{}]", name, old.getClass().getSimpleName(),

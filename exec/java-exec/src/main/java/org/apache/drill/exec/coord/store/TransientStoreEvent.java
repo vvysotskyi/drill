@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.coord.store;
 
-import com.google.common.base.Preconditions;
-
 import java.util.Objects;
 
 /**
@@ -35,9 +33,9 @@ public class TransientStoreEvent<V> {
   private final V value;
 
   public TransientStoreEvent(final TransientStoreEventType type, final String key, final V value) {
-    this.type = Preconditions.checkNotNull(type);
-    this.key = Preconditions.checkNotNull(key);
-    this.value = Preconditions.checkNotNull(value);
+    this.type = Objects.requireNonNull(type);
+    this.key = Objects.requireNonNull(key);
+    this.value = Objects.requireNonNull(value);
   }
 
   public String getKey() {

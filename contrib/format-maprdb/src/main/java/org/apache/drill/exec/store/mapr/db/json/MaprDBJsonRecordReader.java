@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
 import java.util.Collections;
@@ -56,7 +57,6 @@ import org.ojai.FieldSegment;
 import org.ojai.Value;
 import org.ojai.store.QueryCondition;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.mapr.db.MapRDB;
 import com.mapr.db.Table;
@@ -103,7 +103,7 @@ public class MaprDBJsonRecordReader extends AbstractRecordReader {
       List<SchemaPath> projectedColumns, FragmentContext context) {
     buffer = context.getManagedBuffer();
     projectedFields = null;
-    tableName = Preconditions.checkNotNull(subScanSpec, "MapRDB reader needs a sub-scan spec").getTableName();
+    tableName = Objects.requireNonNull(subScanSpec, "MapRDB reader needs a sub-scan spec").getTableName();
     documentReaderIterators = null;
     includeId = false;
     idOnly    = false;

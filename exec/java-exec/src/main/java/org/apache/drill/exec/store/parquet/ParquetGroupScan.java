@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -82,10 +83,10 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
                           @JsonProperty("cacheFileRoot") String cacheFileRoot,
                           @JsonProperty("filter") LogicalExpression filter) throws IOException, ExecutionSetupException {
     super(ImpersonationUtil.resolveUserName(userName), columns, entries, filter);
-    Preconditions.checkNotNull(storageConfig);
-    Preconditions.checkNotNull(formatConfig);
+    Objects.requireNonNull(storageConfig);
+    Objects.requireNonNull(formatConfig);
     this.formatPlugin = (ParquetFormatPlugin) engineRegistry.getFormatPlugin(storageConfig, formatConfig);
-    Preconditions.checkNotNull(formatPlugin);
+    Objects.requireNonNull(formatPlugin);
     this.fs = ImpersonationUtil.createFileSystem(getUserName(), formatPlugin.getFsConf());
     this.formatConfig = formatPlugin.getConfig();
     this.selectionRoot = selectionRoot;

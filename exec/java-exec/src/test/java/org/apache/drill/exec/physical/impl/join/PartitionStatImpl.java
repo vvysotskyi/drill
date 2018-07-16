@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * This class represents the memory size statistics for an entire partition.
@@ -32,12 +33,9 @@ public class PartitionStatImpl implements HashJoinMemoryCalculator.PartitionStat
   private long partitionSize;
   private LinkedList<HashJoinMemoryCalculator.BatchStat> batchStats = new LinkedList<>();
 
-  public PartitionStatImpl() {
-  }
-
   public void add(HashJoinMemoryCalculator.BatchStat batchStat) {
     Preconditions.checkState(!spilled);
-    Preconditions.checkNotNull(batchStat);
+    Objects.requireNonNull(batchStat);
     partitionSize += batchStat.getBatchSize();
     numRecords += batchStat.getNumRecords();
     batchStats.addLast(batchStat);
@@ -51,28 +49,23 @@ public class PartitionStatImpl implements HashJoinMemoryCalculator.PartitionStat
     batchStats.clear();
   }
 
-  public List<HashJoinMemoryCalculator.BatchStat> getInMemoryBatches()
-  {
+  public List<HashJoinMemoryCalculator.BatchStat> getInMemoryBatches() {
     return Collections.unmodifiableList(batchStats);
   }
 
-  public int getNumInMemoryBatches()
-  {
+  public int getNumInMemoryBatches() {
     return batchStats.size();
   }
 
-  public boolean isSpilled()
-  {
+  public boolean isSpilled() {
     return spilled;
   }
 
-  public long getNumInMemoryRecords()
-  {
+  public long getNumInMemoryRecords() {
     return numRecords;
   }
 
-  public long getInMemorySize()
-  {
+  public long getInMemorySize() {
     return partitionSize;
   }
 }

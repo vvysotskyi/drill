@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.store;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -33,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -80,9 +79,9 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
   private final LoadingCache<StoragePluginConfig, StoragePlugin> ephemeralPlugins;
 
   public StoragePluginRegistryImpl(DrillbitContext context) {
-    this.context = checkNotNull(context);
-    this.lpPersistence = checkNotNull(context.getLpPersistence());
-    this.classpathScan = checkNotNull(context.getClasspathScan());
+    this.context = Objects.requireNonNull(context);
+    this.lpPersistence = Objects.requireNonNull(context.getLpPersistence());
+    this.classpathScan = Objects.requireNonNull(context.getClasspathScan());
     try {
       this.pluginSystemTable = context
           .getStoreProvider()

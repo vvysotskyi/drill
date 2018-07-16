@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -38,8 +39,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 
 import io.netty.buffer.DrillBuf;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Serializes vector containers to an output stream or from
@@ -74,7 +73,7 @@ public class VectorSerializer {
 
     @SuppressWarnings("resource")
     public int write(VectorAccessible va, SelectionVector2 sv2) throws IOException {
-      checkNotNull(va);
+      Objects.requireNonNull(va);
       WritableBatch batch = WritableBatch.getBatchNoHVWrap(
           va.getRecordCount(), va, sv2 != null);
       try {
@@ -85,8 +84,8 @@ public class VectorSerializer {
     }
 
     public int write(WritableBatch batch, SelectionVector2 sv2) throws IOException {
-      checkNotNull(batch);
-      checkNotNull(channel);
+      Objects.requireNonNull(batch);
+      Objects.requireNonNull(channel);
       final Timer.Context timerContext = metrics.timer(WRITER_TIMER).time();
 
       final DrillBuf[] incomingBuffers = batch.getBuffers();

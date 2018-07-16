@@ -20,15 +20,13 @@ package org.apache.drill.common.collections;
 import java.util.Map;
 import java.util.Objects;
 
-import com.google.common.base.Preconditions;
-
 public class ImmutableEntry<K, V> implements Map.Entry<K, V>  {
   private final K key;
   private final V value;
 
   public ImmutableEntry(final K key, final V value) {
-    this.key = Preconditions.checkNotNull(key, "key is required");
-    this.value = Preconditions.checkNotNull(value, "value is required");
+    this.key = Objects.requireNonNull(key, "key is required");
+    this.value = Objects.requireNonNull(value, "value is required");
   }
 
   @Override
