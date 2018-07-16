@@ -68,7 +68,7 @@ public class RefreshMetadataHandler extends DefaultSqlHandler {
 
       if (schema == null) {
         return direct(false, "Storage plugin or workspace does not exist [%s]",
-            SchemaUtilites.SCHEMA_PATH_JOINER.join(refreshTable.getSchemaPath()));
+            SchemaUtilites.SCHEMA_PATH_JOINER.apply(refreshTable.getSchemaPath()));
       }
 
       final String tableName = refreshTable.getName();

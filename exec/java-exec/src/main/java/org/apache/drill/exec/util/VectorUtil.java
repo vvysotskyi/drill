@@ -33,8 +33,6 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 
-import com.google.common.base.Joiner;
-
 public class VectorUtil {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(VectorUtil.class);
   public static final int DEFAULT_COLUMN_WIDTH = 15;
@@ -101,7 +99,7 @@ public class VectorUtil {
         columns.add(vw.getValueVector().getField().getName());
       }
 
-      formattedResults.append(Joiner.on(delimiter).join(columns));
+      formattedResults.append(String.join(delimiter, columns));
       formattedResults.append("\n");
     }
 
@@ -124,7 +122,7 @@ public class VectorUtil {
           rowValues.add(o.toString());
         }
       }
-      formattedResults.append(Joiner.on(delimiter).join(rowValues));
+      formattedResults.append(String.join(delimiter, rowValues));
       formattedResults.append("\n");
     }
 

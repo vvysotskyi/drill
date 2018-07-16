@@ -49,7 +49,6 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.Iterators;
 
 /**
@@ -487,10 +486,10 @@ public class SpillSet {
     // must have sufficient space for the output file.
 
     String spillDir = dirs.next();
-    String currSpillPath = Joiner.on("/").join(spillDir, spillDirName);
+    String currSpillPath = spillDir + "/" + spillDirName;
     currSpillDirs.add(currSpillPath);
 
-    String outputFile = Joiner.on("/").join(currSpillPath, "spill" + ++fileCount);
+    String outputFile = currSpillPath + "/spill" + ++fileCount;
     if (extraName != null) {
       outputFile += "_" + extraName;
     }

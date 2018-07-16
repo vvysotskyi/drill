@@ -62,7 +62,6 @@ import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.store.jdbc.DrillJdbcRuleBase.DrillJdbcFilterRule;
 import org.apache.drill.exec.store.jdbc.DrillJdbcRuleBase.DrillJdbcProjectRule;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -281,7 +280,7 @@ public class JdbcStoragePlugin extends AbstractStoragePlugin {
     }
 
     public String toString() {
-      return Joiner.on(".").join(getSchemaPath());
+      return String.join(".", getSchemaPath());
     }
 
     @Override

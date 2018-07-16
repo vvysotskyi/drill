@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.planner.fragment;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.drill.exec.physical.EndpointAffinity;
@@ -26,6 +25,7 @@ import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Captures parallelization parameters for a given operator/fragments. It consists of min and max width of
@@ -79,12 +79,12 @@ public class ParallelizationInfo {
   }
 
   private static String getDigest(int minWidth, int maxWidth, Map<DrillbitEndpoint, EndpointAffinity> affinityMap) {
-    StringBuilder sb = new StringBuilder();
-    sb.append(String.format("[minWidth = %d, maxWidth=%d, epAff=[", minWidth, maxWidth));
-    sb.append(Joiner.on(",").join(affinityMap.values()));
-    sb.append("]]");
-
-    return sb.toString();
+    return affinityMap.values().stream()
+        .map(EndpointAffinity::toString)
+        .collect(Collectors.joining(
+            ",",
+            String.format("[minWidth = %d, maxWidth=%d, epAff=[", minWidth, maxWidth),
+            "]]"));
   }
 
   /**

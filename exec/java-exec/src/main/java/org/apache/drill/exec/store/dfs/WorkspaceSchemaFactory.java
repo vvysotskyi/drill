@@ -75,7 +75,6 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.AccessControlException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -573,7 +572,7 @@ public class WorkspaceSchemaFactory {
       if (formatPlugin == null) {
         throw new UnsupportedOperationException(
           String.format("Unsupported format '%s' in workspace '%s'", config.getDefaultInputFormat(),
-              Joiner.on(".").join(getSchemaPath())));
+              String.join(".", getSchemaPath())));
       }
 
       return new FileSystemCreateTableEntry(

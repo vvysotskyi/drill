@@ -36,8 +36,6 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.dotdrill.View;
 import org.apache.drill.exec.planner.logical.CreateTableEntry;
 
-import com.google.common.base.Joiner;
-
 public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer, AutoCloseable {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractSchema.class);
 
@@ -72,7 +70,7 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
   }
 
   public String getFullSchemaName() {
-    return Joiner.on(".").join(schemaPath);
+    return String.join(".", schemaPath);
   }
 
   public abstract String getTypeName();

@@ -20,7 +20,6 @@ package org.apache.drill.exec.server.options;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import com.google.common.base.Joiner;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.util.DrillStringUtils;
 import org.apache.drill.exec.ExecConstants;
@@ -242,7 +241,7 @@ public class TypeValidators {
       // if this option has not been changed by the user then return the
       // process user groups
       if (adminUserGroups.equals(DEFAULT_ADMIN_USER_GROUPS)) {
-        adminUserGroups = Joiner.on(",").join(ImpersonationUtil.getProcessUserGroupNames());
+        adminUserGroups = String.join(",", ImpersonationUtil.getProcessUserGroupNames());
       }
       adminUserGroups = DrillStringUtils.sanitizeCSV(adminUserGroups);
       return adminUserGroups;
