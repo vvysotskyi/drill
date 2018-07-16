@@ -17,8 +17,9 @@
  */
 package org.apache.drill.exec.coord.store;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import java.util.Objects;
 
 /**
  * Represents an event created as a result of an operation over a particular (key, value) entry in a
@@ -54,15 +55,15 @@ public class TransientStoreEvent<V> {
   @Override
   public boolean equals(final Object obj) {
     if (obj instanceof TransientStoreEvent && obj.getClass().equals(getClass())) {
-      final TransientStoreEvent<V> other = (TransientStoreEvent<V>)obj;
-      return Objects.equal(type, other.type) && Objects.equal(key, other.key) && Objects.equal(value, other.value);
+      final TransientStoreEvent<V> other = (TransientStoreEvent<V>) obj;
+      return Objects.equals(type, other.type) && Objects.equals(key, other.key) && Objects.equals(value, other.value);
     }
     return super.equals(obj);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(type, key, value);
+    return Objects.hash(type, key, value);
   }
 
   public static <T> TransientStoreEvent<T>of(final TransientStoreEventType type, final String key, final T value) {

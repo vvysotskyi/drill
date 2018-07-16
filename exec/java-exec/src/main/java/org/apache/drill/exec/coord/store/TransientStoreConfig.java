@@ -19,13 +19,14 @@ package org.apache.drill.exec.coord.store;
 
 import com.dyuproject.protostuff.Schema;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
 import org.apache.drill.exec.serialization.JacksonSerializer;
 import org.apache.drill.exec.serialization.ProtoSerializer;
 import org.apache.drill.exec.serialization.InstanceSerializer;
+
+import java.util.Objects;
 
 public class TransientStoreConfig<V> {
   private final String name;
@@ -47,7 +48,7 @@ public class TransientStoreConfig<V> {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(name, serializer);
+    return Objects.hash(name, serializer);
   }
 
   @Override
@@ -55,7 +56,7 @@ public class TransientStoreConfig<V> {
     if (obj instanceof TransientStoreConfig && obj.getClass().equals(getClass())) {
       @SuppressWarnings("unchecked")
       final TransientStoreConfig<V> other = (TransientStoreConfig<V>)obj;
-      return Objects.equal(name, other.name) && Objects.equal(serializer, other.serializer);
+      return Objects.equals(name, other.name) && Objects.equals(serializer, other.serializer);
     }
     return false;
   }
