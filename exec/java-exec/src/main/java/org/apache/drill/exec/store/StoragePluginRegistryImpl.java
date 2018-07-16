@@ -36,6 +36,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.calcite.schema.SchemaPlus;
@@ -59,7 +60,6 @@ import org.apache.drill.exec.store.sys.PersistentStoreConfig;
 import org.apache.drill.exec.store.sys.SystemTablePlugin;
 import org.apache.drill.exec.store.sys.SystemTablePluginConfig;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -470,11 +470,11 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
   @SuppressWarnings("unchecked")
   public static Map<Object, Constructor<? extends StoragePlugin>> findAvailablePlugins(final ScanResult classpathScan) {
     Map<Object, Constructor<? extends StoragePlugin>> availablePlugins = new HashMap<>();
-    final Collection<Class<? extends StoragePlugin>> pluginClasses =
+    Collection<Class<? extends StoragePlugin>> pluginClasses =
         classpathScan.getImplementations(StoragePlugin.class);
-    final String lineBrokenList =
-        pluginClasses.size() == 0
-            ? "" : "\n\t- " + Joiner.on("\n\t- ").join(pluginClasses);
+    String lineBrokenList = pluginClasses.stream()
+        .map(Class::toString)
+        .collect(Collectors.joining("\n\t- ", "\n\t- ", ""));
     logger.debug("Found {} storage plugin configuration classes: {}.",
         pluginClasses.size(), lineBrokenList);
     for (Class<? extends StoragePlugin> plugin : pluginClasses) {

@@ -84,7 +84,6 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.rpc.user.UserSession;
 import static org.apache.calcite.util.Static.RESOURCE;
 
-import com.google.common.base.Joiner;
 import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.util.DecimalUtility;
 
@@ -418,7 +417,7 @@ public class SqlConverter {
               .message(
               "Failure while attempting to expand view. Requested schema %s not available in schema %s.", s,
                   schema.getName())
-              .addContext("View Context", Joiner.on(", ").join(schemaPath))
+              .addContext("View Context", String.join(", ", schemaPath))
               .addContext("View SQL", queryString)
               .build(logger);
         }
@@ -718,7 +717,7 @@ public class SqlConverter {
       String schemaPath = SchemaUtilites.getSchemaPath(names.subList(0, names.size() - 1));
       return SchemaUtilites.isTemporaryWorkspace(schemaPath, drillConfig) ||
           SchemaUtilites.isTemporaryWorkspace(
-              SchemaUtilites.SCHEMA_PATH_JOINER.join(defaultSchemaPath, schemaPath), drillConfig);
+              SchemaUtilites.SCHEMA_PATH_JOINER.apply(Arrays.asList(defaultSchemaPath, schemaPath)), drillConfig);
     }
   }
 

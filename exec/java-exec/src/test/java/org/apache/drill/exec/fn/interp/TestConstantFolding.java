@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.fn.interp;
 
-import com.google.common.base.Joiner;
 import mockit.integration.junit4.JMockit;
 import org.apache.drill.PlanTestBase;
 import org.apache.drill.categories.SqlTest;
@@ -54,14 +53,18 @@ public class TestConstantFolding extends PlanTestBase {
 
     public void createFiles(int smallFileLines, int bigFileLines, String extension, String delimiter) throws Exception{
       if (record == null) {
-        if (extension.equals("csv") || extension.equals("tsv")) {
-          record = Joiner.on(delimiter).join(values);
-        } else if (extension.equals("json") ){
-          record = jsonRecord;
-        } else {
-          throw new UnsupportedOperationException(
+        switch (extension) {
+          case "csv":
+          case "tsv":
+            record = String.join(delimiter, values);
+            break;
+          case "json":
+            record = jsonRecord;
+            break;
+          default:
+            throw new UnsupportedOperationException(
               String.format("Extension %s not supported by %s",
-                  extension, SmallFileCreator.class.getSimpleName()));
+                extension, SmallFileCreator.class.getSimpleName()));
         }
       }
       PrintWriter out;

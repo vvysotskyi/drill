@@ -34,7 +34,6 @@ import javax.ws.rs.core.SecurityContext;
 import javax.xml.bind.annotation.XmlRootElement;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import org.apache.drill.common.config.DrillConfig;
@@ -196,7 +195,7 @@ public class DrillRoot {
     // For all other cases the user info need-not or should-not be displayed
     if (shouldShowAdminInfo) {
       final String processUser = ImpersonationUtil.getProcessUserName();
-      final String processUserGroups = Joiner.on(", ").join(ImpersonationUtil.getProcessUserGroupNames());
+      final String processUserGroups = String.join(", ", ImpersonationUtil.getProcessUserGroupNames());
       String adminUsers = ExecConstants.ADMIN_USERS_VALIDATOR.getAdminUsers(optionManager);
       String adminUserGroups = ExecConstants.ADMIN_USER_GROUPS_VALIDATOR.getAdminUserGroups(optionManager);
 

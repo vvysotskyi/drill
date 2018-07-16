@@ -65,7 +65,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.mongodb.MongoClient;
@@ -273,7 +272,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
   }
 
   private void handleUnshardedCollection(List<String> hosts) {
-    String chunkName = Joiner.on('.').join(scanSpec.getDbName(), scanSpec.getCollectionName());
+    String chunkName = String.join(".", Arrays.asList(scanSpec.getDbName(), scanSpec.getCollectionName()));
     Set<ServerAddress> addressList = new HashSet<>();
 
     for (String host : hosts) {
@@ -284,8 +283,8 @@ public class MongoGroupScan extends AbstractGroupScan implements
     String host = hosts.get(0);
     ServerAddress address = new ServerAddress(host);
     ChunkInfo chunkInfo = new ChunkInfo(hosts, chunkName);
-    chunkInfo.setMinFilters(Collections.<String, Object> emptyMap());
-    chunkInfo.setMaxFilters(Collections.<String, Object> emptyMap());
+    chunkInfo.setMinFilters(Collections.emptyMap());
+    chunkInfo.setMaxFilters(Collections.emptyMap());
     List<ChunkInfo> chunksList = new ArrayList<>();
     chunksList.add(chunkInfo);
     chunksInverseMapping.put(address.getHost(), chunksList);

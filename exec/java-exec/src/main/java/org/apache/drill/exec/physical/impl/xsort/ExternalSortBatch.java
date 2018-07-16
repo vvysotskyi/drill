@@ -77,7 +77,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterators;
 import com.sun.codemodel.JConditional;
@@ -588,9 +587,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     c1.setRecordCount(count);
 
     String spillDir = dirs.next();
-    Path currSpillPath = new Path(Joiner.on("/").join(spillDir, fileName));
+    Path currSpillPath = new Path(spillDir + "/" + fileName);
     currSpillDirs.add(currSpillPath);
-    String outputFile = Joiner.on("/").join(currSpillPath, spillCount++);
+    String outputFile = currSpillPath+ "/" + spillCount++;
     try {
         fs.deleteOnExit(currSpillPath);
     } catch (IOException e) {

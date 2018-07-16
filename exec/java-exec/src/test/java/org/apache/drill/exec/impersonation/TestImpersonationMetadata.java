@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.impersonation;
 
-import com.google.common.base.Joiner;
 import org.apache.drill.categories.SecurityTest;
 import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.common.exceptions.UserException;
@@ -320,7 +319,7 @@ public class TestImpersonationMetadata extends BaseTestImpersonation {
     try {
       updateClient(user);
 
-      test("USE " + Joiner.on(".").join(MINIDFS_STORAGE_PLUGIN_NAME, tableWS));
+      test("USE %s.%s", MINIDFS_STORAGE_PLUGIN_NAME, tableWS);
 
       test("CREATE TABLE " + tableName + " AS SELECT " +
           "c_custkey, c_nationkey FROM cp.`tpch/customer.parquet` ORDER BY c_custkey;");
@@ -354,7 +353,7 @@ public class TestImpersonationMetadata extends BaseTestImpersonation {
     try {
       updateClient(user2);
 
-      test("USE " + Joiner.on(".").join(MINIDFS_STORAGE_PLUGIN_NAME, tableWS));
+      test("USE %s.%s", MINIDFS_STORAGE_PLUGIN_NAME, tableWS);
 
       test("CREATE TABLE " + tableName + " AS SELECT " +
           "c_custkey, c_nationkey FROM cp.`tpch/customer.parquet` ORDER BY c_custkey;");
@@ -373,7 +372,7 @@ public class TestImpersonationMetadata extends BaseTestImpersonation {
     final String tableWS = "drillTestGrp1_700";
 
     updateClient(user1);
-    test("USE " + Joiner.on(".").join(MINIDFS_STORAGE_PLUGIN_NAME, tableWS));
+    test("USE %s.%s", MINIDFS_STORAGE_PLUGIN_NAME, tableWS);
 
     test("CREATE TABLE " + tableName + " partition by (n_regionkey) AS SELECT * " +
               "FROM cp.`tpch/nation.parquet`;");
