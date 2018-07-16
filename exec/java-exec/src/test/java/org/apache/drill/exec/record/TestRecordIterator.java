@@ -44,11 +44,11 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.vector.ValueVector;
 import org.junit.Test;
 
-import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 import org.junit.experimental.categories.Category;
 import org.mockito.Mockito;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,7 +64,7 @@ public class TestRecordIterator extends PopUnitTestBase {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
 
-    final String planStr = Files.toString(DrillFileUtils.getResourceAsFile("/record/test_recorditerator.json"), Charsets.UTF_8);
+    final String planStr = Files.toString(DrillFileUtils.getResourceAsFile("/record/test_recorditerator.json"), StandardCharsets.UTF_8);
 
     final PhysicalPlan plan = reader.readPhysicalPlan(planStr);
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
@@ -120,7 +120,7 @@ public class TestRecordIterator extends PopUnitTestBase {
     final UserClientConnection connection = Mockito.mock(UserClientConnection.class);
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
-    final String planStr = Files.toString(DrillFileUtils.getResourceAsFile("/record/test_recorditerator.json"), Charsets.UTF_8);
+    final String planStr = Files.toString(DrillFileUtils.getResourceAsFile("/record/test_recorditerator.json"), StandardCharsets.UTF_8);
 
     final PhysicalPlan plan = reader.readPhysicalPlan(planStr);
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);

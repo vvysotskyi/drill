@@ -21,6 +21,7 @@ import io.netty.buffer.DrillBuf;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,7 +38,6 @@ import org.apache.drill.exec.vector.complex.writer.BaseWriter.MapWriter;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 
 public class JsonReader extends BaseJsonProcessor {
@@ -180,7 +180,7 @@ public class JsonReader extends BaseJsonProcessor {
   }
 
   public void setSource(String data) throws IOException {
-    setSource(data.getBytes(Charsets.UTF_8));
+    setSource(data.getBytes(StandardCharsets.UTF_8));
   }
 
   @SuppressWarnings("resource")

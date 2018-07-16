@@ -17,8 +17,9 @@
  */
 package org.apache.drill.exec.store.httpd;
 
-import com.google.common.base.Charsets;
 import io.netty.buffer.DrillBuf;
+
+import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -67,7 +68,7 @@ public class HttpdLogRecord {
   }
 
   private void writeString(final VarCharWriter writer, final String value) {
-    final byte[] stringBytes = value.getBytes(Charsets.UTF_8);
+    final byte[] stringBytes = value.getBytes(StandardCharsets.UTF_8);
     final DrillBuf stringBuffer = buf(stringBytes.length);
     stringBuffer.clear();
     stringBuffer.writeBytes(stringBytes);

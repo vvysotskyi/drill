@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -58,7 +59,6 @@ import org.apache.drill.exec.store.sys.PersistentStoreConfig;
 import org.apache.drill.exec.store.sys.SystemTablePlugin;
 import org.apache.drill.exec.store.sys.SystemTablePluginConfig;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.cache.CacheBuilder;
@@ -146,7 +146,7 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
       StoragePlugins bootstrapPlugins = new StoragePlugins(new HashMap<>());
       Map<String, URL> pluginURLMap = new HashMap<>();
       for (URL url : urls) {
-        String pluginsData = Resources.toString(url, Charsets.UTF_8);
+        String pluginsData = Resources.toString(url, StandardCharsets.UTF_8);
         StoragePlugins plugins = lpPersistence.getMapper().readValue(pluginsData, StoragePlugins.class);
         for (Entry<String, StoragePluginConfig> plugin : plugins) {
           StoragePluginConfig oldPluginConfig = bootstrapPlugins.putIfAbsent(plugin.getKey(), plugin.getValue());

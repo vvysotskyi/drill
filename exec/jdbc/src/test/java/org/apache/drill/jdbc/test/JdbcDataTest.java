@@ -18,6 +18,7 @@
 package org.apache.drill.jdbc.test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -48,7 +49,6 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import com.google.common.base.Charsets;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
 import org.junit.experimental.categories.Category;
@@ -64,8 +64,8 @@ public class JdbcDataTest extends JdbcTestBase {
 
   @BeforeClass
   public static void setupFixtures() throws IOException {
-    MODEL = Resources.toString(Resources.getResource("test-models.json"), Charsets.UTF_8);
-    EXPECTED = Resources.toString(Resources.getResource("donuts-output-data.txt"), Charsets.UTF_8);
+    MODEL = Resources.toString(Resources.getResource("test-models.json"), StandardCharsets.UTF_8);
+    EXPECTED = Resources.toString(Resources.getResource("donuts-output-data.txt"), StandardCharsets.UTF_8);
   }
 
   /**
