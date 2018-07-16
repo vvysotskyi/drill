@@ -22,8 +22,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import com.google.common.collect.Iterables;
-
 import org.apache.drill.exec.store.sys.BasePersistentStore;
 import org.apache.drill.exec.store.sys.PersistentStoreMode;
 
@@ -66,7 +64,10 @@ public class NoWriteLocalStore<V> extends BasePersistentStore<V> {
 
   @Override
   public Iterator<Map.Entry<String, V>> getRange(final int skip, final int take) {
-    return Iterables.limit(Iterables.skip(store.entrySet(), skip), take).iterator();
+    return store.entrySet().stream()
+        .skip(skip)
+        .limit(take)
+        .iterator();
   }
 
   @Override

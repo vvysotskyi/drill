@@ -17,7 +17,6 @@
  */
 package org.apache.drill.common.logical.data;
 
-import com.google.common.collect.Iterators;
 import org.apache.drill.common.expression.FieldReference;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,6 +26,7 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.logical.data.visitors.LogicalVisitor;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -82,7 +82,7 @@ public class Window extends SingleInputOperator {
 
   @Override
   public Iterator<LogicalOperator> iterator() {
-    return Iterators.singletonIterator(getInput());
+    return Collections.singleton(getInput()).iterator();
   }
 
   public static class Builder extends AbstractSingleBuilder<Window, Builder>{
