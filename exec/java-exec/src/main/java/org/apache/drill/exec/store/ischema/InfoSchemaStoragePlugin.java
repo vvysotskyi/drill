@@ -82,7 +82,7 @@ public class InfoSchemaStoragePlugin extends AbstractStoragePlugin {
     public ISchema(SchemaPlus parent, InfoSchemaStoragePlugin plugin){
       super(ImmutableList.of(), IS_SCHEMA_NAME);
       Map<String, InfoSchemaDrillTable> tbls = new HashMap<>();
-      for(InfoSchemaTableType tbl : InfoSchemaTableType.values()){
+      for (InfoSchemaTableType tbl : InfoSchemaTableType.values()){
         tbls.put(tbl.name(), new InfoSchemaDrillTable(plugin, IS_SCHEMA_NAME, tbl, config));
       }
       this.tables = ImmutableMap.copyOf(tbls);

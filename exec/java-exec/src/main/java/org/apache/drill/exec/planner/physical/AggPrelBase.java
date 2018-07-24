@@ -51,9 +51,7 @@ public abstract class AggPrelBase extends DrillAggregateRelBase implements Prel 
 
   protected OperatorPhase operPhase = OperatorPhase.PHASE_1of1 ; // default phase
   protected List<NamedExpression> keys = new ArrayList<>();
-
   protected List<NamedExpression> aggExprs = new ArrayList<>();
-
   protected List<AggregateCall> phase2AggCallList = new ArrayList<>();
 
   /**

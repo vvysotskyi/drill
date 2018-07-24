@@ -26,7 +26,6 @@ import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -41,22 +40,17 @@ import java.util.concurrent.ThreadLocalRandom;
 public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
   public static final SoftAffinityFragmentParallelizer INSTANCE = new SoftAffinityFragmentParallelizer();
 
+  // Sort in descending order of affinity values
   private static final Ordering<EndpointAffinity> ENDPOINT_AFFINITY_ORDERING =
-      Ordering.from(new Comparator<EndpointAffinity>() {
-        @Override
-        public int compare(EndpointAffinity o1, EndpointAffinity o2) {
-          // Sort in descending order of affinity values
-          return Double.compare(o2.getAffinity(), o1.getAffinity());
-        }
-      });
+      Ordering.from((o1, o2) -> Double.compare(o2.getAffinity(), o1.getAffinity()));
 
   @Override
-  public void parallelizeFragment(final Wrapper fragmentWrapper, final ParallelizationParameters parameters,
-      final Collection<DrillbitEndpoint> activeEndpoints) throws PhysicalOperatorSetupException {
+  public void parallelizeFragment(Wrapper fragmentWrapper, ParallelizationParameters parameters,
+      Collection<DrillbitEndpoint> activeEndpoints) throws PhysicalOperatorSetupException {
 
     // Find the parallelization width of fragment
-    final Stats stats = fragmentWrapper.getStats();
-    final ParallelizationInfo parallelizationInfo = stats.getParallelizationInfo();
+    Stats stats = fragmentWrapper.getStats();
+    ParallelizationInfo parallelizationInfo = stats.getParallelizationInfo();
 
     // 1. Find the parallelization based on cost. Use max cost of all operators in this fragment; this is consistent
     //    with the calculation that ExcessiveExchangeRemover uses.
@@ -86,12 +80,12 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
   }
 
   // Assign endpoints based on the given endpoint list, affinity map and width.
-  private List<DrillbitEndpoint> findEndpoints(final Collection<DrillbitEndpoint> activeEndpoints,
-      final Map<DrillbitEndpoint, EndpointAffinity> endpointAffinityMap, final int width,
-      final ParallelizationParameters parameters)
+  private List<DrillbitEndpoint> findEndpoints(Collection<DrillbitEndpoint> activeEndpoints,
+      Map<DrillbitEndpoint, EndpointAffinity> endpointAffinityMap, int width,
+      ParallelizationParameters parameters)
     throws PhysicalOperatorSetupException {
 
-    final List<DrillbitEndpoint> endpoints = new ArrayList<>();
+    List<DrillbitEndpoint> endpoints = new ArrayList<>();
 
     if (endpointAffinityMap.size() > 0) {
       // Get EndpointAffinity list sorted in descending order of affinity values
@@ -99,7 +93,7 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
 
       // Find the number of mandatory nodes (nodes with +infinity affinity).
       int numRequiredNodes = 0;
-      for(EndpointAffinity ep : sortedAffinityList) {
+      for (EndpointAffinity ep : sortedAffinityList) {
         if (ep.isAssignmentRequired()) {
           numRequiredNodes++;
         } else {
@@ -127,7 +121,7 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
       Iterator<EndpointAffinity> affinedEPItr = Iterators.cycle(sortedAffinityList);
 
       // Keep adding until we have selected "affinedSlots" number of endpoints.
-      while(endpoints.size() < affinedSlots) {
+      while (endpoints.size() < affinedSlots) {
         EndpointAffinity ea = affinedEPItr.next();
         endpoints.add(ea.getEndpoint());
       }
@@ -137,7 +131,7 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
     if (endpoints.size() < width) {
       // Get a list of endpoints that are not part of the affinity endpoint list
       List<DrillbitEndpoint> endpointsWithNoAffinity;
-      final Set<DrillbitEndpoint> endpointsWithAffinity = endpointAffinityMap.keySet();
+      Set<DrillbitEndpoint> endpointsWithAffinity = endpointAffinityMap.keySet();
 
       if (endpointAffinityMap.size() > 0) {
         endpointsWithNoAffinity = new ArrayList<>();

@@ -40,8 +40,7 @@ public abstract class SortTemplate implements Sorter, IndexedSortable{
 
   public void setup(FragmentContext context, SelectionVector4 vector4, VectorContainer hyperBatch) throws SchemaChangeException{
     // we pass in the local hyperBatch since that is where we'll be reading data.
-    Objects.requireNonNull(vector4);
-    this.vector4 = vector4;
+    this.vector4 = Objects.requireNonNull(vector4);
     doSetup(context, hyperBatch, null);
   }
 

@@ -32,7 +32,6 @@ public class CachingPersistentStoreProvider extends BasePersistentStoreProvider 
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CachingPersistentStoreProvider.class);
 
   private final ConcurrentMap<PersistentStoreConfig<?>, PersistentStore<?>> storeCache = new ConcurrentHashMap<>();
-
   private final PersistentStoreProvider provider;
 
   public CachingPersistentStoreProvider(PersistentStoreProvider provider) {
@@ -66,7 +65,7 @@ public class CachingPersistentStoreProvider extends BasePersistentStoreProvider 
 
   @Override
   public void close() throws Exception {
-    final List<AutoCloseable> closeables = new ArrayList<>(storeCache.values());
+    List<AutoCloseable> closeables = new ArrayList<>(storeCache.values());
     closeables.add(provider);
     storeCache.clear();
     AutoCloseables.close(closeables);

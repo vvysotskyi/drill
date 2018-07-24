@@ -111,20 +111,16 @@ public class PersistedOptionValue {
 
     switch (kind) {
       case BOOLEAN:
-        Objects.requireNonNull(bool_val);
-        value = bool_val.toString();
+        value = Objects.requireNonNull(bool_val).toString();
         break;
       case STRING:
-        Objects.requireNonNull(string_val);
-        value = string_val;
+        value = Objects.requireNonNull(string_val);
         break;
       case DOUBLE:
-        Objects.requireNonNull(float_val);
-        value = float_val.toString();
+        value = Objects.requireNonNull(float_val).toString();
         break;
       case LONG:
-        Objects.requireNonNull(num_val);
-        value = num_val.toString();
+        value = Objects.requireNonNull(num_val).toString();
         break;
       default:
         throw new UnsupportedOperationException(String.format("Unsupported type %s", kind));
@@ -195,13 +191,13 @@ public class PersistedOptionValue {
     return float_val;
   }
 
-  public OptionValue toOptionValue(final OptionDefinition optionDefinition, final OptionValue.OptionScope optionScope) {
+  public OptionValue toOptionValue(OptionDefinition optionDefinition, OptionValue.OptionScope optionScope) {
     Objects.requireNonNull(value, "The value must be defined in order for this to be converted to an " +
         "option value");
-    final OptionValidator validator = optionDefinition.getValidator();
-    final OptionValue.Kind kind = validator.getKind();
-    final String name = validator.getOptionName();
-    final OptionValue.AccessibleScopes accessibleScopes = optionDefinition.getMetaData().getAccessibleScopes();
+    OptionValidator validator = optionDefinition.getValidator();
+    OptionValue.Kind kind = validator.getKind();
+    String name = validator.getOptionName();
+    OptionValue.AccessibleScopes accessibleScopes = optionDefinition.getMetaData().getAccessibleScopes();
     return OptionValue.create(kind, accessibleScopes, name, value, optionScope);
   }
 

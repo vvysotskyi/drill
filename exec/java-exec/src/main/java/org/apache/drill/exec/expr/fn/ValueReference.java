@@ -31,10 +31,8 @@ public class ValueReference {
   private boolean isComplexWriter = false;
 
   public ValueReference(MajorType type, String name) {
-    Objects.requireNonNull(type);
-    Objects.requireNonNull(name);
-    this.type = type;
-    this.name = name;
+    this.type = Objects.requireNonNull(type);
+    this.name = Objects.requireNonNull(name);
   }
 
   public void setConstant(boolean isConstant) {

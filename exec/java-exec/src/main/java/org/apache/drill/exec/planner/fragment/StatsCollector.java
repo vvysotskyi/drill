@@ -64,12 +64,12 @@ public class StatsCollector extends AbstractOpWrapperVisitor<Void, RuntimeExcept
   public Void visitReceivingExchange(Exchange exchange, Wrapper wrapper) throws RuntimeException {
     // Handle the receiving side Exchange
 
-    final List<ExchangeFragmentPair> receivingExchangePairs = wrapper.getNode().getReceivingExchangePairs();
+    List<ExchangeFragmentPair> receivingExchangePairs = wrapper.getNode().getReceivingExchangePairs();
 
     // List to contain the endpoints where the fragment that send dat to this fragment are running.
-    final List<DrillbitEndpoint> sendingEndpoints = new ArrayList<>();
+    List<DrillbitEndpoint> sendingEndpoints = new ArrayList<>();
 
-    for(ExchangeFragmentPair pair : receivingExchangePairs) {
+    for (ExchangeFragmentPair pair : receivingExchangePairs) {
       if (pair.getExchange() == exchange) {
         Wrapper sendingFragment = planningSet.get(pair.getNode());
         if (sendingFragment.isEndpointsAssignmentDone()) {
@@ -85,7 +85,7 @@ public class StatsCollector extends AbstractOpWrapperVisitor<Void, RuntimeExcept
 
   @Override
   public Void visitGroupScan(GroupScan groupScan, Wrapper wrapper) {
-    final Stats stats = wrapper.getStats();
+    Stats stats = wrapper.getStats();
     stats.addMaxWidth(groupScan.getMaxParallelizationWidth());
     stats.addMinWidth(groupScan.getMinParallelizationWidth());
     return super.visitGroupScan(groupScan, wrapper);
@@ -99,9 +99,9 @@ public class StatsCollector extends AbstractOpWrapperVisitor<Void, RuntimeExcept
 
   @Override
   public Void visitOp(PhysicalOperator op, Wrapper wrapper) {
-    final Stats stats = wrapper.getStats();
+    Stats stats = wrapper.getStats();
     if (op instanceof HasAffinity) {
-      final HasAffinity hasAffinity = (HasAffinity)op;
+      HasAffinity hasAffinity = (HasAffinity)op;
       stats.addEndpointAffinities(hasAffinity.getOperatorAffinity());
       stats.setDistributionAffinity(hasAffinity.getDistributionAffinity());
     }

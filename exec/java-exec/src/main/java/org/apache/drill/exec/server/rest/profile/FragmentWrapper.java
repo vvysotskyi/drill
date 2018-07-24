@@ -74,7 +74,7 @@ public class FragmentWrapper {
   public void addSummary(TableBuilder tb) {
     // Use only minor fragments that have complete profiles
     // Complete iff the fragment profile has at least one operator profile, and start and end times.
-    final List<MinorFragmentProfile> complete =
+    List<MinorFragmentProfile> complete =
         major.getMinorFragmentProfileList().stream()
             .filter(Filters.HAS_OPERATORS_AND_TIMES)
             .collect(Collectors.toList());
@@ -88,20 +88,20 @@ public class FragmentWrapper {
       return;
     }
 
-    final MinorFragmentProfile firstStart = Collections.min(complete, Comparators.startTime);
-    final MinorFragmentProfile lastStart = Collections.max(complete, Comparators.startTime);
+    MinorFragmentProfile firstStart = Collections.min(complete, Comparators.startTime);
+    MinorFragmentProfile lastStart = Collections.max(complete, Comparators.startTime);
     tb.appendMillis(firstStart.getStartTime() - start);
     tb.appendMillis(lastStart.getStartTime() - start);
 
-    final MinorFragmentProfile firstEnd = Collections.min(complete, Comparators.endTime);
-    final MinorFragmentProfile lastEnd = Collections.max(complete, Comparators.endTime);
+    MinorFragmentProfile firstEnd = Collections.min(complete, Comparators.endTime);
+    MinorFragmentProfile lastEnd = Collections.max(complete, Comparators.endTime);
     tb.appendMillis(firstEnd.getEndTime() - start);
     tb.appendMillis(lastEnd.getEndTime() - start);
 
     long cumulativeFragmentDurationInMillis = 0L;
     long cumulativeProcessInNanos = 0L;
     long cumulativeWaitInNanos = 0L;
-    for (final MinorFragmentProfile p : complete) {
+    for (MinorFragmentProfile p : complete) {
       cumulativeFragmentDurationInMillis += p.getEndTime() - p.getStartTime();
       //Capture Busy & Wait Time
       List<OperatorProfile> opProfileList = p.getOperatorProfileList();
@@ -113,8 +113,8 @@ public class FragmentWrapper {
     double totalProcessInMillis = Math.round(cumulativeProcessInNanos/1E6);
     double totalWaitInMillis = Math.round(cumulativeWaitInNanos/1E6);
 
-    final MinorFragmentProfile shortRun = Collections.min(complete, Comparators.runTime);
-    final MinorFragmentProfile longRun = Collections.max(complete, Comparators.runTime);
+    MinorFragmentProfile shortRun = Collections.min(complete, Comparators.runTime);
+    MinorFragmentProfile longRun = Collections.max(complete, Comparators.runTime);
     tb.appendMillis(shortRun.getEndTime() - shortRun.getStartTime());
     tb.appendMillis(cumulativeFragmentDurationInMillis / complete.size());
     tb.appendMillis(longRun.getEndTime() - longRun.getStartTime());
@@ -123,14 +123,14 @@ public class FragmentWrapper {
         //#8721 is the summation sign: sum(Busy): ## + sum(Wait): ##
         String.format("&#8721;Busy: %,.2fs + &#8721;Wait: %,.2fs", totalProcessInMillis/1E3, totalWaitInMillis/1E3));
 
-    final MinorFragmentProfile lastUpdate = Collections.max(complete, Comparators.lastUpdate);
+    MinorFragmentProfile lastUpdate = Collections.max(complete, Comparators.lastUpdate);
     tb.appendMillis(System.currentTimeMillis()-lastUpdate.getLastUpdate());
 
-    final MinorFragmentProfile lastProgress = Collections.max(complete, Comparators.lastProgress);
+    MinorFragmentProfile lastProgress = Collections.max(complete, Comparators.lastProgress);
     tb.appendMillis(System.currentTimeMillis()-lastProgress.getLastProgress());
 
     // TODO(DRILL-3494): Names (maxMem, getMaxMemoryUsed) are misleading; the value is peak memory allocated to fragment
-    final MinorFragmentProfile maxMem = Collections.max(complete, Comparators.fragmentPeakMemory);
+    MinorFragmentProfile maxMem = Collections.max(complete, Comparators.fragmentPeakMemory);
     tb.appendBytes(maxMem.getMaxMemoryUsed());
   }
 
@@ -155,7 +155,7 @@ public class FragmentWrapper {
 
     // Use only minor fragments that have complete profiles
     // Complete iff the fragment profile has at least one operator profile, and start and end times.
-    final List<MinorFragmentProfile> complete =
+    List<MinorFragmentProfile> complete =
         major.getMinorFragmentProfileList().stream()
             .filter(Filters.HAS_OPERATORS_AND_TIMES)
             .collect(Collectors.toList());
@@ -169,20 +169,20 @@ public class FragmentWrapper {
       return;
     }
 
-    final MinorFragmentProfile firstStart = Collections.min(complete, Comparators.startTime);
-    final MinorFragmentProfile lastStart = Collections.max(complete, Comparators.startTime);
+    MinorFragmentProfile firstStart = Collections.min(complete, Comparators.startTime);
+    MinorFragmentProfile lastStart = Collections.max(complete, Comparators.startTime);
     tb.appendMillis(firstStart.getStartTime() - start);
     tb.appendMillis(lastStart.getStartTime() - start);
 
-    final MinorFragmentProfile firstEnd = Collections.min(complete, Comparators.endTime);
-    final MinorFragmentProfile lastEnd = Collections.max(complete, Comparators.endTime);
+    MinorFragmentProfile firstEnd = Collections.min(complete, Comparators.endTime);
+    MinorFragmentProfile lastEnd = Collections.max(complete, Comparators.endTime);
     tb.appendMillis(firstEnd.getEndTime() - start);
     tb.appendMillis(lastEnd.getEndTime() - start);
 
     long totalDuration = 0L;
     double totalProcessInMillis = 0.0d;
     double totalWaitInMillis = 0.0d;
-    for (final MinorFragmentProfile p : complete) {
+    for (MinorFragmentProfile p : complete) {
       totalDuration += p.getEndTime() - p.getStartTime();
       //Capture Busy & Wait Time
       List<OperatorProfile> opProfileList = p.getOperatorProfileList();
@@ -192,8 +192,8 @@ public class FragmentWrapper {
       }
     }
 
-    final MinorFragmentProfile shortRun = Collections.min(complete, Comparators.runTime);
-    final MinorFragmentProfile longRun = Collections.max(complete, Comparators.runTime);
+    MinorFragmentProfile shortRun = Collections.min(complete, Comparators.runTime);
+    MinorFragmentProfile longRun = Collections.max(complete, Comparators.runTime);
     tb.appendMillis(shortRun.getEndTime() - shortRun.getStartTime());
     tb.appendMillis(totalDuration / complete.size());
     tb.appendMillis(longRun.getEndTime() - longRun.getStartTime());
@@ -203,7 +203,7 @@ public class FragmentWrapper {
         String.format("&#8721;Busy: %,.2fs + &#8721;Wait: %,.2fs", totalProcessInMillis/1E3, totalWaitInMillis/1E3));
 
     // TODO(DRILL-3494): Names (maxMem, getMaxMemoryUsed) are misleading; the value is peak memory allocated to fragment
-    final MinorFragmentProfile maxMem = Collections.max(complete, Comparators.fragmentPeakMemory);
+    MinorFragmentProfile maxMem = Collections.max(complete, Comparators.fragmentPeakMemory);
     tb.appendBytes(maxMem.getMaxMemoryUsed());
   }
 
@@ -223,30 +223,30 @@ public class FragmentWrapper {
   private static final int NUM_NULLABLE_FRAGMENTS_COLUMNS = FRAGMENT_COLUMNS.length - 1;
 
   public String getContent() {
-    final TableBuilder builder = new TableBuilder(FRAGMENT_COLUMNS, FRAGMENT_COLUMNS_TOOLTIP, true);
+    TableBuilder builder = new TableBuilder(FRAGMENT_COLUMNS, FRAGMENT_COLUMNS_TOOLTIP, true);
 
     // Use only minor fragments that have complete profiles
     // Complete iff the fragment profile has at least one operator profile, and start and end times.
-    final List<MinorFragmentProfile> complete =
+    List<MinorFragmentProfile> complete =
         major.getMinorFragmentProfileList().stream()
             .filter(Filters.HAS_OPERATORS_AND_TIMES)
             .sorted(Comparators.minorId)
             .collect(Collectors.toList());
-    final List<MinorFragmentProfile> incomplete =
+    List<MinorFragmentProfile> incomplete =
         major.getMinorFragmentProfileList().stream()
             .filter(Filters.MISSING_OPERATORS_OR_TIMES)
             .collect(Collectors.toList());
 
     Map<String, String> attributeMap = new HashMap<>(); //Reusing for different fragments
-    for (final MinorFragmentProfile minor : complete) {
-      final ArrayList<OperatorProfile> ops = new ArrayList<>(minor.getOperatorProfileList());
+    for (MinorFragmentProfile minor : complete) {
+      ArrayList<OperatorProfile> ops = new ArrayList<>(minor.getOperatorProfileList());
 
       long biggestIncomingRecords = 0;
       long biggestBatches = 0;
-      for (final OperatorProfile op : ops) {
+      for (OperatorProfile op : ops) {
         long incomingRecords = 0;
         long batches = 0;
-        for (final StreamProfile sp : op.getInputProfileList()) {
+        for (StreamProfile sp : op.getInputProfileList()) {
           incomingRecords += sp.getRecords();
           batches += sp.getBatches();
         }
@@ -271,7 +271,7 @@ public class FragmentWrapper {
       builder.appendCell(minor.getState().name());
     }
 
-    for (final MinorFragmentProfile m : incomplete) {
+    for (MinorFragmentProfile m : incomplete) {
       builder.appendCell(major.getMajorFragmentId() + "-" + m.getMinorFragmentId());
       builder.appendRepeated(m.getState().toString(), null, NUM_NULLABLE_FRAGMENTS_COLUMNS);
     }

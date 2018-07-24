@@ -67,16 +67,16 @@ public class FastSaslClientFactory implements SaslClientFactory {
 
   // used in initialization, and for testing
   private void refresh() {
-    final Enumeration<SaslClientFactory> factories = Sasl.getSaslClientFactories();
-    final Map<String, List<SaslClientFactory>> map = new HashMap<>();
+    Enumeration<SaslClientFactory> factories = Sasl.getSaslClientFactories();
+    Map<String, List<SaslClientFactory>> map = new HashMap<>();
 
     while (factories.hasMoreElements()) {
-      final SaslClientFactory factory = factories.nextElement();
+      SaslClientFactory factory = factories.nextElement();
       // Passing null so factory is populated with all possibilities.  Properties passed when
       // instantiating a client are what really matter. See createSaslClient.
-      for (final String mechanismName : factory.getMechanismNames(null)) {
+      for (String mechanismName : factory.getMechanismNames(null)) {
         if (!map.containsKey(mechanismName)) {
-          map.put(mechanismName, new ArrayList<SaslClientFactory>());
+          map.put(mechanismName, new ArrayList<>());
         }
         map.get(mechanismName).add(factory);
       }

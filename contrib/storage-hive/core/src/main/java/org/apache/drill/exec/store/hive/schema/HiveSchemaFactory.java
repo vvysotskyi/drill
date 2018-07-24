@@ -184,7 +184,7 @@ public class HiveSchemaFactory implements SchemaFactory {
       try {
         List<String> dbs = mClient.getDatabases(schemaConfig.getIgnoreAuthErrors());
         return new HashSet<>(dbs);
-      } catch (final TException e) {
+      } catch (TException e) {
         logger.warn("Failure while getting Hive database list.", e);
       }
       return super.getSubSchemaNames();

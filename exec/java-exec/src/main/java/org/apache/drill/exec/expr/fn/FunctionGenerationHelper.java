@@ -130,7 +130,7 @@ public class FunctionGenerationHelper {
   private static LogicalExpression getTypeComparisonFunction(LogicalExpression comparisonFunction, HoldingContainer... args) {
     List<LogicalExpression> argExpressions = new ArrayList<>();
     List<MajorType> argTypes = new ArrayList<>();
-    for(HoldingContainer c : args) {
+    for (HoldingContainer c : args) {
       argTypes.add(c.getMajorType());
       argExpressions.add(new HoldingContainerExpression(c));
     }

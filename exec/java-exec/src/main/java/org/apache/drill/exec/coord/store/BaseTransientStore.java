@@ -30,7 +30,7 @@ public abstract class BaseTransientStore<V> implements TransientStore<V> {
 
   protected final TransientStoreConfig<V> config;
 
-  protected BaseTransientStore(final TransientStoreConfig<V> config) {
+  protected BaseTransientStore(TransientStoreConfig<V> config) {
     this.config = Objects.requireNonNull(config, "config cannot be null");
   }
 
@@ -61,12 +61,12 @@ public abstract class BaseTransientStore<V> implements TransientStore<V> {
   }
 
   @Override
-  public void addListener(final TransientStoreListener listener) {
+  public void addListener(TransientStoreListener listener) {
     listeners.add(Objects.requireNonNull(listener, "listener cannot be null"));
   }
 
   @Override
-  public void removeListener(final TransientStoreListener listener) {
+  public void removeListener(TransientStoreListener listener) {
     listeners.remove(Objects.requireNonNull(listener, "listener cannot be null"));
   }
 }

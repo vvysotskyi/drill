@@ -40,7 +40,7 @@ public class JoinPrelRenameVisitor extends BasePrelVisitor<Prel, Void, RuntimeEx
 
   private List<RelNode> getChildren(Prel prel) {
     List<RelNode> children = new ArrayList<>();
-    for(Prel child : prel){
+    for (Prel child : prel) {
       child = child.accept(this, null);
       children.add(child);
     }
@@ -56,7 +56,7 @@ public class JoinPrelRenameVisitor extends BasePrelVisitor<Prel, Void, RuntimeEx
 
     List<RelNode> children = getChildren(prel);
 
-    final int leftCount = children.get(0).getRowType().getFieldCount();
+    int leftCount = children.get(0).getRowType().getFieldCount();
 
     List<RelNode> reNamedChildren = new ArrayList<>();
 

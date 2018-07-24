@@ -25,7 +25,6 @@ public class PlanningSet implements Iterable<Wrapper> {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PlanningSet.class);
 
   private final Map<Fragment, Wrapper> fragmentMap = new HashMap<>();
-
   private int majorFragmentIdIndex = 0;
 
   public Wrapper get(Fragment node) {

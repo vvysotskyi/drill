@@ -46,7 +46,7 @@ public class FsmCursor {
    */
   public void transition(final String token) {
     Objects.requireNonNull(token);
-    final char c = fsmDescriptor.getChar(token);
+    char c = fsmDescriptor.getChar(token);
     stringBuilder.append(c);
 
     if (fsmDescriptor.isLastTransition(c)) {

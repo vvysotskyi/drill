@@ -197,7 +197,7 @@ public class UserSession implements AutoCloseable {
    */
   public void setDefaultSchemaPath(String newDefaultSchemaPath, SchemaPlus currentDefaultSchema)
       throws ValidationException {
-    final List<String> newDefaultPathAsList = Arrays.asList(newDefaultSchemaPath.split("\\."));
+    List<String> newDefaultPathAsList = Arrays.asList(newDefaultSchemaPath.split("\\."));
     SchemaPlus newDefault;
 
     // First try to find the given schema relative to the current default schema.

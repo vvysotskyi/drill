@@ -49,7 +49,6 @@ class MergeAdapter extends ClassVisitor {
   private final ClassNode classToMerge;
   private final ClassSet set;
   private final Set<String> mergingNames = new HashSet<>();
-
   private final boolean hasInit;
   private String name;
 
@@ -286,7 +285,6 @@ class MergeAdapter extends ClassVisitor {
 
   private static class RemapClasses extends Remapper {
     final Set<String> innerClasses = new HashSet<>();
-
     ClassSet top;
     ClassSet current;
 

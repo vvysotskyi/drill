@@ -45,7 +45,7 @@ public class QueryWorkUnit {
     private final FragmentRoot root;
     private final OptionList options;
 
-    public MinorFragmentDefn(final PlanFragment fragment, final FragmentRoot root, OptionList options) {
+    public MinorFragmentDefn(PlanFragment fragment, FragmentRoot root, OptionList options) {
       this.fragment = fragment;
       this.root = root;
       this.options = options;
@@ -76,15 +76,11 @@ public class QueryWorkUnit {
   private List<PlanFragment> fragments = new ArrayList<>();
   private final List<MinorFragmentDefn> minorFragmentDefns;
 
-  public QueryWorkUnit(final FragmentRoot rootOperator, final MinorFragmentDefn rootFragmentDefn,
-      final List<MinorFragmentDefn> minorFragmentDefns) {
-    Objects.requireNonNull(rootOperator);
-    Objects.requireNonNull(rootFragmentDefn);
-    Objects.requireNonNull(minorFragmentDefns);
-
-    this.rootFragmentDefn = rootFragmentDefn;
-    this.rootOperator = rootOperator;
-    this.minorFragmentDefns = minorFragmentDefns;
+  public QueryWorkUnit(FragmentRoot rootOperator, MinorFragmentDefn rootFragmentDefn,
+      List<MinorFragmentDefn> minorFragmentDefns) {
+    this.rootFragmentDefn = Objects.requireNonNull(rootFragmentDefn);
+    this.rootOperator = Objects.requireNonNull(rootOperator);
+    this.minorFragmentDefns = Objects.requireNonNull(minorFragmentDefns);
   }
 
   public PlanFragment getRootFragment() {

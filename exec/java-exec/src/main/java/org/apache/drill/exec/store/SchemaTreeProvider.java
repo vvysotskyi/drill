@@ -153,7 +153,7 @@ public class SchemaTreeProvider implements AutoCloseable {
   @Override
   public void close() throws Exception {
     List<AutoCloseable> toClose = new ArrayList<>();
-    for(SchemaPlus tree : schemaTreesToClose) {
+    for (SchemaPlus tree : schemaTreesToClose) {
       addSchemasToCloseList(tree, toClose);
     }
 

@@ -230,19 +230,19 @@ public class ProfileResources {
   @Produces(MediaType.APPLICATION_JSON)
   public QProfiles getProfilesJSON(@Context UriInfo uriInfo) {
     try {
-      final QueryProfileStoreContext profileStoreContext = work.getContext().getProfileStoreContext();
-      final PersistentStore<QueryProfile> completed = profileStoreContext.getCompletedProfileStore();
-      final TransientStore<QueryInfo> running = profileStoreContext.getRunningProfileStore();
+      QueryProfileStoreContext profileStoreContext = work.getContext().getProfileStoreContext();
+      PersistentStore<QueryProfile> completed = profileStoreContext.getCompletedProfileStore();
+      TransientStore<QueryInfo> running = profileStoreContext.getRunningProfileStore();
 
-      final List<String> errors = new ArrayList<>();
+      List<String> errors = new ArrayList<>();
 
-      final List<ProfileInfo> runningQueries = new ArrayList<>();
+      List<ProfileInfo> runningQueries = new ArrayList<>();
 
-      final Iterator<Map.Entry<String, QueryInfo>> runningEntries = running.entries();
+      Iterator<Map.Entry<String, QueryInfo>> runningEntries = running.entries();
       while (runningEntries.hasNext()) {
         try {
-          final Map.Entry<String, QueryInfo> runningEntry = runningEntries.next();
-          final QueryInfo profile = runningEntry.getValue();
+          Map.Entry<String, QueryInfo> runningEntry = runningEntries.next();
+          QueryInfo profile = runningEntry.getValue();
           if (principal.canManageProfileOf(profile.getUser())) {
             runningQueries.add(
                 new ProfileInfo(work.getContext().getConfig(),
@@ -259,7 +259,7 @@ public class ProfileResources {
 
       Collections.sort(runningQueries, Collections.reverseOrder());
 
-      final List<ProfileInfo> finishedQueries = new ArrayList<>();
+      List<ProfileInfo> finishedQueries = new ArrayList<>();
 
       //Defining #Profiles to load
       int maxProfilesToLoad = work.getContext().getConfig().getInt(ExecConstants.HTTP_MAX_PROFILES);
@@ -268,12 +268,12 @@ public class ProfileResources {
         maxProfilesToLoad = Integer.valueOf(maxProfilesParams);
       }
 
-      final Iterator<Map.Entry<String, QueryProfile>> range = completed.getRange(0, maxProfilesToLoad);
+      Iterator<Map.Entry<String, QueryProfile>> range = completed.getRange(0, maxProfilesToLoad);
 
       while (range.hasNext()) {
         try {
-          final Map.Entry<String, QueryProfile> profileEntry = range.next();
-          final QueryProfile profile = profileEntry.getValue();
+          Map.Entry<String, QueryProfile> profileEntry = range.next();
+          QueryProfile profile = profileEntry.getValue();
           if (principal.canManageProfileOf(profile.getUser())) {
             finishedQueries.add(
                 new ProfileInfo(work.getContext().getConfig(),
@@ -288,7 +288,7 @@ public class ProfileResources {
         }
       }
 
-      Collections.sort(finishedQueries, Collections.reverseOrder());
+      finishedQueries.sort(Collections.reverseOrder());
 
       return new QProfiles(runningQueries, finishedQueries, errors);
     } catch (Exception e) {

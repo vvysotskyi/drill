@@ -42,7 +42,7 @@ public class ProducerConsumerPrelVisitor extends BasePrelVisitor<Prel, Void, Run
   @Override
   public Prel visitPrel(Prel prel, Void value) throws RuntimeException {
     List<RelNode> children = new ArrayList<>();
-    for(Prel child : prel){
+    for (Prel child : prel) {
       children.add(child.accept(this, null));
     }
     return (Prel) prel.copy(prel.getTraitSet(), children);

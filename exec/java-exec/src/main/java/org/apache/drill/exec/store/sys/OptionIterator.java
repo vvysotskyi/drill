@@ -47,22 +47,22 @@ public class OptionIterator implements Iterator<Object> {
   private final Iterator<OptionValue> mergedOptions;
 
   public OptionIterator(FragmentContext context, Mode mode){
-    final DrillConfigIterator configOptions = new DrillConfigIterator(context.getConfig());
+    DrillConfigIterator configOptions = new DrillConfigIterator(context.getConfig());
     fragmentOptions = context.getOptions();
-    final Stream<OptionValue> options;
+    Stream<OptionValue> options;
     switch(mode){
-    case BOOT:
-      options = StreamSupport.stream(configOptions.spliterator(), false);
-      break;
-    case SYS_SESS_PUBLIC:
-      options = fragmentOptions.getPublicOptionList().stream();
-      break;
-    case SYS_SESS_INTERNAL:
-      options = fragmentOptions.getInternalOptionList().stream();
-      break;
-    default:
-      options = Stream.concat(StreamSupport.stream(configOptions.spliterator(), false),
-          StreamSupport.stream(fragmentOptions.spliterator(), false));
+      case BOOT:
+        options = StreamSupport.stream(configOptions.spliterator(), false);
+        break;
+      case SYS_SESS_PUBLIC:
+        options = fragmentOptions.getPublicOptionList().stream();
+        break;
+      case SYS_SESS_INTERNAL:
+        options = fragmentOptions.getInternalOptionList().stream();
+        break;
+      default:
+        options = Stream.concat(StreamSupport.stream(configOptions.spliterator(), false),
+            StreamSupport.stream(fragmentOptions.spliterator(), false));
     }
     mergedOptions = options.sorted()
       .iterator();

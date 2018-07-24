@@ -46,20 +46,17 @@ import org.apache.calcite.rex.RexNode;
  */
 public abstract class DrillJoinRelBase extends Join implements DrillRelNode {
   protected List<Integer> leftKeys = new ArrayList<>();
-
   protected List<Integer> rightKeys = new ArrayList<>();
-
   /**
    * The join key positions for which null values will not match.
    */
   protected List<Boolean> filterNulls = new ArrayList<>();
-
   private final double joinRowFactor;
 
   public DrillJoinRelBase(RelOptCluster cluster, RelTraitSet traits, RelNode left, RelNode right, RexNode condition,
       JoinRelType joinType) {
     super(cluster, traits, left, right, condition,
-        CorrelationId.setOf(Collections.<String> emptySet()), joinType);
+        CorrelationId.setOf(Collections.emptySet()), joinType);
     this.joinRowFactor = PrelUtil.getPlannerSettings(cluster.getPlanner()).getRowCountEstimateFactor();
   }
 

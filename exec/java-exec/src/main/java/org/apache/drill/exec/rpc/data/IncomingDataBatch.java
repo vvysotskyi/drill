@@ -46,11 +46,9 @@ public class IncomingDataBatch {
    *          AckSender to use for underlying RawFragmentBatches.
    */
   public IncomingDataBatch(FragmentRecordBatch header, DrillBuf body, AckSender sender) {
-    Objects.requireNonNull(header);
-    Objects.requireNonNull(sender);
-    this.header = header;
+    this.header = Objects.requireNonNull(header);
     this.body = body;
-    this.sender = sender;
+    this.sender = Objects.requireNonNull(sender);
   }
 
   /**
@@ -61,8 +59,8 @@ public class IncomingDataBatch {
    *          Target allocator that should be associated with data underlying this batch.
    * @return The newly created RawFragmentBatch
    */
-  public RawFragmentBatch newRawFragmentBatch(final BufferAllocator allocator) {
-    final DrillBuf transferredBuffer = body == null ? null : body.transferOwnership(allocator).buffer;
+  public RawFragmentBatch newRawFragmentBatch(BufferAllocator allocator) {
+    DrillBuf transferredBuffer = body == null ? null : body.transferOwnership(allocator).buffer;
     sender.increment();
     return new RawFragmentBatch(header, transferredBuffer, sender);
   }

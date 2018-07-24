@@ -237,7 +237,7 @@ public class LocalFunctionRegistry {
    */
   public void register(DrillOperatorTable operatorTable) {
     AtomicLong versionHolder = new AtomicLong();
-    final Map<String, Collection<DrillFuncHolder>> registeredFunctions =
+    Map<String, Collection<DrillFuncHolder>> registeredFunctions =
         registryHolder.getAllFunctionsWithHolders(versionHolder).asMap();
     operatorTable.setFunctionRegistryVersion(versionHolder.get());
     registerOperatorsWithInference(operatorTable, registeredFunctions);
@@ -246,21 +246,21 @@ public class LocalFunctionRegistry {
 
   private void registerOperatorsWithInference(DrillOperatorTable operatorTable, Map<String,
       Collection<DrillFuncHolder>> registeredFunctions) {
-    final Map<String, DrillSqlOperator.DrillSqlOperatorBuilder> map = new HashMap<>();
-    final Map<String, DrillSqlAggOperator.DrillSqlAggOperatorBuilder> mapAgg = new HashMap<>();
+    Map<String, DrillSqlOperator.DrillSqlOperatorBuilder> map = new HashMap<>();
+    Map<String, DrillSqlAggOperator.DrillSqlAggOperatorBuilder> mapAgg = new HashMap<>();
     for (Entry<String, Collection<DrillFuncHolder>> function : registeredFunctions.entrySet()) {
-      final ArrayListMultimap<Pair<Integer, Integer>, DrillFuncHolder> functions = ArrayListMultimap.create();
-      final ArrayListMultimap<Integer, DrillFuncHolder> aggregateFunctions = ArrayListMultimap.create();
-      final String name = function.getKey().toUpperCase();
+      ArrayListMultimap<Pair<Integer, Integer>, DrillFuncHolder> functions = ArrayListMultimap.create();
+      ArrayListMultimap<Integer, DrillFuncHolder> aggregateFunctions = ArrayListMultimap.create();
+      String name = function.getKey().toUpperCase();
       boolean isDeterministic = true;
       boolean isNiladic = false;
       for (DrillFuncHolder func : function.getValue()) {
-        final int paramCount = func.getParamCount();
+        int paramCount = func.getParamCount();
         if(func.isAggregating()) {
           aggregateFunctions.put(paramCount, func);
         } else {
-          final Pair<Integer, Integer> argNumberRange;
-          if(registeredFuncNameToArgRange.containsKey(name)) {
+          Pair<Integer, Integer> argNumberRange;
+          if (registeredFuncNameToArgRange.containsKey(name)) {
             argNumberRange = registeredFuncNameToArgRange.get(name);
           } else {
             argNumberRange = Pair.of(func.getParamCount(), func.getParamCount());
@@ -268,24 +268,24 @@ public class LocalFunctionRegistry {
           functions.put(argNumberRange, func);
         }
 
-        if(!func.isDeterministic()) {
+        if (!func.isDeterministic()) {
           isDeterministic = false;
         }
 
-        if(func.isNiladic()) {
+        if (func.isNiladic()) {
           isNiladic = true;
         }
       }
       for (Entry<Pair<Integer, Integer>, Collection<DrillFuncHolder>> entry : functions.asMap().entrySet()) {
-        final Pair<Integer, Integer> range = entry.getKey();
-        final int max = range.getRight();
-        final int min = range.getLeft();
-        if(!map.containsKey(name)) {
+        Pair<Integer, Integer> range = entry.getKey();
+        int max = range.getRight();
+        int min = range.getLeft();
+        if (!map.containsKey(name)) {
           map.put(name, new DrillSqlOperator.DrillSqlOperatorBuilder()
               .setName(name));
         }
 
-        final DrillSqlOperator.DrillSqlOperatorBuilder drillSqlOperatorBuilder = map.get(name);
+        DrillSqlOperator.DrillSqlOperatorBuilder drillSqlOperatorBuilder = map.get(name);
         drillSqlOperatorBuilder
             .addFunctions(entry.getValue())
             .setArgumentCount(min, max)
@@ -297,20 +297,20 @@ public class LocalFunctionRegistry {
           mapAgg.put(name, new DrillSqlAggOperator.DrillSqlAggOperatorBuilder().setName(name));
         }
 
-        final DrillSqlAggOperator.DrillSqlAggOperatorBuilder drillSqlAggOperatorBuilder = mapAgg.get(name);
+        DrillSqlAggOperator.DrillSqlAggOperatorBuilder drillSqlAggOperatorBuilder = mapAgg.get(name);
         drillSqlAggOperatorBuilder
             .addFunctions(entry.getValue())
             .setArgumentCount(entry.getKey(), entry.getKey());
       }
     }
 
-    for(final Entry<String, DrillSqlOperator.DrillSqlOperatorBuilder> entry : map.entrySet()) {
+    for (Entry<String, DrillSqlOperator.DrillSqlOperatorBuilder> entry : map.entrySet()) {
       operatorTable.addOperatorWithInference(
           entry.getKey(),
           entry.getValue().build());
     }
 
-    for(final Entry<String, DrillSqlAggOperator.DrillSqlAggOperatorBuilder> entry : mapAgg.entrySet()) {
+    for(Entry<String, DrillSqlAggOperator.DrillSqlAggOperatorBuilder> entry : mapAgg.entrySet()) {
       operatorTable.addOperatorWithInference(
           entry.getKey(),
           entry.getValue().build());

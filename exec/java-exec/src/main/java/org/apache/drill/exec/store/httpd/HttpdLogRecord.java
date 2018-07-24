@@ -67,9 +67,9 @@ public class HttpdLogRecord {
     return managedBuffer;
   }
 
-  private void writeString(final VarCharWriter writer, final String value) {
-    final byte[] stringBytes = value.getBytes(StandardCharsets.UTF_8);
-    final DrillBuf stringBuffer = buf(stringBytes.length);
+  private void writeString(VarCharWriter writer, final String value) {
+    byte[] stringBytes = value.getBytes(StandardCharsets.UTF_8);
+    DrillBuf stringBuffer = buf(stringBytes.length);
     stringBuffer.clear();
     stringBuffer.writeBytes(stringBytes);
     writer.writeVarChar(0, stringBytes.length, stringBuffer);

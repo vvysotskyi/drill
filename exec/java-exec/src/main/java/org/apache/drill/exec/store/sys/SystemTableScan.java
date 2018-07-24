@@ -144,10 +144,10 @@ public class SystemTableScan extends AbstractGroupScan implements SubScan {
   @Override
   public List<EndpointAffinity> getOperatorAffinity() {
     if (table.isDistributed()) {
-      final List<EndpointAffinity> affinities = new ArrayList<>();
-      final Collection<DrillbitEndpoint> bits = plugin.getContext().getBits();
-      final double affinityPerNode = 1d / bits.size();
-      for (final DrillbitEndpoint endpoint : bits) {
+      List<EndpointAffinity> affinities = new ArrayList<>();
+      Collection<DrillbitEndpoint> bits = plugin.getContext().getBits();
+      double affinityPerNode = 1d / bits.size();
+      for (DrillbitEndpoint endpoint : bits) {
         affinities.add(new EndpointAffinity(endpoint, affinityPerNode, true, /* maxWidth = */ 1));
       }
       return affinities;

@@ -18,9 +18,9 @@
 package org.apache.drill.exec.store.kudu;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
@@ -102,10 +102,9 @@ public class KuduRecordReader extends AbstractRecordReader {
 
       KuduScannerBuilder builder = client.newScannerBuilder(table);
       if (!isStarQuery()) {
-        List<String> colNames = new ArrayList<>();
-        for (SchemaPath p : this.getColumns()) {
-          colNames.add(p.getRootSegmentPath());
-        }
+        List<String> colNames = this.getColumns().stream()
+            .map(SchemaPath::getRootSegmentPath)
+            .collect(Collectors.toList());
         builder.setProjectedColumnNames(colNames);
       }
 

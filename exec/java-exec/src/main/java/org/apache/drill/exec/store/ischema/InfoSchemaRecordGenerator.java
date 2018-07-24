@@ -224,16 +224,16 @@ public abstract class InfoSchemaRecordGenerator<S> {
    * @param  schema  the given schema
    */
   public void visitTables(String schemaPath, SchemaPlus schema) {
-    final AbstractSchema drillSchema = schema.unwrap(AbstractSchema.class);
-    final List<String> tableNames = new ArrayList<>(schema.getTableNames());
-    for(Pair<String, ? extends Table> tableNameToTable : drillSchema.getTablesByNames(tableNames)) {
-      final String tableName = tableNameToTable.getKey();
-      final Table table = tableNameToTable.getValue();
-      final TableType tableType = table.getJdbcTableType();
+    AbstractSchema drillSchema = schema.unwrap(AbstractSchema.class);
+    List<String> tableNames = new ArrayList<>(schema.getTableNames());
+    for (Pair<String, ? extends Table> tableNameToTable : drillSchema.getTablesByNames(tableNames)) {
+      String tableName = tableNameToTable.getKey();
+      Table table = tableNameToTable.getValue();
+      TableType tableType = table.getJdbcTableType();
       // Visit the table, and if requested ...
-      if(shouldVisitTable(schemaPath, tableName, tableType) && visitTable(schemaPath, tableName, table)) {
+      if (shouldVisitTable(schemaPath, tableName, tableType) && visitTable(schemaPath, tableName, table)) {
         // ... do for each of the table's fields.
-        final RelDataType tableRow = table.getRowType(new JavaTypeFactoryImpl(DRILL_REL_DATATYPE_SYSTEM));
+        RelDataType tableRow = table.getRowType(new JavaTypeFactoryImpl(DRILL_REL_DATATYPE_SYSTEM));
         for (RelDataTypeField field: tableRow.getFieldList()) {
           if (shouldVisitColumn(schemaPath, tableName, field.getName())) {
             visitField(schemaPath, tableName, field);

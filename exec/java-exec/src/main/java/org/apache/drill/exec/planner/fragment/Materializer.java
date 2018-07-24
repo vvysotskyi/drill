@@ -99,7 +99,7 @@ public class Materializer extends AbstractPhysicalVisitor<PhysicalOperator, Mate
     iNode.addAllocation(op);
 //    logger.debug("Visiting catch all: {}", op);
     List<PhysicalOperator> children = new ArrayList<>();
-    for(PhysicalOperator child : op){
+    for (PhysicalOperator child : op) {
       children.add(child.accept(this, iNode));
     }
     PhysicalOperator newOp = op.getNewWithChildren(children);

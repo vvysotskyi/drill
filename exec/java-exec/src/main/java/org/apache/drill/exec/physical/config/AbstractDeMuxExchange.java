@@ -75,7 +75,7 @@ public abstract class AbstractDeMuxExchange extends AbstractExchange {
     List<DrillbitEndpoint> drillbitEndpoints = ImmutableSet.copyOf(receiverFragmentEndpoints).asList();
 
     List<EndpointAffinity> affinities = new ArrayList<>();
-    for(DrillbitEndpoint ep : drillbitEndpoints) {
+    for (DrillbitEndpoint ep : drillbitEndpoints) {
       affinities.add(new EndpointAffinity(ep, Double.POSITIVE_INFINITY));
     }
 
@@ -120,16 +120,16 @@ public abstract class AbstractDeMuxExchange extends AbstractExchange {
     ArrayListMultimap<DrillbitEndpoint, Integer> endpointReceiverList = ArrayListMultimap.create();
 
     int receiverFragmentId = 0;
-    for(DrillbitEndpoint receiverLocation : receiverLocations) {
+    for (DrillbitEndpoint receiverLocation : receiverLocations) {
       endpointReceiverList.put(receiverLocation, receiverFragmentId);
       receiverFragmentId++;
     }
 
     int senderFragmentId = 0;
-    for(DrillbitEndpoint senderLocation : senderLocations) {
+    for (DrillbitEndpoint senderLocation : senderLocations) {
       final List<Integer> receiverMinorFragmentIds = endpointReceiverList.get(senderLocation);
 
-      for(Integer receiverId : receiverMinorFragmentIds) {
+      for (Integer receiverId : receiverMinorFragmentIds) {
         receiverToSenderMapping.put(receiverId, new MinorFragmentEndpoint(senderFragmentId, senderLocation));
 
         senderToReceiversMapping.put(senderFragmentId,

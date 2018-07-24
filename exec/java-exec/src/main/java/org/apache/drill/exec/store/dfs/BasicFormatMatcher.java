@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
@@ -126,10 +127,9 @@ public class BasicFormatMatcher extends FormatMatcher {
     private List<RangeMagics> ranges;
 
     public MagicStringMatcher(List<MagicString> magicStrings) {
-      ranges = new ArrayList<>();
-      for(MagicString ms : magicStrings) {
-        ranges.add(new RangeMagics(ms));
-      }
+      ranges = magicStrings.stream()
+          .map(RangeMagics::new)
+          .collect(Collectors.toList());
     }
 
     public boolean matches(DrillFileSystem fs, FileStatus status) throws IOException{

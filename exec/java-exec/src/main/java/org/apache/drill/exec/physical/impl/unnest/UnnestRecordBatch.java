@@ -291,18 +291,18 @@ public class UnnestRecordBatch extends AbstractTableFunctionRecordBatch<UnnestPO
   protected IterOutcome doWork() {
     Objects.requireNonNull(lateral);
     unnest.setOutputCount(memoryManager.getOutputRowCount());
-    final int incomingRecordCount = incoming.getRecordCount();
-    final int currentRecord = lateral.getRecordIndex();
+    int incomingRecordCount = incoming.getRecordCount();
+    int currentRecord = lateral.getRecordIndex();
     // We call this in setupSchema, but we also need to call it here so we have a reference to the appropriate vector
     // inside of the the unnest for the current batch
     setUnnestVector();
 
     //Expected output count is the num of values in the unnest colum array for the current record
-    final int childCount =
+    int childCount =
         incomingRecordCount == 0 ? 0 : unnest.getUnnestField().getAccessor().getInnerValueCountAt(currentRecord) - remainderIndex;
 
     // Unnest the data
-    final int outputRecords = childCount == 0 ? 0 : unnest.unnestRecords(childCount);
+    int outputRecords = childCount == 0 ? 0 : unnest.unnestRecords(childCount);
 
     logger.debug("{} values out of {} were processed.", outputRecords, childCount);
     // Keep track of any spill over into another batch. Happens only if you artificially set the output batch
@@ -370,9 +370,9 @@ public class UnnestRecordBatch extends AbstractTableFunctionRecordBatch<UnnestPO
   }
 
   private TransferPair resetUnnestTransferPair() throws SchemaChangeException {
-    final List<TransferPair> transfers = new ArrayList<>();
-    final FieldReference fieldReference = new FieldReference(popConfig.getColumn());
-    final TransferPair transferPair = getUnnestFieldTransferPair(fieldReference);
+    List<TransferPair> transfers = new ArrayList<>();
+    FieldReference fieldReference = new FieldReference(popConfig.getColumn());
+    TransferPair transferPair = getUnnestFieldTransferPair(fieldReference);
     transfers.add(transferPair);
     logger.debug("Added transfer for unnest expression.");
     unnest.close();
@@ -387,7 +387,7 @@ public class UnnestRecordBatch extends AbstractTableFunctionRecordBatch<UnnestPO
     container.clear();
     recordCount = 0;
     unnest = new UnnestImpl();
-    final TransferPair tp = resetUnnestTransferPair();
+    TransferPair tp = resetUnnestTransferPair();
     container.add(TypeHelper.getNewVector(tp.getTo().getField(), oContext.getAllocator()));
     container.buildSchema(SelectionVectorMode.NONE);
     return true;
@@ -401,9 +401,9 @@ public class UnnestRecordBatch extends AbstractTableFunctionRecordBatch<UnnestPO
    * @return true if the schema has changed, false otherwise
    */
   private boolean schemaChanged() {
-    final TypedFieldId fieldId = incoming.getValueVectorId(popConfig.getColumn());
-    final MaterializedField thisField = incoming.getSchema().getColumn(fieldId.getFieldIds()[0]);
-    final MaterializedField prevField = unnestFieldMetadata;
+    TypedFieldId fieldId = incoming.getValueVectorId(popConfig.getColumn());
+    MaterializedField thisField = incoming.getSchema().getColumn(fieldId.getFieldIds()[0]);
+    MaterializedField prevField = unnestFieldMetadata;
     Objects.requireNonNull(thisField);
 
     // isEquivalent may return false if the order of the fields has changed. This usually does not

@@ -48,8 +48,8 @@ public class UnionDistinctPrule extends Prule {
 
   @Override
   public void onMatch(RelOptRuleCall call) {
-    final DrillUnionRel union = call.rel(0);
-    final List<RelNode> inputs = union.getInputs();
+    DrillUnionRel union = call.rel(0);
+    List<RelNode> inputs = union.getInputs();
     List<RelNode> convertedInputList = new ArrayList<>();
     RelTraitSet traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL);
 

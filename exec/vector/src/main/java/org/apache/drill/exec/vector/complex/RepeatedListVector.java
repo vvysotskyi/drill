@@ -262,13 +262,13 @@ public class RepeatedListVector extends AbstractContainerVector
     super(field, allocator, callBack);
     this.delegate = Objects.requireNonNull(delegate);
 
-    final List<MaterializedField> children = new ArrayList<>(field.getChildren());
-    final int childSize = children.size();
+    List<MaterializedField> children = new ArrayList<>(field.getChildren());
+    int childSize = children.size();
     assert childSize < 3;
-    final boolean hasChild = childSize > 0;
+    boolean hasChild = childSize > 0;
     if (hasChild) {
       // the last field is data field
-      final MaterializedField child = children.get(childSize-1);
+      MaterializedField child = children.get(childSize-1);
       addOrGetVector(VectorDescriptor.create(child));
     }
   }

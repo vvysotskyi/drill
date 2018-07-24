@@ -132,11 +132,11 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
 
     // get a conjunctions of the filter condition. For each conjunction, if it refers to ITEM or FLATTEN expression
     // then we could not pushed down. Otherwise, it's qualified to be pushed down.
-    final List<RexNode> predList = RelOptUtil.conjunctions(condition);
+    List<RexNode> predList = RelOptUtil.conjunctions(condition);
 
-    final List<RexNode> qualifiedPredList = new ArrayList<>();
+    List<RexNode> qualifiedPredList = new ArrayList<>();
 
-    for (final RexNode pred : predList) {
+    for (RexNode pred : predList) {
       if (DrillRelOptUtil.findOperators(pred, ImmutableList.of(), BANNED_OPERATORS) == null) {
         qualifiedPredList.add(pred);
       }

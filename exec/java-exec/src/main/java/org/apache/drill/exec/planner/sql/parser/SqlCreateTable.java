@@ -19,6 +19,7 @@ package org.apache.drill.exec.planner.sql.parser;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.google.common.base.Preconditions;
 
@@ -147,19 +148,15 @@ public class SqlCreateTable extends DrillSqlCall {
   }
 
   public List<String> getFieldNames() {
-    List<String> columnNames = new ArrayList<>();
-    for(SqlNode node : fieldList.getList()) {
-      columnNames.add(node.toString());
-    }
-    return columnNames;
+    return fieldList.getList().stream()
+        .map(SqlNode::toString)
+        .collect(Collectors.toList());
   }
 
   public List<String> getPartitionColumns() {
-    List<String> columnNames = new ArrayList<>();
-    for(SqlNode node : partitionColumns.getList()) {
-      columnNames.add(node.toString());
-    }
-    return columnNames;
+    return partitionColumns.getList().stream()
+        .map(SqlNode::toString)
+        .collect(Collectors.toList());
   }
 
   public SqlNode getQuery() { return query; }

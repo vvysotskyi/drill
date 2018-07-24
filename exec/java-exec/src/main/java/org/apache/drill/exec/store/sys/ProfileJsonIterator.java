@@ -74,7 +74,7 @@ public class ProfileJsonIterator extends ProfileIterator {
       }
 
       //Constructing ProfileInfo
-      final String queryID = input.getKey();
+      String queryID = input.getKey();
       String profileJson;
       try {
         profileJson = new String(profileSerializer.serialize(input.getValue()));

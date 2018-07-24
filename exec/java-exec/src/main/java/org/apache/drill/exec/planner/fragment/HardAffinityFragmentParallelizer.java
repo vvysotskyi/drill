@@ -43,17 +43,17 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
   private HardAffinityFragmentParallelizer() { /* singleton */}
 
   @Override
-  public void parallelizeFragment(final Wrapper fragmentWrapper, final ParallelizationParameters parameters,
-      final Collection<DrillbitEndpoint> activeEndpoints) throws PhysicalOperatorSetupException {
+  public void parallelizeFragment(Wrapper fragmentWrapper, ParallelizationParameters parameters,
+      Collection<DrillbitEndpoint> activeEndpoints) throws PhysicalOperatorSetupException {
 
-    final Stats stats = fragmentWrapper.getStats();
-    final ParallelizationInfo pInfo = stats.getParallelizationInfo();
+    Stats stats = fragmentWrapper.getStats();
+    ParallelizationInfo pInfo = stats.getParallelizationInfo();
 
     int totalMaxWidth = 0;
 
     // Go through the affinity map and extract the endpoints that have mandatory assignment requirement
-    final Map<DrillbitEndpoint, EndpointAffinity> endpointPool = new HashMap<>();
-    for(Entry<DrillbitEndpoint, EndpointAffinity> entry : pInfo.getEndpointAffinityMap().entrySet()) {
+    Map<DrillbitEndpoint, EndpointAffinity> endpointPool = new HashMap<>();
+    for (Entry<DrillbitEndpoint, EndpointAffinity> entry : pInfo.getEndpointAffinityMap().entrySet()) {
       if (entry.getValue().isAssignmentRequired()) {
         endpointPool.put(entry.getKey(), entry.getValue());
 
@@ -94,10 +94,10 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
     width = Math.min(totalMaxWidth, width);
 
     // Step 2: Select the endpoints
-    final Map<DrillbitEndpoint, Integer> endpoints = new HashMap<>();
+    Map<DrillbitEndpoint, Integer> endpoints = new HashMap<>();
 
     // 2.1 First add each endpoint from the pool once so that the mandatory assignment requirement is fulfilled.
-    for(Entry<DrillbitEndpoint, EndpointAffinity> entry : endpointPool.entrySet()) {
+    for (Entry<DrillbitEndpoint, EndpointAffinity> entry : endpointPool.entrySet()) {
       endpoints.put(entry.getKey(), 1);
     }
     int totalAssigned = endpoints.size();
@@ -105,10 +105,10 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
     // 2.2 Assign the remaining slots to endpoints proportional to the affinity of each endpoint
     int remainingSlots = width - endpoints.size();
     while (remainingSlots > 0) {
-      for(EndpointAffinity epAf : endpointPool.values()) {
-        final int moreAllocation = (int) Math.ceil(epAf.getAffinity() * remainingSlots);
+      for (EndpointAffinity epAf : endpointPool.values()) {
+        int moreAllocation = (int) Math.ceil(epAf.getAffinity() * remainingSlots);
         int currentAssignments = endpoints.get(epAf.getEndpoint());
-        for(int i=0;
+        for (int i = 0;
             i < moreAllocation &&
                 totalAssigned < width &&
                 currentAssignments < parameters.getMaxWidthPerNode() &&
@@ -119,7 +119,7 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
         }
         endpoints.put(epAf.getEndpoint(), currentAssignments);
       }
-      final int previousRemainingSlots = remainingSlots;
+      int previousRemainingSlots = remainingSlots;
       remainingSlots = width - totalAssigned;
       if (previousRemainingSlots == remainingSlots) {
         logger.error("Can't parallelize fragment: " +
@@ -129,9 +129,9 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
       }
     }
 
-    final List<DrillbitEndpoint> assignedEndpoints = new ArrayList<>();
-    for(Entry<DrillbitEndpoint, Integer> entry : endpoints.entrySet()) {
-      for(int i=0; i < entry.getValue(); i++) {
+    List<DrillbitEndpoint> assignedEndpoints = new ArrayList<>();
+    for (Entry<DrillbitEndpoint, Integer> entry : endpoints.entrySet()) {
+      for (int i = 0; i < entry.getValue(); i++) {
         assignedEndpoints.add(entry.getKey());
       }
     }
@@ -140,7 +140,7 @@ public class HardAffinityFragmentParallelizer implements FragmentParallelizer {
     fragmentWrapper.assignEndpoints(assignedEndpoints);
   }
 
-  private static void checkOrThrow(final boolean expr, final Logger logger, final String errMsg, Object... args)
+  private static void checkOrThrow(boolean expr, Logger logger, String errMsg, Object... args)
       throws PhysicalOperatorSetupException {
     if (!expr) {
       logger.error(errMsg, args);

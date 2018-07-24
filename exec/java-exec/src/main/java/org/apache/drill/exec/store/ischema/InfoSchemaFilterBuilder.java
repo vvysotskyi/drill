@@ -99,7 +99,7 @@ public class InfoSchemaFilterBuilder extends AbstractExprVisitor<ExprNode, Void,
 
       case "booleanand": {
         List<ExprNode> args = new ArrayList<>();
-        for(LogicalExpression arg : call.args) {
+        for (LogicalExpression arg : call.args) {
           ExprNode exprNode = arg.accept(this, value);
           if (exprNode != null && exprNode instanceof FunctionExprNode) {
             args.add(exprNode);
@@ -114,7 +114,7 @@ public class InfoSchemaFilterBuilder extends AbstractExprVisitor<ExprNode, Void,
 
       case "booleanor": {
         List<ExprNode> args = new ArrayList<>();
-        for(LogicalExpression arg : call.args) {
+        for (LogicalExpression arg : call.args) {
           ExprNode exprNode = arg.accept(this, value);
           if (exprNode != null && exprNode instanceof FunctionExprNode) {
             args.add(exprNode);

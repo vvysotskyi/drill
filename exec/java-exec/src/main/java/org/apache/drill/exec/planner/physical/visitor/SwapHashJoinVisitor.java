@@ -51,7 +51,7 @@ public class SwapHashJoinVisitor extends BasePrelVisitor<Prel, Double, RuntimeEx
   @Override
   public Prel visitPrel(Prel prel, Double value) throws RuntimeException {
     List<RelNode> children = new ArrayList<>();
-    for(Prel child : prel){
+    for (Prel child : prel) {
       child = child.accept(this, value);
       children.add(child);
     }

@@ -140,7 +140,7 @@ public class VectorUtil {
   }
 
   public static void showVectorAccessibleContent(VectorAccessible va, int[] columnWidths) {
-    final StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder();
     int width = 0;
     int columnIndex = 0;
     List<String> columns = new ArrayList<>();

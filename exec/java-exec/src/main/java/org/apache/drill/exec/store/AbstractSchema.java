@@ -231,10 +231,10 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
    * @param  tableNames the requested tables, specified by the table names
    * @return the collection of requested tables
    */
-  public List<Pair<String, ? extends Table>> getTablesByNames(final List<String> tableNames) {
-    final List<Pair<String, ? extends Table>> tables = new ArrayList<>();
+  public List<Pair<String, ? extends Table>> getTablesByNames(List<String> tableNames) {
+    List<Pair<String, ? extends Table>> tables = new ArrayList<>();
     for (String tableName : tableNames) {
-      final Table table = getTable(tableName);
+      Table table = getTable(tableName);
       if (table == null) {
         // Schema may return NULL for table if the query user doesn't have permissions to load the table. Ignore such
         // tables as INFO SCHEMA is about showing tables which the use has access to query.
@@ -246,9 +246,9 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
   }
 
   public List<Pair<String, Schema.TableType>> getTableNamesAndTypes(boolean bulkLoad, int bulkSize) {
-    final List<String> tableNames = new ArrayList<>(getTableNames());
-    final List<Pair<String, Schema.TableType>> tableNamesAndTypes = new ArrayList<>();
-    final List<Pair<String, ? extends Table>> tables;
+    List<String> tableNames = new ArrayList<>(getTableNames());
+    List<Pair<String, Schema.TableType>> tableNamesAndTypes = new ArrayList<>();
+    List<Pair<String, ? extends Table>> tables;
     if (bulkLoad) {
       tables = getTablesByNamesByBulkLoad(tableNames, bulkSize);
     } else {

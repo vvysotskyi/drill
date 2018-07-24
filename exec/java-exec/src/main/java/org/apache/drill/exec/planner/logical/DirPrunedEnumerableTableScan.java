@@ -57,12 +57,12 @@ public class DirPrunedEnumerableTableScan extends EnumerableTableScan {
   /** Creates an DirPrunedEnumerableTableScan. */
   public static EnumerableTableScan create(RelOptCluster cluster,
       RelOptTable relOptTable, String digestFromSelection) {
-    final Table table = relOptTable.unwrap(Table.class);
+    Table table = relOptTable.unwrap(Table.class);
     Class elementType = EnumerableTableScan.deduceElementType(table);
     List<RelCollation> relCollations = Optional.ofNullable(table)
         .map(t -> t.getStatistic().getCollations())
         .orElse(ImmutableList.of());
-    final RelTraitSet traitSet =
+    RelTraitSet traitSet =
         cluster.traitSetOf(EnumerableConvention.INSTANCE)
             .replaceIfs(RelCollationTraitDef.INSTANCE, () -> relCollations);
     return new DirPrunedEnumerableTableScan(cluster, traitSet, relOptTable, elementType, digestFromSelection);

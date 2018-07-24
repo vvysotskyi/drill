@@ -32,7 +32,7 @@ public class TransientStoreConfig<V> {
   private final String name;
   private final InstanceSerializer<V> serializer;
 
-  protected TransientStoreConfig(final String name, final InstanceSerializer<V> serializer) {
+  protected TransientStoreConfig(String name, InstanceSerializer<V> serializer) {
     Preconditions.checkArgument(!Strings.isNullOrEmpty(name), "name is required");
     this.name = name;
     this.serializer = Objects.requireNonNull(serializer, "serializer cannot be null");
@@ -55,7 +55,7 @@ public class TransientStoreConfig<V> {
   public boolean equals(Object obj) {
     if (obj instanceof TransientStoreConfig && obj.getClass().equals(getClass())) {
       @SuppressWarnings("unchecked")
-      final TransientStoreConfig<V> other = (TransientStoreConfig<V>)obj;
+      TransientStoreConfig<V> other = (TransientStoreConfig<V>)obj;
       return Objects.equals(name, other.name) && Objects.equals(serializer, other.serializer);
     }
     return false;
@@ -65,11 +65,11 @@ public class TransientStoreConfig<V> {
     return new TransientStoreConfigBuilder<>();
   }
 
-  public static <V extends Message, B extends Message.Builder> TransientStoreConfigBuilder<V> newProtoBuilder(final Schema<V> writeSchema, final Schema<B> readSchema) {
+  public static <V extends Message, B extends Message.Builder> TransientStoreConfigBuilder<V> newProtoBuilder(Schema<V> writeSchema, Schema<B> readSchema) {
     return TransientStoreConfig.<V>newBuilder().serializer(new ProtoSerializer<>(readSchema, writeSchema));
   }
 
-  public static <V> TransientStoreConfigBuilder<V> newJacksonBuilder(final ObjectMapper mapper, final Class<V> klazz) {
+  public static <V> TransientStoreConfigBuilder<V> newJacksonBuilder(ObjectMapper mapper, Class<V> klazz) {
     return TransientStoreConfig.<V>newBuilder().serializer(new JacksonSerializer<>(mapper, klazz));
   }
 }

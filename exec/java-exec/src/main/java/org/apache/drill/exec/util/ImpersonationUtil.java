@@ -234,26 +234,26 @@ public class ImpersonationUtil {
    * @param adminGroups Comma separated list of admin usergroups
    * @return True if the user has admin priveleges. False otherwise.
    */
-  public static boolean hasAdminPrivileges(final String userName, final String adminUsers, final String adminGroups) {
+  public static boolean hasAdminPrivileges(String userName, String adminUsers, String adminGroups) {
     // Process user is by default an admin
     if (getProcessUserName().equals(userName)) {
       return true;
     }
 
-    final Set<String> adminUsersSet =
+    Set<String> adminUsersSet =
         StreamSupport.stream(SPLITTER.split(adminUsers).spliterator(), false)
             .collect(Collectors.toSet());
     if (adminUsersSet.contains(userName)) {
       return true;
     }
 
-    final UserGroupInformation ugi = createProxyUgi(userName);
-    final String[] userGroups = ugi.getGroupNames();
+    UserGroupInformation ugi = createProxyUgi(userName);
+    String[] userGroups = ugi.getGroupNames();
     if (userGroups == null || userGroups.length == 0) {
       return false;
     }
 
-    final Set<String> adminUserGroupsSet = StreamSupport.stream(SPLITTER.split(adminGroups).spliterator(), false)
+    Set<String> adminUserGroupsSet = StreamSupport.stream(SPLITTER.split(adminGroups).spliterator(), false)
         .collect(Collectors.toSet());
     for (String userGroup : userGroups) {
       if (adminUserGroupsSet.contains(userGroup)) {

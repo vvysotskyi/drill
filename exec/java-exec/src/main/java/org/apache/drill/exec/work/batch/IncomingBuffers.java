@@ -63,7 +63,7 @@ public class IncomingBuffers implements AutoCloseable {
     this.context = context;
     Map<Integer, DataCollector> collectors = new HashMap<>();
     remainingRequired = new AtomicInteger(fragment.getCollectorCount());
-    for(int i =0; i < fragment.getCollectorCount(); i++){
+    for (int i =0; i < fragment.getCollectorCount(); i++) {
       Collector collector = fragment.getCollector(i);
       DataCollector newCollector = collector.getSupportsOutOfOrder() ?
           new MergingCollector(remainingRequired, collector, context) :

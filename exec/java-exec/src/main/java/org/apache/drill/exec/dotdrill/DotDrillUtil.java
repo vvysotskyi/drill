@@ -28,16 +28,16 @@ import org.apache.hadoop.fs.Path;
 public class DotDrillUtil {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DotDrillUtil.class);
 
-  private static List<DotDrillFile> getDrillFiles(DrillFileSystem fs, FileStatus[] statuses, DotDrillType... types){
+  private static List<DotDrillFile> getDrillFiles(DrillFileSystem fs, FileStatus[] statuses, DotDrillType... types) {
     List<DotDrillFile> files = new ArrayList<>();
-    for(FileStatus s : statuses){
+    for (FileStatus s : statuses) {
       DotDrillFile f = DotDrillFile.create(fs, s);
-      if(f != null){
-        if(types.length == 0){
+      if (f != null) {
+        if (types.length == 0) {
           files.add(f);
-        }else{
-          for(DotDrillType t : types){
-            if(t == f.getType()){
+        } else {
+          for (DotDrillType t : types) {
+            if (t == f.getType()) {
               files.add(f);
             }
           }
@@ -48,12 +48,12 @@ public class DotDrillUtil {
     return files;
   }
 
-  public static List<DotDrillFile> getDotDrills(DrillFileSystem fs, Path root, DotDrillType... types) throws IOException{
+  public static List<DotDrillFile> getDotDrills(DrillFileSystem fs, Path root, DotDrillType... types) throws IOException {
     return getDrillFiles(fs, fs.globStatus(new Path(root, "*.drill")), types);
   }
 
-  public static List<DotDrillFile> getDotDrills(DrillFileSystem fs, Path root, String name, DotDrillType... types) throws IOException{
-    if(!name.endsWith(".drill")) {
+  public static List<DotDrillFile> getDotDrills(DrillFileSystem fs, Path root, String name, DotDrillType... types) throws IOException {
+    if (!name.endsWith(".drill")) {
       name = name + DotDrillType.DOT_DRILL_GLOB;
     }
 

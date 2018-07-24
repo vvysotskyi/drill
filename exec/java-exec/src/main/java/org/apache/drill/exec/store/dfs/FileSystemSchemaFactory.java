@@ -86,8 +86,8 @@ public class FileSystemSchemaFactory implements SchemaFactory{
 
     public FileSystemSchema(String name, SchemaConfig schemaConfig) throws IOException {
       super(ImmutableList.of(), name);
-      final DrillFileSystem fs = ImpersonationUtil.createFileSystem(schemaConfig.getUserName(), plugin.getFsConf());
-      for(WorkspaceSchemaFactory f :  factories){
+      DrillFileSystem fs = ImpersonationUtil.createFileSystem(schemaConfig.getUserName(), plugin.getFsConf());
+      for (WorkspaceSchemaFactory f :  factories){
         WorkspaceSchema s = f.createSchema(getSchemaPath(), schemaConfig, fs);
         if (s != null) {
           schemaMap.put(s.getName(), s);
@@ -98,7 +98,7 @@ public class FileSystemSchemaFactory implements SchemaFactory{
     }
 
     void setPlus(SchemaPlus plusOfThis){
-      for(WorkspaceSchema s : schemaMap.values()){
+      for (WorkspaceSchema s : schemaMap.values()){
         plusOfThis.add(s.getName(), s);
       }
     }

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -138,10 +139,9 @@ public class MongoRecordReader extends AbstractRecordReader {
 
   private void init(MongoSubScan.MongoSubScanSpec subScanSpec) {
     List<String> hosts = subScanSpec.getHosts();
-    List<ServerAddress> addresses = new ArrayList<>();
-    for (String host : hosts) {
-      addresses.add(new ServerAddress(host));
-    }
+    List<ServerAddress> addresses = hosts.stream()
+        .map(ServerAddress::new)
+        .collect(Collectors.toList());
     MongoClient client = plugin.getClient(addresses);
     MongoDatabase db = client.getDatabase(subScanSpec.getDbName());
     this.unionEnabled = fragmentContext.getOptions().getBoolean(ExecConstants.ENABLE_UNION_TYPE_KEY);

@@ -33,10 +33,10 @@ import static org.junit.Assert.assertEquals;
 public class TestImplicitCasting {
   @Test
   public void testTimeStampAndTime() {
-    final List<TypeProtos.MinorType> inputTypes = new ArrayList<>();
+    List<TypeProtos.MinorType> inputTypes = new ArrayList<>();
     inputTypes.add(TypeProtos.MinorType.TIME);
     inputTypes.add(TypeProtos.MinorType.TIMESTAMP);
-    final TypeProtos.MinorType result = TypeCastRules.getLeastRestrictiveType(inputTypes);
+    TypeProtos.MinorType result = TypeCastRules.getLeastRestrictiveType(inputTypes);
 
     assertEquals(result, TypeProtos.MinorType.TIME);
   }

@@ -60,7 +60,6 @@ public class PrelSequencer extends BasePrelVisitor<Void, PrelSequencer.Frag, Run
     Prel root;
     int majorFragmentId;
     final List<Frag> children = new ArrayList<>();
-
     public Frag(Prel root) {
       super();
       this.root = root;

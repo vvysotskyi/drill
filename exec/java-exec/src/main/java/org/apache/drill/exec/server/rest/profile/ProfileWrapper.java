@@ -314,7 +314,7 @@ public class ProfileWrapper {
    * @return map with properties names and string values
    */
   public Map<String, String> getOptions() {
-    final Map<String, String> map = new TreeMap<>();
+    Map<String, String> map = new TreeMap<>();
     for (OptionValue option : options) {
       map.put(option.getName(), String.valueOf(option.getValue()));
     }

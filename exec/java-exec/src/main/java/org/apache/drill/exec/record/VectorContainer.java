@@ -42,7 +42,6 @@ public class VectorContainer implements VectorAccessible {
 
   private final BufferAllocator allocator;
   protected final List<VectorWrapper<?>> wrappers = new ArrayList<>();
-
   private BatchSchema schema;
 
   private int recordCount = 0;
@@ -198,13 +197,13 @@ public class VectorContainer implements VectorAccessible {
   public static VectorContainer getTransferClone(VectorAccessible incoming, VectorWrapper<?>[] ignoreWrappers, OperatorContext oContext) {
     Iterable<VectorWrapper<?>> wrappers = incoming;
     if (ignoreWrappers != null) {
-      final List<VectorWrapper<?>> ignored = Arrays.asList(ignoreWrappers);
-      final Set<VectorWrapper<?>> resultant = Sets.newLinkedHashSet(incoming);
+      List<VectorWrapper<?>> ignored = Arrays.asList(ignoreWrappers);
+      Set<VectorWrapper<?>> resultant = Sets.newLinkedHashSet(incoming);
       resultant.removeAll(ignored);
       wrappers = resultant;
     }
 
-    final VectorContainer vc = new VectorContainer(oContext);
+    VectorContainer vc = new VectorContainer(oContext);
     for (VectorWrapper<?> w : wrappers) {
       vc.cloneAndTransfer(w);
     }

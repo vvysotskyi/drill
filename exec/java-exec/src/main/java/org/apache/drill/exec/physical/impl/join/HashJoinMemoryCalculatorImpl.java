@@ -250,10 +250,10 @@ public class HashJoinMemoryCalculatorImpl implements HashJoinMemoryCalculator {
     private boolean firstInitialized;
     private boolean initialized;
 
-    public BuildSidePartitioningImpl(final HashTableSizeCalculator hashTableSizeCalculator,
-                                     final HashJoinHelperSizeCalculator hashJoinHelperSizeCalculator,
-                                     final double fragmentationFactor,
-                                     final double safetyFactor) {
+    public BuildSidePartitioningImpl(HashTableSizeCalculator hashTableSizeCalculator,
+                                     HashJoinHelperSizeCalculator hashJoinHelperSizeCalculator,
+                                     double fragmentationFactor,
+                                     double safetyFactor) {
       this.hashTableSizeCalculator = Objects.requireNonNull(hashTableSizeCalculator);
       this.hashJoinHelperSizeCalculator = Objects.requireNonNull(hashJoinHelperSizeCalculator);
       this.fragmentationFactor = fragmentationFactor;
@@ -279,8 +279,8 @@ public class HashJoinMemoryCalculatorImpl implements HashJoinMemoryCalculator {
       Objects.requireNonNull(probeSideBatch);
       Objects.requireNonNull(joinColumns);
 
-      final RecordBatchSizer buildSizer = new RecordBatchSizer(buildSideBatch);
-      final RecordBatchSizer probeSizer = new RecordBatchSizer(probeSideBatch);
+      RecordBatchSizer buildSizer = new RecordBatchSizer(buildSideBatch);
+      RecordBatchSizer probeSizer = new RecordBatchSizer(probeSideBatch);
 
       long buildBatchSize = getBatchSizeEstimate(buildSideBatch);
       long probeBatchSize = getBatchSizeEstimate(probeSideBatch);
@@ -288,15 +288,15 @@ public class HashJoinMemoryCalculatorImpl implements HashJoinMemoryCalculator {
       int buildNumRecords = buildSizer.rowCount();
       int probeNumRecords = probeSizer.rowCount();
 
-      final CaseInsensitiveMap<Long> buildValueSizes = getNotExcludedColumnSizes(
+      CaseInsensitiveMap<Long> buildValueSizes = getNotExcludedColumnSizes(
         joinColumns, buildSizer);
-      final CaseInsensitiveMap<Long> probeValueSizes = getNotExcludedColumnSizes(
+      CaseInsensitiveMap<Long> probeValueSizes = getNotExcludedColumnSizes(
         joinColumns, probeSizer);
-      final CaseInsensitiveMap<Long> keySizes = CaseInsensitiveMap.newHashMap();
+      CaseInsensitiveMap<Long> keySizes = CaseInsensitiveMap.newHashMap();
 
       for (String joinColumn: joinColumns) {
-        final RecordBatchSizer.ColumnSize columnSize = buildSizer.columns().get(joinColumn);
-        keySizes.put(joinColumn, (long)columnSize.getStdNetOrNetSizePerEntry());
+        RecordBatchSizer.ColumnSize columnSize = buildSizer.columns().get(joinColumn);
+        keySizes.put(joinColumn, (long) columnSize.getStdNetOrNetSizePerEntry());
       }
 
       initialize(autoTune,

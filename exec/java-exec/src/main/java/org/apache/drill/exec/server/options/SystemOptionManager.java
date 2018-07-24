@@ -288,7 +288,7 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
    */
 
   @VisibleForTesting
-  public SystemOptionManager(final DrillConfig bootConfig) {
+  public SystemOptionManager(DrillConfig bootConfig) {
     this.provider = new InMemoryStoreProvider(100);
     this.config = null;
     this.definitions = SystemOptionManager.createDefaultOptionDefinitions();
@@ -306,19 +306,19 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
     // if necessary, deprecate and replace options from persistent store
     Iterable<Entry<String, PersistedOptionValue>> allOptions = () -> options.getAll();
     for (Entry<String, PersistedOptionValue> option : allOptions) {
-      final String name = option.getKey();
-      final OptionDefinition definition = definitions.get(name);
+      String name = option.getKey();
+      OptionDefinition definition = definitions.get(name);
       if (definition == null) {
         // deprecated option, delete.
         options.delete(name);
         logger.warn("Deleting deprecated option `{}`", name);
       } else {
         OptionValidator validator = definition.getValidator();
-        final String canonicalName = validator.getOptionName().toLowerCase();
+        String canonicalName = validator.getOptionName().toLowerCase();
         if (!name.equals(canonicalName)) {
           // for backwards compatibility <= 1.1, rename to lower case.
           logger.warn("Changing option name to lower case `{}`", name);
-          final PersistedOptionValue value = option.getValue();
+          PersistedOptionValue value = option.getValue();
           options.delete(name);
           options.put(canonicalName, value);
         }
@@ -330,18 +330,18 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
 
   @Override
   public Iterator<OptionValue> iterator() {
-    final Map<String, OptionValue> buildList = CaseInsensitiveMap.newHashMap();
+    Map<String, OptionValue> buildList = CaseInsensitiveMap.newHashMap();
     // populate the default options
-    for (final Map.Entry<String, OptionValue> entry : defaults.entrySet()) {
+    for (Map.Entry<String, OptionValue> entry : defaults.entrySet()) {
       buildList.put(entry.getKey(), entry.getValue());
     }
     // override if changed
     Iterable<Entry<String, PersistedOptionValue>> allOptions = () -> options.getAll();
     for (Entry<String, PersistedOptionValue> entry : allOptions) {
-      final String name = entry.getKey();
-      final OptionDefinition optionDefinition = getOptionDefinition(name);
-      final PersistedOptionValue persistedOptionValue = entry.getValue();
-      final OptionValue optionValue = persistedOptionValue
+      String name = entry.getKey();
+      OptionDefinition optionDefinition = getOptionDefinition(name);
+      PersistedOptionValue persistedOptionValue = entry.getValue();
+      OptionValue optionValue = persistedOptionValue
         .toOptionValue(optionDefinition, OptionValue.OptionScope.SYSTEM);
       buildList.put(name, optionValue);
     }
@@ -349,12 +349,12 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
   }
 
   @Override
-  public OptionValue getOption(final String name) {
+  public OptionValue getOption(String name) {
     // check local space (persistent store)
-    final PersistedOptionValue persistedValue = options.get(name.toLowerCase());
+    PersistedOptionValue persistedValue = options.get(name.toLowerCase());
 
     if (persistedValue != null) {
-      final OptionDefinition optionDefinition = getOptionDefinition(name);
+      OptionDefinition optionDefinition = getOptionDefinition(name);
       return persistedValue.toOptionValue(optionDefinition, OptionValue.OptionScope.SYSTEM);
     }
 

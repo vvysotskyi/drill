@@ -477,15 +477,15 @@ public class RepeatedMapVector extends AbstractMapVector
   public class RepeatedMapAccessor implements RepeatedAccessor {
     @Override
     public Object getObject(int index) {
-      final List<Object> list = new JsonStringArrayList<>();
-      final int end = offsets.getAccessor().get(index+1);
+      List<Object> list = new JsonStringArrayList<>();
+      int end = offsets.getAccessor().get(index+1);
       String fieldName;
       for (int i =  offsets.getAccessor().get(index); i < end; i++) {
-        final Map<String, Object> vv = new LinkedHashMap<>();
-        for (final MaterializedField field : getField().getChildren()) {
+        Map<String, Object> vv = new LinkedHashMap<>();
+        for (MaterializedField field : getField().getChildren()) {
           if (!field.equals(BaseRepeatedValueVector.OFFSETS_FIELD)) {
             fieldName = field.getName();
-            final Object value = getChild(fieldName).getAccessor().getObject(i);
+            Object value = getChild(fieldName).getAccessor().getObject(i);
             if (value != null) {
               vv.put(fieldName, value);
             }

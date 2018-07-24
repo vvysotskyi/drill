@@ -33,7 +33,6 @@ public class ExpandingConcurrentMap<KEY, VALUE> implements ConcurrentMap<KEY, VA
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExpandingConcurrentMap.class);
 
   private final ConcurrentMap<KEY, VALUE> internalMap = new ConcurrentHashMap<>();
-
   private final DelegatingKeySet keySet = new DelegatingKeySet();
   private final MapValueFactory<KEY, VALUE> fac;
 
