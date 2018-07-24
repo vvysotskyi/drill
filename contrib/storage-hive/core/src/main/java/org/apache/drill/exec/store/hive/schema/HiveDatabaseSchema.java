@@ -67,7 +67,7 @@ public class HiveDatabaseSchema extends AbstractSchema{
     if (tables == null) {
       try {
         tables = new HashSet<>(mClient.getTableNames(this.name, schemaConfig.getIgnoreAuthErrors()));
-      } catch (final TException e) {
+      } catch (TException e) {
         logger.warn("Failure while attempting to access HiveDatabase '{}'.", this.name, e.getCause());
         tables = new HashSet<>(); // empty set.
       }
@@ -81,20 +81,20 @@ public class HiveDatabaseSchema extends AbstractSchema{
   }
 
   @Override
-  public List<Pair<String, ? extends Table>> getTablesByNamesByBulkLoad(final List<String> tableNames,
-      final int bulkSize) {
-    final String schemaName = getName();
-    final List<org.apache.hadoop.hive.metastore.api.Table> tables = DrillHiveMetaStoreClient
+  public List<Pair<String, ? extends Table>> getTablesByNamesByBulkLoad(List<String> tableNames,
+      int bulkSize) {
+    String schemaName = getName();
+    List<org.apache.hadoop.hive.metastore.api.Table> tables = DrillHiveMetaStoreClient
         .getTablesByNamesByBulkLoadHelper(mClient, tableNames, schemaName, bulkSize);
 
-    final List<Pair<String, ? extends Table>> tableNameToTable = new ArrayList<>();
+    List<Pair<String, ? extends Table>> tableNameToTable = new ArrayList<>();
     for (final org.apache.hadoop.hive.metastore.api.Table table : tables) {
       if (table == null) {
         continue;
       }
 
-      final String tableName = table.getTableName();
-      final TableType tableType;
+      String tableName = table.getTableName();
+      TableType tableType;
       if (table.getTableType().equals(org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW.toString())) {
         tableType = TableType.VIEW;
       } else {
