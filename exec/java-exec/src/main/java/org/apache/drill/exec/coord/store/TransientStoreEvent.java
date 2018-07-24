@@ -32,7 +32,7 @@ public class TransientStoreEvent<V> {
   private final String key;
   private final V value;
 
-  public TransientStoreEvent(final TransientStoreEventType type, final String key, final V value) {
+  public TransientStoreEvent(TransientStoreEventType type, String key, V value) {
     this.type = Objects.requireNonNull(type);
     this.key = Objects.requireNonNull(key);
     this.value = Objects.requireNonNull(value);
@@ -51,9 +51,9 @@ public class TransientStoreEvent<V> {
   }
 
   @Override
-  public boolean equals(final Object obj) {
+  public boolean equals(Object obj) {
     if (obj instanceof TransientStoreEvent && obj.getClass().equals(getClass())) {
-      final TransientStoreEvent<V> other = (TransientStoreEvent<V>) obj;
+      TransientStoreEvent<V> other = (TransientStoreEvent<V>) obj;
       return Objects.equals(type, other.type) && Objects.equals(key, other.key) && Objects.equals(value, other.value);
     }
     return super.equals(obj);
@@ -64,7 +64,7 @@ public class TransientStoreEvent<V> {
     return Objects.hash(type, key, value);
   }
 
-  public static <T> TransientStoreEvent<T>of(final TransientStoreEventType type, final String key, final T value) {
+  public static <T> TransientStoreEvent<T>of(TransientStoreEventType type, String key, T value) {
     return new TransientStoreEvent<>(type, key, value);
   }
 }

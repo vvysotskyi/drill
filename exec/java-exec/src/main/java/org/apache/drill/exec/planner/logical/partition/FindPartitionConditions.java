@@ -62,7 +62,6 @@ public class FindPartitionConditions extends RexVisitorImpl<Void> {
   public class OpState {
     private SqlOperator sqlOperator;
     private List<RexNode> children = new ArrayList<>();
-
     public OpState(SqlOperator op) {
       sqlOperator = op;
     }

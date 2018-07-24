@@ -125,15 +125,15 @@ public class WorkspaceSchemaFactory {
     }
 
     // NOTE: Add fallback format matcher if given in the configuration. Make sure fileMatchers is an order-preserving list.
-    final String defaultInputFormat = config.getDefaultInputFormat();
+    String defaultInputFormat = config.getDefaultInputFormat();
     if (!Strings.isNullOrEmpty(defaultInputFormat)) {
-      final FormatPlugin formatPlugin = plugin.getFormatPlugin(defaultInputFormat);
+      FormatPlugin formatPlugin = plugin.getFormatPlugin(defaultInputFormat);
       if (formatPlugin == null) {
-        final String message = String.format("Unable to find default input format[%s] for workspace[%s.%s]",
+        String message = String.format("Unable to find default input format[%s] for workspace[%s.%s]",
             defaultInputFormat, storageEngineName, schemaName);
         throw new ExecutionSetupException(message);
       }
-      final FormatMatcher fallbackMatcher = new BasicFormatMatcher(formatPlugin,
+      FormatMatcher fallbackMatcher = new BasicFormatMatcher(formatPlugin,
           ImmutableList.of(Pattern.compile(".*")), ImmutableList.of());
       fileMatchers.add(fallbackMatcher);
       dropFileMatchers = fileMatchers.subList(0, fileMatchers.size() - 1);
@@ -772,7 +772,7 @@ public class WorkspaceSchemaFactory {
 
     @Override
     public List<Pair<String, TableType>> getTableNamesAndTypes(boolean bulkLoad, int bulkSize) {
-      final List<Pair<String, TableType>> tableNamesAndTypes = new ArrayList<>();
+      List<Pair<String, TableType>> tableNamesAndTypes = new ArrayList<>();
 
       // Look for raw tables first
       if (!tables.isEmpty()) {

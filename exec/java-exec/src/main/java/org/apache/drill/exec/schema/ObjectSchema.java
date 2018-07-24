@@ -70,7 +70,7 @@ public class ObjectSchema implements RecordSchema {
 
     @Override
     public Iterable<? extends Field> removeUnreadFields() {
-      final List<Field> removedFields = new ArrayList<>();
+        List<Field> removedFields = new ArrayList<>();
         fields.values().removeIf(field -> {
             if (!field.isRead()) {
                 removedFields.add(field);

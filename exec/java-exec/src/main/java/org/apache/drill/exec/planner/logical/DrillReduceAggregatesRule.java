@@ -710,16 +710,16 @@ public class DrillReduceAggregatesRule extends RelOptRule {
 
     @Override
     public void onMatch(RelOptRuleCall call) {
-      final DrillAggregateRel oldAggRel = (DrillAggregateRel) call.rels[0];
+      DrillAggregateRel oldAggRel = (DrillAggregateRel) call.rels[0];
 
-      final Map<AggregateCall, RexNode> aggCallMapping = new HashMap<>();
-      final List<AggregateCall> newAggregateCalls = new ArrayList<>();
+      Map<AggregateCall, RexNode> aggCallMapping = new HashMap<>();
+      List<AggregateCall> newAggregateCalls = new ArrayList<>();
       for (AggregateCall oldAggregateCall : oldAggRel.getAggCallList()) {
         if (isConversionToSumZeroNeeded(oldAggregateCall.getAggregation(), oldAggregateCall.getType())) {
-          final RelDataType argType = oldAggregateCall.getType();
-          final RelDataType sumType = oldAggRel.getCluster().getTypeFactory()
+          RelDataType argType = oldAggregateCall.getType();
+          RelDataType sumType = oldAggRel.getCluster().getTypeFactory()
               .createTypeWithNullability(argType, argType.isNullable());
-          final SqlAggFunction sumZeroAgg = new DrillCalciteSqlAggFunctionWrapper(
+          SqlAggFunction sumZeroAgg = new DrillCalciteSqlAggFunctionWrapper(
               new SqlSumEmptyIsZeroAggFunction(), sumType);
           AggregateCall sumZeroCall =
               AggregateCall.create(
@@ -764,7 +764,7 @@ public class DrillReduceAggregatesRule extends RelOptRule {
 
     @Override
     public boolean matches(RelOptRuleCall call) {
-      final DrillWindowRel oldWinRel = (DrillWindowRel) call.rels[0];
+      DrillWindowRel oldWinRel = (DrillWindowRel) call.rels[0];
       for (Window.Group group : oldWinRel.groups) {
         for (Window.RexWinAggCall rexWinAggCall : group.aggCalls) {
           if (isConversionToSumZeroNeeded(rexWinAggCall.getOperator(), rexWinAggCall.getType())) {
@@ -777,19 +777,19 @@ public class DrillReduceAggregatesRule extends RelOptRule {
 
     @Override
     public void onMatch(RelOptRuleCall call) {
-      final DrillWindowRel oldWinRel = (DrillWindowRel) call.rels[0];
-      final ImmutableList.Builder<Window.Group> builder = ImmutableList.builder();
+      DrillWindowRel oldWinRel = (DrillWindowRel) call.rels[0];
+      ImmutableList.Builder<Window.Group> builder = ImmutableList.builder();
 
       for (Window.Group group : oldWinRel.groups) {
-        final List<Window.RexWinAggCall> aggCalls = new ArrayList<>();
+        List<Window.RexWinAggCall> aggCalls = new ArrayList<>();
         for (Window.RexWinAggCall rexWinAggCall : group.aggCalls) {
           if (isConversionToSumZeroNeeded(rexWinAggCall.getOperator(), rexWinAggCall.getType())) {
-            final RelDataType argType = rexWinAggCall.getType();
-            final RelDataType sumType = oldWinRel.getCluster().getTypeFactory()
+            RelDataType argType = rexWinAggCall.getType();
+            RelDataType sumType = oldWinRel.getCluster().getTypeFactory()
                 .createTypeWithNullability(argType, argType.isNullable());
-            final SqlAggFunction sumZeroAgg = new DrillCalciteSqlAggFunctionWrapper(
+            SqlAggFunction sumZeroAgg = new DrillCalciteSqlAggFunctionWrapper(
                 new SqlSumEmptyIsZeroAggFunction(), sumType);
-            final Window.RexWinAggCall sumZeroCall =
+            Window.RexWinAggCall sumZeroCall =
                 new Window.RexWinAggCall(
                     sumZeroAgg,
                     sumType,
@@ -802,7 +802,7 @@ public class DrillReduceAggregatesRule extends RelOptRule {
           }
         }
 
-        final Window.Group newGroup = new Window.Group(
+        Window.Group newGroup = new Window.Group(
             group.keys,
             group.isRows,
             group.lowerBound,

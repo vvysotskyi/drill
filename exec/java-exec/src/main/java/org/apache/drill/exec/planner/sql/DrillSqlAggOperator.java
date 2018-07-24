@@ -63,7 +63,6 @@ public class DrillSqlAggOperator extends SqlAggFunction {
   public static class DrillSqlAggOperatorBuilder {
     private String name = null;
     private final List<DrillFuncHolder> functions = new ArrayList<>();
-
     private int argCountMin = Integer.MAX_VALUE;
     private int argCountMax = Integer.MIN_VALUE;
 

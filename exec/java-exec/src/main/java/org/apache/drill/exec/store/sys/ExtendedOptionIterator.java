@@ -71,7 +71,7 @@ public class ExtendedOptionIterator implements Iterator<Object> {
   public Iterator<OptionValue> sortOptions(Iterator<OptionValue> options) {
     Iterable<OptionValue> optionsToSort = () -> options;
     HashMap<String, OptionValue> optionsMap = new HashMap<>();
-    final Map<OptionScope, Integer> preference = new HashMap<>();
+    Map<OptionScope, Integer> preference = new HashMap<>();
     preference.put(OptionScope.SESSION, 0);
     preference.put(OptionScope.SYSTEM, 1);
     preference.put(OptionScope.BOOT, 2);

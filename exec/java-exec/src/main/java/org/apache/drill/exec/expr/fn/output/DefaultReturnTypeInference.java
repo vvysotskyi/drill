@@ -45,16 +45,16 @@ public class DefaultReturnTypeInference implements ReturnTypeInference {
   @Override
   public TypeProtos.MajorType getType(List<LogicalExpression> logicalExpressions, FunctionAttributes attributes) {
     if (attributes.getReturnValue().getType().getMinorType() == TypeProtos.MinorType.UNION) {
-      final Set<TypeProtos.MinorType> subTypes = new HashSet<>();
-      for (final ValueReference ref : attributes.getParameters()) {
+      Set<TypeProtos.MinorType> subTypes = new HashSet<>();
+      for (ValueReference ref : attributes.getParameters()) {
         subTypes.add(ref.getType().getMinorType());
       }
 
-      final TypeProtos.MajorType.Builder builder = TypeProtos.MajorType.newBuilder()
+      TypeProtos.MajorType.Builder builder = TypeProtos.MajorType.newBuilder()
           .setMinorType(TypeProtos.MinorType.UNION)
           .setMode(TypeProtos.DataMode.OPTIONAL);
 
-      for (final TypeProtos.MinorType subType : subTypes) {
+      for (TypeProtos.MinorType subType : subTypes) {
         builder.addSubType(subType);
       }
       return builder.build();

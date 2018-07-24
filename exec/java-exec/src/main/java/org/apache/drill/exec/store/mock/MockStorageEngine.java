@@ -152,7 +152,7 @@ public class MockStorageEngine extends AbstractStoragePlugin {
       MockTableDef mockTableDefn;
       try {
         String json = Resources.toString(url, StandardCharsets.UTF_8);
-        final ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = new ObjectMapper();
         mapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
         mockTableDefn = mapper.readValue(json, MockTableDef.class);
       } catch (JsonParseException e) {

@@ -68,14 +68,14 @@ public final class FastSaslServerFactory implements SaslServerFactory {
 
   // used in initialization, and for testing
   private void refresh() {
-    final Enumeration<SaslServerFactory> factories = Sasl.getSaslServerFactories();
-    final Map<String, List<SaslServerFactory>> map = new HashMap<>();
+    Enumeration<SaslServerFactory> factories = Sasl.getSaslServerFactories();
+    Map<String, List<SaslServerFactory>> map = new HashMap<>();
 
     while (factories.hasMoreElements()) {
-      final SaslServerFactory factory = factories.nextElement();
+      SaslServerFactory factory = factories.nextElement();
       // Passing null so factory is populated with all possibilities.  Properties passed when
       // instantiating a server are what really matter. See createSaslServer.
-      for (final String mechanismName : factory.getMechanismNames(null)) {
+      for (String mechanismName : factory.getMechanismNames(null)) {
         if (!map.containsKey(mechanismName)) {
           map.put(mechanismName, new ArrayList<>());
         }
@@ -92,10 +92,10 @@ public final class FastSaslServerFactory implements SaslServerFactory {
   @Override
   public SaslServer createSaslServer(String mechanism, String protocol, String serverName, Map<String, ?> props,
                                      CallbackHandler cbh) throws SaslException {
-    final List<SaslServerFactory> factories = serverFactories.get(mechanism);
+    List<SaslServerFactory> factories = serverFactories.get(mechanism);
     if (factories != null) {
-      for (final SaslServerFactory factory : factories) {
-        final SaslServer saslServer = factory.createSaslServer(mechanism, protocol, serverName, props, cbh);
+      for (SaslServerFactory factory : factories) {
+        SaslServer saslServer = factory.createSaslServer(mechanism, protocol, serverName, props, cbh);
         if (saslServer != null) {
           return saslServer;
         }

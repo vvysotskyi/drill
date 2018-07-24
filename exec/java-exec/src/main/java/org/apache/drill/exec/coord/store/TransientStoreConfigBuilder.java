@@ -31,7 +31,7 @@ public class TransientStoreConfigBuilder<T> {
     return name;
   }
 
-  public TransientStoreConfigBuilder<T> name(final String name) {
+  public TransientStoreConfigBuilder<T> name(String name) {
     this.name = Objects.requireNonNull(name);
     return this;
   }
@@ -40,7 +40,7 @@ public class TransientStoreConfigBuilder<T> {
     return serializer;
   }
 
-  public TransientStoreConfigBuilder<T> serializer(final InstanceSerializer<T> serializer) {
+  public TransientStoreConfigBuilder<T> serializer(InstanceSerializer<T> serializer) {
     this.serializer = Objects.requireNonNull(serializer);
     return this;
   }

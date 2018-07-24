@@ -108,7 +108,7 @@ public class DrillAggregateRel extends DrillAggregateRelBase implements DrillRel
 
   public static LogicalExpression toDrill(AggregateCall call, List<String> fn, DrillImplementor implementor) {
     List<LogicalExpression> args = new ArrayList<>();
-    for(Integer i : call.getArgList()) {
+    for (Integer i : call.getArgList()) {
       args.add(new FieldReference(fn.get(i)));
     }
 

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.StreamSupport;
 
 import org.apache.curator.framework.CuratorFramework;
@@ -128,7 +129,7 @@ public class ZookeeperPersistentStore<V> extends BasePersistentStore<V> implemen
   @Override
   public Iterator<Map.Entry<String, V>> getRange(int skip, int take) {
     Iterable<Map.Entry<String, byte[]>> entries = client::entries;
-    java.util.function.Function<Map.Entry<String, byte[]>, Map.Entry<String, V>> valueDeserializerFunc =
+    Function<Map.Entry<String, byte[]>, Map.Entry<String, V>> valueDeserializerFunc =
         input -> {
           try {
             V value = config.getSerializer().deserialize(input.getValue());
@@ -146,7 +147,7 @@ public class ZookeeperPersistentStore<V> extends BasePersistentStore<V> implemen
 
   @Override
   public void close() {
-    try{
+    try {
       client.close();
     } catch(final Exception e) {
       logger.warn("Failure while closing out %s.", getClass().getSimpleName(), e);

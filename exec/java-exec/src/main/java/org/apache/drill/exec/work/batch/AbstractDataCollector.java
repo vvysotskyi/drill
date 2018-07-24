@@ -49,7 +49,7 @@ public abstract class AbstractDataCollector implements DataCollector {
    * @param context
    */
   public AbstractDataCollector(AtomicInteger parentAccounter,
-      final int numBuffers, Collector collector, final int bufferCapacity, FragmentContext context) {
+      int numBuffers, Collector collector, int bufferCapacity, FragmentContext context) {
     Objects.requireNonNull(collector);
     Objects.requireNonNull(parentAccounter);
 

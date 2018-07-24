@@ -67,9 +67,7 @@ public class UnionAllRecordBatch extends AbstractBinaryRecordBatch<UnionAll> {
   private SchemaChangeCallBack callBack = new SchemaChangeCallBack();
   private UnionAller unionall;
   private final List<TransferPair> transfers = new ArrayList<>();
-
   private List<ValueVector> allocationVectors = new ArrayList<>();
-
   private int recordCount = 0;
   private UnionInputIterator unionInputIterator;
 

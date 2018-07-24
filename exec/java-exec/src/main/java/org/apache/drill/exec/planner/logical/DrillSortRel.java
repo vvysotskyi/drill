@@ -72,7 +72,7 @@ public class DrillSortRel extends Sort implements DrillRel {
   }
 
 
-  public static RelNode convert(Order order, ConversionContext context) throws InvalidRelException{
+  public static RelNode convert(Order order, ConversionContext context) throws InvalidRelException {
 
     // if there are compound expressions in the order by, we need to convert into projects on either side.
     RelNode input = context.toRel(order.getInput());
@@ -80,15 +80,15 @@ public class DrillSortRel extends Sort implements DrillRel {
 
     // build a map of field names to indices.
     Map<String, Integer> fieldMap = new HashMap<>();
-    int i =0;
-    for(String field : fields){
+    int i = 0;
+    for (String field : fields) {
       fieldMap.put(field, i);
       i++;
     }
 
     List<RelFieldCollation> collations = new ArrayList<>();
 
-    for(Ordering o : order.getOrderings()){
+    for (Ordering o : order.getOrderings()) {
       String fieldName = ExprHelper.getFieldName(o.getExpr());
       int fieldId = fieldMap.get(fieldName);
       RelFieldCollation c = new RelFieldCollation(fieldId, o.getDirection(), o.getNullDirection());

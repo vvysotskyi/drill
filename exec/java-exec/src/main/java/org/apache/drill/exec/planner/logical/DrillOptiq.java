@@ -129,8 +129,8 @@ public class DrillOptiq {
 
     @Override
     public LogicalExpression visitInputRef(RexInputRef inputRef) {
-      final int index = inputRef.getIndex();
-      final RelDataTypeField field = fieldList.get(index);
+      int index = inputRef.getIndex();
+      RelDataTypeField field = fieldList.get(index);
       Objects.requireNonNull(field, "Unable to find field using input reference");
       return FieldReference.getWithQuotedRef(field.getName());
     }

@@ -36,9 +36,7 @@ public class DrillImplementor {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillImplementor.class);
 
   private Set<DrillTable> tables = new HashSet<>();
-
   private Set<String> storageEngineNames = new HashSet<>();
-
   private LogicalPlanBuilder planBuilder = new LogicalPlanBuilder();
   private LogicalPlan plan;
   private final DrillParseContext context;

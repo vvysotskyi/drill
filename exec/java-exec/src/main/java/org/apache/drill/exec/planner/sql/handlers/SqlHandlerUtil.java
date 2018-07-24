@@ -114,8 +114,8 @@ public class SqlHandlerUtil {
   }
 
   private static void ensureNoDuplicateColumnNames(List<String> fieldNames) throws ValidationException {
-    final HashSet<String> fieldHashSet = new HashSet<>(fieldNames.size());
-    for(String field : fieldNames) {
+    HashSet<String> fieldHashSet = new HashSet<>(fieldNames.size());
+    for (String field : fieldNames) {
       if (fieldHashSet.contains(field.toLowerCase())) {
         throw new ValidationException(String.format("Duplicate column name [%s]", field));
       }
@@ -140,15 +140,15 @@ public class SqlHandlerUtil {
    */
   public static RelNode qualifyPartitionCol(RelNode input, List<String> partitionColumns) {
 
-    final RelDataType inputRowType = input.getRowType();
+    RelDataType inputRowType = input.getRowType();
 
-    final List<RexNode> colRefStarExprs = new ArrayList<>();
-    final List<String> colRefStarNames = new ArrayList<>();
-    final RexBuilder builder = input.getCluster().getRexBuilder();
-    final int originalFieldSize = inputRowType.getFieldCount();
+    List<RexNode> colRefStarExprs = new ArrayList<>();
+    List<String> colRefStarNames = new ArrayList<>();
+    RexBuilder builder = input.getCluster().getRexBuilder();
+    int originalFieldSize = inputRowType.getFieldCount();
 
-    for (final String col : partitionColumns) {
-      final RelDataTypeField field = inputRowType.getField(col, false, false);
+    for (String col : partitionColumns) {
+      RelDataTypeField field = inputRowType.getField(col, false, false);
 
       if (field == null) {
         throw UserException.validationError()
@@ -158,10 +158,10 @@ public class SqlHandlerUtil {
         if (SchemaPath.DYNAMIC_STAR.equals(field.getName())) {
           colRefStarNames.add(col);
 
-          final List<RexNode> operands = new ArrayList<>();
+          List<RexNode> operands = new ArrayList<>();
           operands.add(new RexInputRef(field.getIndex(), field.getType()));
           operands.add(builder.makeLiteral(col));
-          final RexNode item = builder.makeCall(SqlStdOperatorTable.ITEM, operands);
+          RexNode item = builder.makeCall(SqlStdOperatorTable.ITEM, operands);
           colRefStarExprs.add(item);
         }
       }

@@ -48,9 +48,7 @@ import java.util.List;
 public class UnsupportedOperatorsVisitor extends SqlShuttle {
   private QueryContext context;
   private static List<String> disabledType = new ArrayList<>();
-
   private static List<String> disabledOperators = new ArrayList<>();
-
   private static List<String> dirExplorers = new ArrayList<>();
 
   static {

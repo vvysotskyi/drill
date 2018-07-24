@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.rpc;
 
+import com.google.common.base.Preconditions;
 import io.netty.channel.socket.SocketChannel;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.rpc.security.SaslProperties;
@@ -60,7 +61,7 @@ public abstract class AbstractServerConnection<S extends ServerConnection<S>>
 
   @Override
   public void initSaslServer(String mechanismName) throws SaslException {
-    Objects.requireNonNull(saslServer == null);
+    Preconditions.checkState(saslServer == null);
     try {
       this.saslServer = config.getAuthProvider()
           .getAuthenticatorFactory(mechanismName)
@@ -86,13 +87,13 @@ public abstract class AbstractServerConnection<S extends ServerConnection<S>>
 
         @Override
         public byte[] wrap(byte[] data, int offset, int len) throws SaslException {
-          Objects.requireNonNull(saslServer != null);
+          Preconditions.checkState(saslServer != null);
           return saslServer.wrap(data, offset, len);
         }
 
         @Override
         public byte[] unwrap(byte[] data, int offset, int len) throws SaslException {
-          Objects.requireNonNull(saslServer != null);
+          Preconditions.checkState(saslServer != null);
           return saslServer.unwrap(data, offset, len);
         }
       };
@@ -101,7 +102,7 @@ public abstract class AbstractServerConnection<S extends ServerConnection<S>>
 
   @Override
   public SaslServer getSaslServer() {
-    Objects.requireNonNull(saslServer != null);
+    Preconditions.checkState(saslServer != null);
     return saslServer;
   }
 
@@ -123,9 +124,8 @@ public abstract class AbstractServerConnection<S extends ServerConnection<S>>
   }
 
   @Override
-  public void changeHandlerTo(final RequestHandler<S> handler) {
-    Objects.requireNonNull(handler);
-    this.currentHandler = handler;
+  public void changeHandlerTo(RequestHandler<S> handler) {
+    this.currentHandler = Objects.requireNonNull(handler);
   }
 
   @Override

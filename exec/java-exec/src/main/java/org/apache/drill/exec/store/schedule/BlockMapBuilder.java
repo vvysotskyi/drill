@@ -57,7 +57,6 @@ public class BlockMapBuilder {
   static final String BLOCK_MAP_BUILDER_TIMER = MetricRegistry.name(BlockMapBuilder.class, "blockMapBuilderTimer");
 
   private final Map<Path,ImmutableRangeMap<Long,BlockLocation>> blockMapMap = new ConcurrentHashMap<>();
-
   private final FileSystem fs;
   private final ImmutableMap<String,DrillbitEndpoint> endPointMap;
   private final CompressionCodecFactory codecFactory;
@@ -80,7 +79,7 @@ public class BlockMapBuilder {
     }
     List<List<CompleteFileWork>> work = TimedCallable.run("Get block maps", logger, readers, 16);
     List<CompleteFileWork> singleList = new ArrayList<>();
-    for(List<CompleteFileWork> innerWorkList : work){
+    for (List<CompleteFileWork> innerWorkList : work){
       singleList.addAll(innerWorkList);
     }
 

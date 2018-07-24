@@ -27,8 +27,8 @@ import org.apache.drill.exec.physical.base.AbstractJoinPop;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @JsonTypeName("merge-join")
 public class MergeJoinPOP extends AbstractJoinPop{
@@ -54,13 +54,12 @@ public class MergeJoinPOP extends AbstractJoinPop{
   }
 
   public MergeJoinPOP flipIfRight(){
-    if(joinType == JoinRelType.RIGHT){
-      List<JoinCondition> flippedConditions = new ArrayList<>();
-      for(JoinCondition c : conditions){
-        flippedConditions.add(c.flip());
-      }
+    if (joinType == JoinRelType.RIGHT) {
+      List<JoinCondition> flippedConditions = conditions.stream()
+          .map(JoinCondition::flip)
+          .collect(Collectors.toList());
       return new MergeJoinPOP(right, left, flippedConditions, JoinRelType.LEFT);
-    }else{
+    } else {
       return this;
     }
   }

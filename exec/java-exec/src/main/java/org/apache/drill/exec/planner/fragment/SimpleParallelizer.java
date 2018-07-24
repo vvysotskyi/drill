@@ -209,18 +209,16 @@ public class SimpleParallelizer implements ParallelizationParameters {
     // parallelization info. First assume all fragments are leaf fragments. Go through the fragments one by one and
     // remove the fragment on which the current fragment depends on.
 
-    final Set<Wrapper> roots = new HashSet<>();
-    for(Wrapper w : planningSet) {
+    Set<Wrapper> roots = new HashSet<>();
+    for (Wrapper w : planningSet) {
       roots.add(w);
     }
 
-    for(Wrapper wrapper : planningSet) {
-      final List<Wrapper> fragmentDependencies = wrapper.getFragmentDependencies();
+    for (Wrapper wrapper : planningSet) {
+      List<Wrapper> fragmentDependencies = wrapper.getFragmentDependencies();
       if (fragmentDependencies != null && fragmentDependencies.size() > 0) {
-        for(Wrapper dependency : fragmentDependencies) {
-          if (roots.contains(dependency)) {
-            roots.remove(dependency);
-          }
+        for (Wrapper dependency : fragmentDependencies) {
+          roots.remove(dependency);
         }
       }
     }

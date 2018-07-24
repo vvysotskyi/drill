@@ -71,22 +71,22 @@ public class ProfileInfoIterator extends ProfileIterator {
       }
 
       //Constructing ProfileInfo
-      final String queryID = input.getKey();
-      final QueryProfile profile = input.getValue();
+      String queryID = input.getKey();
+      QueryProfile profile = input.getValue();
       //For cases where query was never queued
-      final long assumedQueueEndTime = profile.getQueueWaitEnd() > 0 ? profile.getQueueWaitEnd() : profile.getPlanEnd();
+      long assumedQueueEndTime = profile.getQueueWaitEnd() > 0 ? profile.getQueueWaitEnd() : profile.getPlanEnd();
       return new ProfileInfo(
-        queryID,
-        new Timestamp(profile.getStart()),
-        profile.getForeman().getAddress(),
-        profile.getTotalFragments(),
-        profile.getUser(),
-        profile.getQueueName(),
-        computeDuration(profile.getStart(), profile.getPlanEnd()),
-        computeDuration(profile.getPlanEnd(), assumedQueueEndTime),
-        computeDuration(assumedQueueEndTime, profile.getEnd()),
-        profile.getState().name(),
-        profile.getQuery()
+          queryID,
+          new Timestamp(profile.getStart()),
+          profile.getForeman().getAddress(),
+          profile.getTotalFragments(),
+          profile.getUser(),
+          profile.getQueueName(),
+          computeDuration(profile.getStart(), profile.getPlanEnd()),
+          computeDuration(profile.getPlanEnd(), assumedQueueEndTime),
+          computeDuration(assumedQueueEndTime, profile.getEnd()),
+          profile.getState().name(),
+          profile.getQuery()
       );
     };
     return StreamSupport.stream(iterable.spliterator(), false)

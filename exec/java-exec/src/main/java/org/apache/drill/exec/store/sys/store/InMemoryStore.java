@@ -70,12 +70,12 @@ public class InMemoryStore<V> extends BasePersistentStore<V> {
   }
 
   @Override
-  public boolean putIfAbsent(final String key, final V value) {
+  public boolean putIfAbsent(String key, V value) {
     return (value != store.putIfAbsent(key, value));
   }
 
   @Override
-  public Iterator<Map.Entry<String, V>> getRange(final int skip, final int take) {
+  public Iterator<Map.Entry<String, V>> getRange(int skip, int take) {
     return store.entrySet().stream()
         .skip(skip)
         .limit(take)

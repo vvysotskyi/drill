@@ -39,8 +39,7 @@ public abstract class SingleBatchSorterTemplate implements SingleBatchSorter, In
 
   @Override
   public void setup(FragmentContext context, SelectionVector2 vector2, VectorAccessible incoming) throws SchemaChangeException{
-    Objects.requireNonNull(vector2);
-    this.vector2 = vector2;
+    this.vector2 = Objects.requireNonNull(vector2);
     try {
       doSetup(context, incoming, null);
     } catch (IllegalStateException e) {

@@ -588,10 +588,10 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
    */
   protected void setupNewSchema(VectorAccessible batch) throws SchemaChangeException {
     container.clear();
-    final ErrorCollector collector = new ErrorCollectorImpl();
-    final List<TransferPair> transfers = new ArrayList<>();
+    ErrorCollector collector = new ErrorCollectorImpl();
+    List<TransferPair> transfers = new ArrayList<>();
 
-    final ClassGenerator<OrderedPartitionProjector> cg = CodeGenerator.getRoot(
+    ClassGenerator<OrderedPartitionProjector> cg = CodeGenerator.getRoot(
         OrderedPartitionProjector.TEMPLATE_DEFINITION, context.getOptions());
     // Note: disabled for now. This may require some debugging:
     // no tests are available for this operator.
@@ -609,7 +609,7 @@ public class OrderedPartitionRecordBatch extends AbstractRecordBatch<OrderedPart
 
     int count = 0;
     for (Ordering od : popConfig.getOrderings()) {
-      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
+      LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
       if (collector.hasErrors()) {
         throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
       }

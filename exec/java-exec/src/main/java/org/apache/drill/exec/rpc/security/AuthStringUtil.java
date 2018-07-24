@@ -26,8 +26,8 @@ public class AuthStringUtil {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AuthStringUtil.class);
 
   // ignores case
-  public static boolean listContains(final List<String> list, final String toCompare) {
-    for (final String string : list) {
+  public static boolean listContains(List<String> list, String toCompare) {
+    for (String string : list) {
       if (string.equalsIgnoreCase(toCompare)) {
         return true;
       }
@@ -36,7 +36,7 @@ public class AuthStringUtil {
   }
 
   // converts list if strings to set of uppercase strings
-  public static Set<String> asSet(final List<String> list) {
+  public static Set<String> asSet(List<String> list) {
     if (list == null) {
       return new HashSet<>();
     }

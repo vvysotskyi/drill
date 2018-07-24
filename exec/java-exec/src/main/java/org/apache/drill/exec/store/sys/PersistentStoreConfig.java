@@ -70,7 +70,7 @@ public class PersistentStoreConfig<V> {
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof PersistentStoreConfig) {
-      final PersistentStoreConfig<?> other = PersistentStoreConfig.class.cast(obj);
+      PersistentStoreConfig<?> other = PersistentStoreConfig.class.cast(obj);
       return Objects.equals(name, other.name)
           && Objects.equals(valueSerializer, other.valueSerializer)
           && Objects.equals(mode, other.mode);

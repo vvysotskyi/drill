@@ -18,7 +18,6 @@
 package org.apache.drill.exec.rpc.user;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -197,7 +196,7 @@ public class UserSession implements AutoCloseable {
    */
   public void setDefaultSchemaPath(String newDefaultSchemaPath, SchemaPlus currentDefaultSchema)
       throws ValidationException {
-    final List<String> newDefaultPathAsList = SchemaUtilites.getSchemaPathAsList(newDefaultSchemaPath);
+    List<String> newDefaultPathAsList = SchemaUtilites.getSchemaPathAsList(newDefaultSchemaPath);
     SchemaPlus newDefault;
 
     // First try to find the given schema relative to the current default schema.

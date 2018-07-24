@@ -20,6 +20,7 @@ package org.apache.drill.exec.planner.types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -34,7 +35,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
  */
 public class DrillFixedRelDataTypeImpl extends RelDataTypeImpl {
   private List<RelDataTypeField> fields = new ArrayList<>();
-
   private final RelDataTypeFactory typeFactory;
 
   public DrillFixedRelDataTypeImpl(RelDataTypeFactory typeFactory, List<String> columnNames) {
@@ -76,12 +76,9 @@ public class DrillFixedRelDataTypeImpl extends RelDataTypeImpl {
 
   @Override
   public List<String> getFieldNames() {
-    List<String> fieldNames = new ArrayList<>();
-    for (RelDataTypeField f : fields) {
-      fieldNames.add(f.getName());
-    }
-
-    return fieldNames;
+    return fields.stream()
+        .map(RelDataTypeField::getName)
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -91,7 +88,7 @@ public class DrillFixedRelDataTypeImpl extends RelDataTypeImpl {
 
   @Override
   public RelDataTypePrecedenceList getPrecedenceList() {
-    return new SqlTypeExplicitPrecedenceList(Collections.<SqlTypeName>emptyList());
+    return new SqlTypeExplicitPrecedenceList(Collections.emptyList());
   }
 
   @Override

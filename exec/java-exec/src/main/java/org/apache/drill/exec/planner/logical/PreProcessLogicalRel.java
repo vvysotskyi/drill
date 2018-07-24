@@ -76,8 +76,8 @@ public class PreProcessLogicalRel extends RelShuttleImpl {
 
   @Override
   public RelNode visit(LogicalProject project) {
-    final List<RexNode> projExpr = new ArrayList<>();
-    for(RexNode rexNode : project.getChildExps()) {
+    List<RexNode> projExpr = new ArrayList<>();
+    for (RexNode rexNode : project.getChildExps()) {
       projExpr.add(rexNode.accept(unwrappingExpressionVisitor));
     }
 

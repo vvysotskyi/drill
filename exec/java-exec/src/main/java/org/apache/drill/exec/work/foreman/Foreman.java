@@ -420,16 +420,16 @@ public class Foreman implements Runnable {
     // need to set QueryId, MinorFragment for incoming Fragments
     PlanFragment rootFragment = null;
     boolean isFirst = true;
-    final List<PlanFragment> planFragments = new ArrayList<>();
+    List<PlanFragment> planFragments = new ArrayList<>();
     for (PlanFragment myFragment : fragmentsList) {
-      final FragmentHandle handle = myFragment.getHandle();
+      FragmentHandle handle = myFragment.getHandle();
       // though we have new field in the FragmentHandle - parentQueryId
       // it can not be used until every piece of code that creates handle is using it, as otherwise
       // comparisons on that handle fail that causes fragment runtime failure
-      final FragmentHandle newFragmentHandle = FragmentHandle.newBuilder().setMajorFragmentId(handle.getMajorFragmentId())
+      FragmentHandle newFragmentHandle = FragmentHandle.newBuilder().setMajorFragmentId(handle.getMajorFragmentId())
           .setMinorFragmentId(handle.getMinorFragmentId()).setQueryId(queryId)
           .build();
-      final PlanFragment newFragment = PlanFragment.newBuilder(myFragment).setHandle(newFragmentHandle).build();
+      PlanFragment newFragment = PlanFragment.newBuilder(myFragment).setHandle(newFragmentHandle).build();
       if (isFirst) {
         rootFragment = newFragment;
         isFirst = false;
@@ -440,7 +440,7 @@ public class Foreman implements Runnable {
 
     assert rootFragment != null;
 
-    final FragmentRoot rootOperator;
+    FragmentRoot rootOperator;
     try {
       rootOperator = drillbitContext.getPlanReader().readFragmentRoot(rootFragment.getFragmentJson());
     } catch (IOException e) {

@@ -85,7 +85,7 @@ public class ExchangeRemoverMaterializer extends AbstractPhysicalVisitor<Physica
   public PhysicalOperator visitOp(PhysicalOperator op, IndexedFragmentNode iNode) throws ExecutionSetupException {
     iNode.addAllocation(op);
     List<PhysicalOperator> children = new ArrayList<>();
-    for(PhysicalOperator child : op){
+    for (PhysicalOperator child : op){
       children.add(child.accept(this, iNode));
     }
     PhysicalOperator newOp = op.getNewWithChildren(children);

@@ -100,9 +100,9 @@ public class QueryResources {
 
     public TabularResult(QueryResult result) {
       queryId = result.getQueryId();
-      final List<List<String>> rows = new ArrayList<>();
+      List<List<String>> rows = new ArrayList<>();
       for (Map<String, String> rowMap:result.rows) {
-        final List<String> row = new ArrayList<>();
+        List<String> row = new ArrayList<>();
         for (String col:result.columns) {
           row.add(rowMap.get(col));
         }

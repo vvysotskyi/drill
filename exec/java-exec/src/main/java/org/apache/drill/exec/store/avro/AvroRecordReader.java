@@ -270,7 +270,7 @@ public class AvroRecordReader extends AbstractRecordReader {
     switch (schema.getType()) {
       case STRING:
         byte[] binary;
-        final int length;
+        int length;
         if (value instanceof Utf8) {
           binary = ((Utf8) value).getBytes();
           length = ((Utf8) value).getByteLength();
@@ -322,7 +322,7 @@ public class AvroRecordReader extends AbstractRecordReader {
         writer.bit(fieldName).writeBit((Boolean) value ? 1 : 0);
         break;
       case BYTES:
-        final ByteBuffer buf = (ByteBuffer) value;
+        ByteBuffer buf = (ByteBuffer) value;
         length = buf.remaining();
         ensure(length);
         buffer.setBytes(0, buf);
@@ -341,8 +341,8 @@ public class AvroRecordReader extends AbstractRecordReader {
         // Nothing to do for null type
         break;
       case ENUM:
-        final String symbol = value.toString();
-        final byte[] b;
+        String symbol = value.toString();
+        byte[] b;
         try {
           b = symbol.getBytes(StandardCharsets.UTF_8.name());
         } catch (UnsupportedEncodingException e) {

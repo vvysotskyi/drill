@@ -85,8 +85,8 @@ public abstract class AbstractExchange extends AbstractSingle implements Exchang
    */
   protected static List<EndpointAffinity> getDefaultAffinityMap(List<DrillbitEndpoint> fragmentEndpoints) {
     Map<DrillbitEndpoint, EndpointAffinity> affinityMap = new HashMap<>();
-    final double affinityPerOccurrence = 1.0d / fragmentEndpoints.size();
-    for(DrillbitEndpoint sender : fragmentEndpoints) {
+    double affinityPerOccurrence = 1.0d / fragmentEndpoints.size();
+    for (DrillbitEndpoint sender : fragmentEndpoints) {
       if (affinityMap.containsKey(sender)) {
         affinityMap.get(sender).addAffinity(affinityPerOccurrence);
       } else {

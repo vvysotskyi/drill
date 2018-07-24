@@ -330,15 +330,15 @@ public class ParquetRecordReaderTest extends BaseTestQuery {
   }
 
  private static class MockOutputMutator implements OutputMutator {
-    private final List<MaterializedField> removedFields = new ArrayList<>();
+   private final List<MaterializedField> removedFields = new ArrayList<>();
 
    private final List<ValueVector> addFields = new ArrayList<>();
 
    List<MaterializedField> getRemovedFields() {
-      return removedFields;
-    }
+     return removedFields;
+   }
 
-    List<ValueVector> getAddFields() {
+   List<ValueVector> getAddFields() {
       return addFields;
     }
 

@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.calcite.sql.type.SqlTypeName;
-
 import org.apache.drill.exec.store.RecordDataType;
 
 /**

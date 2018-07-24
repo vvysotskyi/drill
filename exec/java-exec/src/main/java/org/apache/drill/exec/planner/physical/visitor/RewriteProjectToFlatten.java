@@ -49,7 +49,7 @@ public class RewriteProjectToFlatten extends BasePrelVisitor<Prel, Object, RelCo
   @Override
   public Prel visitPrel(Prel prel, Object value) throws RelConversionException {
     List<RelNode> children = new ArrayList<>();
-    for(Prel child : prel){
+    for (Prel child : prel) {
       child = child.accept(this, null);
       children.add(child);
     }

@@ -414,8 +414,8 @@ public class TypeInferenceUtils {
       // Else for the case when input may be implicitly casted to FLOAT8, the type of result is DOUBLE.
       // When none of these conditions is satisfied, error is thrown.
       // This order of checks is caused by the order of types in ResolverTypePrecedence.precedenceMap
-      final RelDataType operandType = opBinding.getOperandType(0);
-      final TypeProtos.MinorType inputMinorType = getDrillTypeFromCalciteType(operandType);
+      RelDataType operandType = opBinding.getOperandType(0);
+      TypeProtos.MinorType inputMinorType = getDrillTypeFromCalciteType(operandType);
       if (TypeCastRules.getLeastRestrictiveType(Arrays.asList(inputMinorType, TypeProtos.MinorType.BIGINT))
           == TypeProtos.MinorType.BIGINT) {
         return createCalciteTypeWithNullability(
@@ -893,12 +893,12 @@ public class TypeInferenceUtils {
    * @param  opBinding    the given SqlOperatorBinding
    * @return FunctionCall the converted FunctionCall
    */
-  public static FunctionCall convertSqlOperatorBindingToFunctionCall(final SqlOperatorBinding opBinding) {
-    final List<LogicalExpression> args = new ArrayList<>();
+  public static FunctionCall convertSqlOperatorBindingToFunctionCall(SqlOperatorBinding opBinding) {
+    List<LogicalExpression> args = new ArrayList<>();
 
     for (int i = 0; i < opBinding.getOperandCount(); ++i) {
-      final RelDataType type = opBinding.getOperandType(i);
-      final TypeProtos.MinorType minorType = getDrillTypeFromCalciteType(type);
+      RelDataType type = opBinding.getOperandType(i);
+      TypeProtos.MinorType minorType = getDrillTypeFromCalciteType(type);
       TypeProtos.DataMode dataMode =
           type.isNullable() ? TypeProtos.DataMode.OPTIONAL : TypeProtos.DataMode.REQUIRED;
 
@@ -916,7 +916,7 @@ public class TypeInferenceUtils {
       args.add(new MajorTypeInLogicalExpression(builder.build()));
     }
 
-    final String drillFuncName = FunctionCallFactory.replaceOpWithFuncName(opBinding.getOperator().getName());
+    String drillFuncName = FunctionCallFactory.replaceOpWithFuncName(opBinding.getOperator().getName());
     return new FunctionCall(
         drillFuncName,
         args,

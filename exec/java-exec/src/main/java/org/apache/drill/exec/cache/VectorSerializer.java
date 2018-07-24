@@ -86,10 +86,10 @@ public class VectorSerializer {
     public int write(WritableBatch batch, SelectionVector2 sv2) throws IOException {
       Objects.requireNonNull(batch);
       Objects.requireNonNull(channel);
-      final Timer.Context timerContext = metrics.timer(WRITER_TIMER).time();
+      Timer.Context timerContext = metrics.timer(WRITER_TIMER).time();
 
-      final DrillBuf[] incomingBuffers = batch.getBuffers();
-      final UserBitShared.RecordBatchDef batchDef = batch.getDef();
+      DrillBuf[] incomingBuffers = batch.getBuffers();
+      UserBitShared.RecordBatchDef batchDef = batch.getDef();
       int bytesWritten = batchDef.getSerializedSize();
 
       /* Write the metadata to the file */
@@ -97,7 +97,7 @@ public class VectorSerializer {
 
       /* If we have a selection vector, dump it to file first */
       if (sv2 != null) {
-        final int dataLength = sv2.getCount() * SelectionVector2.RECORD_SIZE;
+        int dataLength = sv2.getCount() * SelectionVector2.RECORD_SIZE;
         ByteBuffer buffer = sv2.getBuffer(false).nioBuffer(0, dataLength);
         while (buffer.remaining() > 0) {
           bytesWritten += channel.write(buffer);

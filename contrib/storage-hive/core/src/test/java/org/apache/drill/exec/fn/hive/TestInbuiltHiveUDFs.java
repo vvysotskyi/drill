@@ -62,16 +62,16 @@ public class TestInbuiltHiveUDFs extends HiveTestBase {
 
   @Test
   public void testXpath_Double() throws Exception {
-    final String query = "select xpath_double ('<a><b>20</b><c>40</c></a>', 'a/b * a/c') as col \n" +
+    String query = "select xpath_double ('<a><b>20</b><c>40</c></a>', 'a/b * a/c') as col \n" +
         "from hive.kv \n" +
         "limit 0";
 
-    final TypeProtos.MajorType majorType = TypeProtos.MajorType.newBuilder()
+    TypeProtos.MajorType majorType = TypeProtos.MajorType.newBuilder()
         .setMinorType(TypeProtos.MinorType.FLOAT8)
         .setMode(TypeProtos.DataMode.OPTIONAL)
         .build();
 
-    final List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = new ArrayList<>();
+    List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = new ArrayList<>();
     expectedSchema.add(Pair.of(SchemaPath.getSimplePath("col"), majorType));
 
     testBuilder()

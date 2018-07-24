@@ -117,7 +117,7 @@ public class DrillSqlOperator extends SqlFunction {
   }
 
   public SqlSyntax getSyntax() {
-    if(isNiladic) {
+    if (isNiladic) {
       return SqlSyntax.FUNCTION_ID;
     }
     return super.getSyntax();
@@ -126,7 +126,6 @@ public class DrillSqlOperator extends SqlFunction {
   public static class DrillSqlOperatorBuilder {
     private String name;
     private final List<DrillFuncHolder> functions = new ArrayList<>();
-
     private int argCountMin = Integer.MAX_VALUE;
     private int argCountMax = Integer.MIN_VALUE;
     private boolean isDeterministic = true;
@@ -157,7 +156,7 @@ public class DrillSqlOperator extends SqlFunction {
        * parameter list is not passed in. So even if we have two DrillSqlOperator, DrillOperatorTable.lookupOperatorOverloads()
        * does not have enough information to pick the one matching the argument list.
        */
-      if(this.isDeterministic) {
+      if (this.isDeterministic) {
         this.isDeterministic = isDeterministic;
       }
       return this;

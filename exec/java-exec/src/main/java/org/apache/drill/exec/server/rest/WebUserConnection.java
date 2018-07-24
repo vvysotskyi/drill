@@ -75,7 +75,7 @@ public class WebUserConnection extends AbstractDisposableUserClientConnection im
   public void sendData(RpcOutcomeListener<Ack> listener, QueryWritableBatch result) {
     // Check if there is any data or not. There can be overflow here but DrillBuf doesn't support allocating with
     // bytes in long. Hence we are just preserving the earlier behavior and logging debug log for the case.
-    final int dataByteCount = (int) result.getByteCount();
+    int dataByteCount = (int) result.getByteCount();
 
     if (dataByteCount <= 0) {
       if (logger.isDebugEnabled()) {
@@ -87,18 +87,18 @@ public class WebUserConnection extends AbstractDisposableUserClientConnection im
     }
 
     // If here that means there is some data for sure. Create a ByteBuf with all the data in it.
-    final int rows = result.getHeader().getRowCount();
-    final BufferAllocator allocator = webSessionResources.getAllocator();
-    final DrillBuf bufferWithData = allocator.buffer(dataByteCount);
+    int rows = result.getHeader().getRowCount();
+    BufferAllocator allocator = webSessionResources.getAllocator();
+    DrillBuf bufferWithData = allocator.buffer(dataByteCount);
     try {
-      final ByteBuf[] resultDataBuffers = result.getBuffers();
+      ByteBuf[] resultDataBuffers = result.getBuffers();
 
-      for (final ByteBuf buffer : resultDataBuffers) {
+      for (ByteBuf buffer : resultDataBuffers) {
         bufferWithData.writeBytes(buffer);
         buffer.release();
       }
 
-      final RecordBatchLoader loader = new RecordBatchLoader(allocator);
+      RecordBatchLoader loader = new RecordBatchLoader(allocator);
       try {
         loader.load(result.getHeader().getDef(), bufferWithData);
         // TODO:  Clean:  DRILL-2933:  That load(...) no longer throws
@@ -107,12 +107,12 @@ public class WebUserConnection extends AbstractDisposableUserClientConnection im
           columns.add(loader.getSchema().getColumn(i).getName());
         }
         for (int i = 0; i < rows; ++i) {
-          final Map<String, String> record = new HashMap<>();
+          Map<String, String> record = new HashMap<>();
           for (VectorWrapper<?> vw : loader) {
-            final String field = vw.getValueVector().getMetadata().getNamePart().getName();
-            final Accessor accessor = vw.getValueVector().getAccessor();
-            final Object value = i < accessor.getValueCount() ? accessor.getObject(i) : null;
-            final String display = value == null ? null : value.toString();
+            String field = vw.getValueVector().getMetadata().getNamePart().getName();
+            Accessor accessor = vw.getValueVector().getAccessor();
+            Object value = i < accessor.getValueCount() ? accessor.getObject(i) : null;
+            String display = value == null ? null : value.toString();
             record.put(field, display);
           }
           results.add(record);

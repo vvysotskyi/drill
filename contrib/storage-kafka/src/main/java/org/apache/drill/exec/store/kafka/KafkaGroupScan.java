@@ -285,7 +285,7 @@ public class KafkaGroupScan extends AbstractGroupScan {
     KafkaGroupScan clone = new KafkaGroupScan(this);
     HashSet<TopicPartition> partitionsInSpec = new HashSet<>();
 
-    for(KafkaPartitionScanSpec scanSpec : partitionScanSpecList) {
+    for (KafkaPartitionScanSpec scanSpec : partitionScanSpecList) {
       TopicPartition tp = new TopicPartition(scanSpec.getTopicName(), scanSpec.getPartitionId());
       partitionsInSpec.add(tp);
 

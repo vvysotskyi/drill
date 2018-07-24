@@ -72,7 +72,7 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
   // checks to see if we are querying all columns(star) or individual columns
   @Override
   public boolean isStarQuery() {
-    if(settings.isUseRepeatedVarChar()) {
+    if (settings.isUseRepeatedVarChar()) {
       return super.isStarQuery()
           || getColumns().stream()
               .anyMatch(path -> path.equals(RepeatedVarCharOutput.COLUMNS));

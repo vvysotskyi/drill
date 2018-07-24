@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.resolver;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -40,10 +40,9 @@ public class DefaultFunctionResolver implements FunctionResolver {
     final List<DrillFuncHolder> bestMatchAlternatives = new LinkedList<>();
 
     for (DrillFuncHolder h : methods) {
-      final List<TypeProtos.MajorType> argumentTypes = new ArrayList<>();
-      for (LogicalExpression expression : call.args) {
-        argumentTypes.add(expression.getMajorType());
-      }
+      List<TypeProtos.MajorType> argumentTypes = call.args.stream()
+          .map(LogicalExpression::getMajorType)
+          .collect(Collectors.toList());
       currcost = TypeCastRules.getCost(argumentTypes, h);
 
       // if cost is lower than 0, func implementation is not matched, either w/ or w/o implicit casts

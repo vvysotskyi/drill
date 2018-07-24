@@ -133,7 +133,7 @@ public class TestStorageBasedHiveAuthorization extends BaseTestHiveImpersonation
   }
 
   private static Map<String, String> getHivePluginConfig() {
-    final Map<String, String> hiveConfig = new HashMap<>();
+    Map<String, String> hiveConfig = new HashMap<>();
     hiveConfig.put(METASTOREURIS.varname, hiveConf.get(METASTOREURIS.varname));
     hiveConfig.put(FS_DEFAULT_NAME_KEY, dfsConf.get(FS_DEFAULT_NAME_KEY));
     hiveConfig.put(HIVE_SERVER2_ENABLE_DOAS.varname, hiveConf.get(HIVE_SERVER2_ENABLE_DOAS.varname));

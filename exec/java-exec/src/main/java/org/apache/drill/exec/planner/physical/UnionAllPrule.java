@@ -51,8 +51,8 @@ public class UnionAllPrule extends Prule {
 
   @Override
   public void onMatch(RelOptRuleCall call) {
-    final DrillUnionRel union = call.rel(0);
-    final List<RelNode> inputs = union.getInputs();
+    DrillUnionRel union = call.rel(0);
+    List<RelNode> inputs = union.getInputs();
     List<RelNode> convertedInputList = new ArrayList<>();
     PlannerSettings settings = PrelUtil.getPlannerSettings(call.getPlanner());
     boolean allHashDistributed = true;

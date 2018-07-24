@@ -28,7 +28,6 @@ import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 public class PhysicalOperatorUtil {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PhysicalOperatorUtil.class);
 
-
   private PhysicalOperatorUtil() {}
 
   public static Set<Class<? extends PhysicalOperator>> getSubTypes(ScanResult classpathScan) {
@@ -48,7 +47,7 @@ public class PhysicalOperatorUtil {
   public static List<MinorFragmentEndpoint> getIndexOrderedEndpoints(List<DrillbitEndpoint> endpoints) {
     List<MinorFragmentEndpoint> destinations = new ArrayList<>();
     int minorFragmentId = 0;
-    for(DrillbitEndpoint endpoint : endpoints) {
+    for (DrillbitEndpoint endpoint : endpoints) {
       destinations.add(new MinorFragmentEndpoint(minorFragmentId, endpoint));
       minorFragmentId++;
     }

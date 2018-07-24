@@ -119,7 +119,6 @@ public class HashPartition implements HashJoinMemoryCalculator.PartitionStat {
   private int cycleNum;
   private int numPartitions;
   private List<HashJoinMemoryCalculator.BatchStat> inMemoryBatchStats = new ArrayList<>();
-
   private long partitionInMemorySize;
   private long numInMemoryRecords;
 
