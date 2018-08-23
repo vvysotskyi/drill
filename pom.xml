@@ -3491,5 +3491,6 @@
     <module>exec</module>
     <module>drill-yarn</module>
     <module>distribution</module>
+    <module>drill-metastore</module>
   </modules>
 </project>

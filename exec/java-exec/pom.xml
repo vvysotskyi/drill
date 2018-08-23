@@ -293,11 +293,6 @@
       <artifactId>vector</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <!-- <dependency> -->
-    <!-- <groupId>org.apache.drill.exec</groupId> -->
-    <!-- <version>${project.version}</version> -->
-    <!-- <artifactId>drill-buffers</artifactId> -->
-    <!-- </dependency> -->
     <dependency>
       <groupId>com.beust</groupId>
       <artifactId>jcommander</artifactId>
