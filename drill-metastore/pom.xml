@@ -21,16 +21,17 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <artifactId>drill-root</artifactId>
-        <groupId>org.apache.drill</groupId>
-        <version>1.16.0-SNAPSHOT</version>
-    </parent>
-    <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <artifactId>drill-root</artifactId>
+    <groupId>org.apache.drill</groupId>
+    <version>1.16.0-SNAPSHOT</version>
+  </parent>
+  <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.apache.drill.metastore</groupId>
-    <artifactId>drill-metastore-parent</artifactId>
-    <packaging>pom</packaging>
+  <groupId>org.apache.drill.metastore</groupId>
+  <artifactId>drill-metastore-parent</artifactId>
+  <name>drill-metastore/Parent Pom</name>
+  <packaging>pom</packaging>
 
   <modules>
     <module>metastore-file-metadata</module>
