@@ -37,6 +37,7 @@ import org.apache.drill.exec.store.mapr.db.MapRDBFormatPlugin;
 import org.apache.drill.exec.store.mapr.db.MapRDBFormatPluginConfig;
 import org.apache.drill.exec.store.mapr.db.MapRDBGroupScan;
 import org.apache.drill.exec.store.mapr.db.MapRDBSubScan;
+import org.apache.drill.exec.store.mapr.db.MapRDBTableStats;
 import org.apache.drill.exec.store.mapr.db.TabletFragmentInfo;
 import org.apache.hadoop.conf.Configuration;
 import org.codehaus.jackson.annotate.JsonCreator;
@@ -47,6 +48,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import com.mapr.db.MapRDB;
+import com.mapr.db.MetaTable;
 import com.mapr.db.Table;
 import com.mapr.db.TabletInfo;
 import com.mapr.db.impl.TabletInfoImpl;
@@ -148,12 +150,10 @@ public class JsonTableGroupScan extends MapRDBGroupScan {
       table = MapRDB.getTable(scanSpec.getTableName());
       tabletInfos = table.getTabletInfos(scanSpec.getCondition());
 
-      // Calculate totalRowCount for the table from tabletInfos estimatedRowCount.
-      // This will avoid calling expensive MapRDBTableStats API to get total rowCount, avoiding
-      // duplicate work and RPCs to MapR DB server.
-      for (TabletInfo tabletInfo : tabletInfos) {
-        totalRowCount += tabletInfo.getEstimatedNumRows();
-      }
+      final MetaTable metaTable = table.getMetaTable();
+      com.mapr.db.scan.ScanStats stats = (scanSpec.getCondition() == null)
+              ? metaTable.getScanStats() : metaTable.getScanStats(scanSpec.getCondition());
+      totalRowCount = stats.getEstimatedNumRows();
 
       computeRegionsToScan();
 
@@ -184,11 +184,9 @@ public class JsonTableGroupScan extends MapRDBGroupScan {
 
   @Override
   public ScanStats getScanStats() {
-    //TODO: look at stats for this.
-    long rowCount = (long) ((scanSpec.getSerializedFilter() != null ? .5 : 1) * totalRowCount);
     int avgColumnSize = 10;
     int numColumns = (columns == null || columns.isEmpty()) ? 100 : columns.size();
-    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, rowCount, 1, avgColumnSize * numColumns * rowCount);
+    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, totalRowCount, 1, avgColumnSize * numColumns * totalRowCount);
   }
 
   @Override
