@@ -694,4 +694,17 @@ public class TestE2EUnnestAndLateral extends ClusterTest {
       .baselineValues("paper towel", "paper towel")
       .go();
   }
+
+  @Test
+  public void testLateralWithComplexProjectAndSeveralExpressions() throws Exception {
+    String sql = "select l1.i1.i_name as name, l1.i2.i_name as name2 from cp.`lateraljoin/nested-customer.parquet` c,\n" +
+      "lateral (select u.item as i1, u.item as i2 from unnest(c.orders[0].items) as u(item)) l1 limit 1";
+
+    testBuilder()
+      .sqlQuery(sql)
+      .unOrdered()
+      .baselineColumns("name", "name2")
+      .baselineValues("paper towel", "paper towel")
+      .go();
+  }
 }
