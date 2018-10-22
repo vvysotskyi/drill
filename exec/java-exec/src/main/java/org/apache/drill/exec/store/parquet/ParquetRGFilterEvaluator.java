@@ -23,6 +23,7 @@ import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
+import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.compile.sig.ConstantExpressionIdentifier;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.FunctionLookupContext;
@@ -35,12 +36,16 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.parquet.stat.ColumnStatCollector;
 import org.apache.drill.exec.store.parquet.stat.ColumnStatistics;
 import org.apache.drill.exec.store.parquet.stat.ParquetFooterStatCollector;
+import org.apache.drill.metastore.ColumnStatistic;
+import org.apache.drill.metastore.expr.FilterPredicate;
+import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ColumnMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetTableMetadataBase;
@@ -78,7 +83,10 @@ public class ParquetRGFilterEvaluator {
       long rowCount, UdfUtilities udfUtilities, FunctionLookupContext functionImplementationRegistry) {
     ErrorCollector errorCollector = new ErrorCollectorImpl();
     LogicalExpression materializedFilter = ExpressionTreeMaterializer.materializeFilterExpr(
-        expr, columnStatisticsMap, errorCollector, functionImplementationRegistry);
+        expr,
+        columnStatisticsMap.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getMajorType())),
+        errorCollector, functionImplementationRegistry);
 
     if (errorCollector.hasErrors()) {
       logger.error("{} error(s) encountered when materialize filter expression : {}",
@@ -96,6 +104,32 @@ public class ParquetRGFilterEvaluator {
   public static RowsMatch matches(ParquetFilterPredicate parquetPredicate, Map<SchemaPath, ColumnStatistics> columnStatisticsMap, long rowCount, ParquetTableMetadataBase parquetTableMetadata, List<? extends ColumnMetadata> columnMetadataList, Set<SchemaPath> schemaPathsInExpr) {
     RowsMatch temp = matches(parquetPredicate, columnStatisticsMap, rowCount);
     return temp == RowsMatch.ALL && isRepeated(schemaPathsInExpr, parquetTableMetadata, columnMetadataList) ? RowsMatch.SOME : temp;
+  }
+
+  public static RowsMatch matches(FilterPredicate parquetPredicate,
+                                  Map<SchemaPath, ColumnStatistic> columnStatisticsMap,
+                                  long rowCount, Map<SchemaPath, TypeProtos.MajorType> fileMetadata, Set<SchemaPath> schemaPathsInExpr) {
+    RowsMatch temp = matches(parquetPredicate, columnStatisticsMap, rowCount);
+    return temp == RowsMatch.ALL && isRepeated(schemaPathsInExpr, fileMetadata) ? RowsMatch.SOME : temp;
+  }
+
+  public static RowsMatch matches(FilterPredicate predicate, Map<SchemaPath,
+    ColumnStatistic> columnStatisticsMap, long rowCount) {
+    if (predicate != null) {
+      StatisticsProvider rangeExprEvaluator = new StatisticsProvider(columnStatisticsMap, rowCount);
+      return predicate.matches(rangeExprEvaluator);
+    }
+    return RowsMatch.SOME;
+  }
+
+  private static boolean isRepeated(Set<SchemaPath> fields, Map<SchemaPath, TypeProtos.MajorType> fileMetadata) {
+    for (SchemaPath field : fields) {
+      TypeProtos.MajorType fieldType = fileMetadata.get(field);
+      if (fieldType != null && fieldType.getMode()== TypeProtos.DataMode.OPTIONAL) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

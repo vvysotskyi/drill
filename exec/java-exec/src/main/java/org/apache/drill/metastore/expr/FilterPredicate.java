@@ -15,18 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.metastore;
+package org.apache.drill.metastore.expr;
 
+import org.apache.drill.exec.expr.stat.ParquetFilterPredicate;
 
-import com.google.common.collect.Table;
-
-import java.util.List;
-
-public abstract class PartitionMetadata {
-  String columnName;
-  List<String> values;
-  Table<String, String, Object> columnStatistics; // Guava’s HashBasedTable
-  String location;
-  String tableName;
-  long lastModifiedTime;
+public interface FilterPredicate<T extends Comparable<T>> {
+  ParquetFilterPredicate.RowsMatch matches(StatisticsProvider<T> evaluator);
 }

@@ -23,97 +23,79 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
-import org.apache.drill.common.expression.ErrorCollector;
-import org.apache.drill.common.expression.ErrorCollectorImpl;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimaps;
 import org.apache.drill.common.expression.ExpressionStringBuilder;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.expression.ValueExpressions;
-import org.apache.drill.common.types.TypeProtos;
-import org.apache.drill.exec.compile.sig.ConstantExpressionIdentifier;
-import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate;
 import org.apache.drill.exec.ops.UdfUtilities;
 import org.apache.drill.exec.physical.EndpointAffinity;
-import org.apache.drill.exec.physical.base.AbstractFileGroupScan;
+import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.exec.physical.base.ScanStats;
-import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.CoordinationProtos;
 import org.apache.drill.exec.server.options.OptionManager;
-import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
-import org.apache.drill.exec.store.parquet.stat.ColumnStatistics;
-import org.apache.drill.exec.store.parquet.stat.ParquetMetaStatCollector;
 import org.apache.drill.exec.store.schedule.AffinityCreator;
 import org.apache.drill.exec.store.schedule.AssignmentCreator;
 import org.apache.drill.exec.store.schedule.EndpointByteMap;
 import org.apache.drill.exec.store.schedule.EndpointByteMapImpl;
+import org.apache.drill.metastore.BaseMetadata;
+import org.apache.drill.metastore.FileMetadata;
+import org.apache.drill.metastore.RowGroupMetadata;
+import org.apache.drill.metastore.expr.FilterPredicate;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-
-import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetFileMetadata;
-import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.RowGroupMetadata;
-import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetTableMetadataBase;
-
-public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
+public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractParquetGroupScan.class);
 
-  protected List<SchemaPath> columns;
-  protected List<ReadEntryWithPath> entries;
-  protected LogicalExpression filter;
+//  protected List<ReadEntryWithPath> entries;
+  protected Multimap<FileMetadata, RowGroupMetadata> rowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
+  protected Map<Integer, Long> rowGroupAndNumsToRead =  new HashMap<>();
 
-  protected ParquetTableMetadataBase parquetTableMetadata;
-  protected List<RowGroupInfo> rowGroupInfos;
+//  protected ParquetTableMetadataBase parquetTableMetadata;
+//  private List<RowGroupInfo> rowGroupInfos;
   protected ListMultimap<Integer, RowGroupInfo> mappings;
   protected Set<String> fileSet;
   protected ParquetReaderConfig readerConfig;
 
   private List<EndpointAffinity> endpointAffinities;
-  private ParquetGroupScanStatistics parquetGroupScanStatistics;
+//  private ParquetGroupScanStatistics parquetGroupScanStatistics;
   // whether all row groups of this group scan fully match the filter
   private boolean matchAllRowGroups = false;
 
-  protected AbstractParquetGroupScan(String userName,
-                                     List<SchemaPath> columns,
-                                     List<ReadEntryWithPath> entries,
-                                     ParquetReaderConfig readerConfig,
-                                     LogicalExpression filter) {
-    super(userName);
-    this.columns = columns;
-    this.entries = entries;
-    this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
-    this.filter = filter;
+  protected AbstractParquetGroupScan(String userName, List<SchemaPath> columns,
+      List<ReadEntryWithPath> entries, LogicalExpression filter) {
+    super(userName, columns, filter);
+//    this.entries = entries;
   }
 
   // immutable copy constructor
   protected AbstractParquetGroupScan(AbstractParquetGroupScan that) {
-    super(that);
-    this.columns = that.columns == null ? null : new ArrayList<>(that.columns);
-    this.parquetTableMetadata = that.parquetTableMetadata;
-    this.rowGroupInfos = that.rowGroupInfos == null ? null : new ArrayList<>(that.rowGroupInfos);
-    this.filter = that.filter;
+    super(that.getUserName(), that.getColumns(), that.getFilter());
+    this.rowGroups = that.rowGroups;
+    this.files = that.files;
+    this.tableMetadata = that.tableMetadata;
+    this.fileSet = that.fileSet;
+//    this.parquetTableMetadata = that.parquetTableMetadata;
+//    this.rowGroupInfos = that.rowGroupInfos == null ? null : new ArrayList<>(that.rowGroupInfos);
     this.endpointAffinities = that.endpointAffinities == null ? null : new ArrayList<>(that.endpointAffinities);
     this.mappings = that.mappings == null ? null : ArrayListMultimap.create(that.mappings);
-    this.parquetGroupScanStatistics = that.parquetGroupScanStatistics == null ? null : new ParquetGroupScanStatistics(that.parquetGroupScanStatistics);
-    this.fileSet = that.fileSet == null ? null : new HashSet<>(that.fileSet);
-    this.entries = that.entries == null ? null : new ArrayList<>(that.entries);
-    this.readerConfig = that.readerConfig;
-    this.matchAllRowGroups = that.matchAllRowGroups;
+//    this.parquetGroupScanStatistics = that.parquetGroupScanStatistics == null ? null : new ParquetGroupScanStatistics(that.parquetGroupScanStatistics);
+//    this.fileSet = that.fileSet == null ? null : new HashSet<>(that.fileSet);
+//    this.entries = that.entries == null ? null : new ArrayList<>(that.entries);
   }
 
   @Override
@@ -124,7 +106,9 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
 
   @JsonProperty
   public List<ReadEntryWithPath> getEntries() {
-    return entries;
+    return rowGroups.keySet().stream()
+        .map(fileMetadata -> new ReadEntryWithPath(fileMetadata.getLocation()))
+        .collect(Collectors.toList());
   }
 
   @JsonProperty("readerConfig")
@@ -161,19 +145,6 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
   }
 
   /**
-   * Return column value count for the specified column.
-   * If does not contain such column, return 0.
-   * Is used when applying convert to direct scan rule.
-   *
-   * @param column column schema path
-   * @return column value count
-   */
-  @Override
-  public long getColumnValueCount(SchemaPath column) {
-    return parquetGroupScanStatistics.getColumnValueCount(column);
-  }
-
-  /**
    * Calculates the affinity each endpoint has for this scan,
    * by adding up the affinity each endpoint has for each rowGroup.
    *
@@ -186,26 +157,46 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
 
   @Override
   public void applyAssignments(List<CoordinationProtos.DrillbitEndpoint> incomingEndpoints) {
-    this.mappings = AssignmentCreator.getMappings(incomingEndpoints, rowGroupInfos);
+    this.mappings = AssignmentCreator.getMappings(incomingEndpoints, getRowGroupInfos());
+  }
+
+  // TODO: rework to store once and update where needed
+  private List<RowGroupInfo> getRowGroupInfos() {
+    Map<String, CoordinationProtos.DrillbitEndpoint> hostEndpointMap = new HashMap<>();
+
+    for (CoordinationProtos.DrillbitEndpoint endpoint : getDrillbits()) {
+      hostEndpointMap.put(endpoint.getAddress(), endpoint);
+    }
+    AtomicInteger rgIndex = new AtomicInteger();
+
+    return rowGroups.entries().stream()
+        .map(e -> {
+          RowGroupMetadata rowGroupMetadata = e.getValue();
+          RowGroupInfo rowGroupInfo = new RowGroupInfo(e.getKey().getLocation(),
+              (long) rowGroupMetadata.getStatistic(() -> "start"),
+              (long) rowGroupMetadata.getStatistic(() -> "length"),
+              rowGroupMetadata.getRowGroupIndex(),
+              (long) rowGroupMetadata.getStatistic(() -> "rowCount"));
+          rowGroupInfo.setNumRecordsToRead(
+              rowGroupAndNumsToRead.getOrDefault(rgIndex.getAndIncrement(), rowGroupInfo.getRowCount()));
+
+          EndpointByteMap endpointByteMap = new EndpointByteMapImpl();
+          rowGroupMetadata.getHostAffinity().keySet().stream()
+              .filter(hostEndpointMap::containsKey)
+              .forEach(host ->
+                  endpointByteMap.add(hostEndpointMap.get(host),
+                      (long) (rowGroupMetadata.getHostAffinity().get(host) * (long) rowGroupMetadata.getStatistic(() -> "length"))));
+
+          rowGroupInfo.setEndpointByteMap(endpointByteMap);
+
+          return rowGroupInfo;
+        })
+        .collect(Collectors.toList());
   }
 
   @Override
   public int getMaxParallelizationWidth() {
-    return rowGroupInfos.size();
-  }
-
-  @Override
-  public String getDigest() {
-    return toString();
-  }
-
-  @Override
-  public ScanStats getScanStats() {
-    int columnCount = columns == null ? 20 : columns.size();
-    long rowCount = parquetGroupScanStatistics.getRowCount();
-    ScanStats scanStats = new ScanStats(GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, rowCount * columnCount);
-    logger.trace("Drill parquet scan statistics: {}", scanStats);
-    return scanStats;
+    return rowGroups.size();
   }
 
   protected List<RowGroupReadEntry> getReadEntries(int minorFragmentId) {
@@ -220,21 +211,13 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
 
     List<RowGroupReadEntry> entries = new ArrayList<>();
     for (RowGroupInfo rgi : rowGroupsForMinor) {
-      RowGroupReadEntry entry = new RowGroupReadEntry(rgi.getPath(), rgi.getStart(), rgi.getLength(), rgi.getRowGroupIndex(), rgi.getNumRecordsToRead());
+      RowGroupReadEntry entry = new RowGroupReadEntry(rgi.getPath(), rgi.getStart(),
+          rgi.getLength(), rgi.getRowGroupIndex(),
+          rowGroupAndNumsToRead.getOrDefault(rgi.getRowGroupIndex(), rgi.getNumRecordsToRead())
+      );
       entries.add(entry);
     }
     return entries;
-  }
-
-  // filter push down methods block start
-  @JsonProperty
-  @Override
-  public LogicalExpression getFilter() {
-    return filter;
-  }
-
-  public void setFilter(LogicalExpression filter) {
-    this.filter = filter;
   }
 
   @Override
@@ -245,9 +228,23 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
         rowGroupInfos.size() > optionManager.getOption(PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
       // Stop pruning for 2 cases:
       //    -  metadata does not have proper format to support row group level filter pruning,
-      //    -  # of row groups is beyond PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD.
+      //    -  # of row files is beyond PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD.
+      return null;
+    } else if (rowGroups.size() > optionManager.getOption(
+      PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
+      // Row group pruning cannot be applied, but file pruning is possible, so use it.
+      // TODO: refactor code to fetch filtered files and create group scan with row groups from the files
+      return super.applyFilter(filterExpr, udfUtilities, functionImplementationRegistry, optionManager);
+    }
+
+    List<FileMetadata> qualifiedFiles = filterFiles(filterExpr, udfUtilities, functionImplementationRegistry);
+    if (qualifiedFiles == null) {
       return null;
     }
+    Multimap<FileMetadata, RowGroupMetadata> qualifiedRowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
+    if (qualifiedFiles.size() == rowGroups.keySet().size()) {
+      // There is no reduction of rowGroups. Return the original groupScan.
+      logger.debug("applyFilter does not have file pruning!");
 
     final Set<SchemaPath> schemaPathsInExpr = filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
 
@@ -266,10 +263,7 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
       List<String> partitionValues = getPartitionValues(rowGroup);
       Map<String, String> implicitColValues = columnExplorer.populateImplicitColumns(rowGroup.getPath(), partitionValues, supportsFileImplicitColumns());
 
-      ParquetMetaStatCollector statCollector = new ParquetMetaStatCollector(
-          parquetTableMetadata,
-          rowGroup.getColumns(),
-          implicitColValues);
+      Multimap<FileMetadata, RowGroupMetadata> filteredRowGroups = filterRowGroups(filterExpr, udfUtilities, functionImplementationRegistry);
 
       Map<SchemaPath, ColumnStatistics> columnStatisticsMap = statCollector.collectColStat(schemaPathsInExpr);
 
@@ -304,9 +298,9 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
       qualifiedRGs.add(rg);
     }
 
-    logger.debug("applyFilter {} reduce parquet rowgroup # from {} to {}",
-      ExpressionStringBuilder.toString(filterExpr), rowGroupInfos.size(), qualifiedRGs.size());
-
+    logger.debug("applyFilter {} reduce file # from {} to {} and / or row group number from {} to {}",
+        ExpressionStringBuilder.toString(filterExpr), rowGroups.keySet().size(), qualifiedFiles.size(),
+        rowGroups.size(), qualifiedRowGroups.size());
     try {
       AbstractParquetGroupScan cloneGroupScan = cloneWithRowGroupInfos(qualifiedRGs);
       cloneGroupScan.matchAllRowGroups = matchAllRowGroupsLocal;
@@ -363,14 +357,40 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
     Set<LogicalExpression> constantBoundaries = ConstantExpressionIdentifier.getConstantExpressionSet(materializedFilter);
     return ParquetFilterBuilder.buildParquetFilterPredicate(materializedFilter, constantBoundaries, udfUtilities, omitUnsupportedExprs);
   }
+
+  protected Multimap<FileMetadata, RowGroupMetadata> filterRowGroups(LogicalExpression filterExpr,
+      UdfUtilities udfUtilities, FunctionImplementationRegistry functionImplementationRegistry) {
+    Multimap<FileMetadata, RowGroupMetadata> qualifiedRowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
+    Set<FileMetadata> fileMetadataList = rowGroups.keySet();
+
+    if (fileMetadataList.size() > 0) {
+      FilterPredicate filterPredicate = buildFilter(filterExpr, udfUtilities, functionImplementationRegistry, tableMetadata.getFields());
+      if (filterPredicate == null) {
+        return null;
+      }
+
+      final Set<SchemaPath> schemaPathsInExpr =
+        filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
+
+      for (Map.Entry<FileMetadata, ? extends Collection<RowGroupMetadata>> fileRowGroupEntry : rowGroups.asMap().entrySet()) {
+        Collection<RowGroupMetadata> fileRowGroups = fileRowGroupEntry.getValue();
+        // file has single row group and the same stats
+        if (fileRowGroups.size() == 1) {
+          qualifiedRowGroups.putAll(fileRowGroupEntry.getKey(), fileRowGroups);
+          continue;
+        }
+        List<RowGroupMetadata> prunedRowGroups = filterMetadata(schemaPathsInExpr, fileRowGroups, filterPredicate);
+
+        if (prunedRowGroups.size() > 0) {
+          qualifiedRowGroups.putAll(fileRowGroupEntry.getKey(), prunedRowGroups);
+        }
+      }
+    }
+    return qualifiedRowGroups;
+  }
   // filter push down methods block end
 
   // limit push down methods start
-  @Override
-  public boolean supportsLimitPushdown() {
-    return true;
-  }
-
   @Override
   public GroupScan applyLimit(int maxRecords) {
     maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
@@ -400,8 +420,15 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
       break;
     }
 
+    Multimap<FileMetadata, RowGroupMetadata> qualifiedRowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
+    rowGroups.entries().stream()
+        .limit(index)
+        .forEach(e -> qualifiedRowGroups.put(e.getKey(), e.getValue()));
+
+    // If there is no change in fileSet, no need to create new groupScan.
     if (rowGroupInfos.size() == qualifiedRowGroupInfos.size()) {
-      logger.debug("limit push down does not apply, since number of row groups was not reduced.");
+      // There is no reduction of rowGroups. Return the original groupScan.
+      logger.debug("applyLimit() does not apply!");
       return null;
     }
 
@@ -417,96 +444,44 @@ public abstract class AbstractParquetGroupScan extends AbstractFileGroupScan {
   // limit push down methods end
 
   // partition pruning methods start
-  @Override
-  public List<SchemaPath> getPartitionColumns() {
-    return parquetGroupScanStatistics.getPartitionColumns();
-  }
-
-  @JsonIgnore
-  public TypeProtos.MajorType getTypeForColumn(SchemaPath schemaPath) {
-    return parquetGroupScanStatistics.getTypeForColumn(schemaPath);
-  }
-
-  @JsonIgnore
-  public <T> T getPartitionValue(String path, SchemaPath column, Class<T> clazz) {
-    return clazz.cast(parquetGroupScanStatistics.getPartitionValue(path, column));
-  }
-
-  @JsonIgnore
-  public Set<String> getFileSet() {
-    return fileSet;
-  }
+//  @Override
+//  public List<SchemaPath> getPartitionColumns() {
+//    return parquetGroupScanStatistics.getPartitionColumns();
+//  }
+//
+//  @JsonIgnore
+//  public <T> T getPartitionValue(String path, SchemaPath column, Class<T> clazz) {
+//    return clazz.cast(parquetGroupScanStatistics.getPartitionValue(path, column));
+//  }
   // partition pruning methods end
 
   // helper method used for partition pruning and filter push down
   @Override
   public void modifyFileSelection(FileSelection selection) {
-    List<String> files = selection.getFiles();
-    fileSet = new HashSet<>(files);
-    entries = new ArrayList<>(files.size());
+    // TODO: make this method as deprecated and remoe its usage
+    super.modifyFileSelection(selection);
 
-    entries.addAll(files.stream()
-        .map(ReadEntryWithPath::new)
-        .collect(Collectors.toList()));
+    Multimap<FileMetadata, RowGroupMetadata> qualifiedRowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
+    rowGroups.entries().stream()
+      .filter(entry -> fileSet.contains(entry.getKey().getLocation()))
+      .forEach(entry -> qualifiedRowGroups.put(entry.getKey(), entry.getValue()));
 
-    rowGroupInfos = rowGroupInfos.stream()
-        .filter(rowGroupInfo -> fileSet.contains(rowGroupInfo.getPath()))
-        .collect(Collectors.toList());
+    rowGroups = qualifiedRowGroups;
   }
 
 
   // protected methods block
   protected void init() throws IOException {
-    initInternal();
+    super.init();
 
-    assert parquetTableMetadata != null;
-
-    if (fileSet == null) {
-      fileSet = new HashSet<>();
-      fileSet.addAll(parquetTableMetadata.getFiles().stream()
-          .map((Function<ParquetFileMetadata, String>) ParquetFileMetadata::getPath)
-          .collect(Collectors.toSet()));
-    }
-
-    Map<String, CoordinationProtos.DrillbitEndpoint> hostEndpointMap = new HashMap<>();
-
-    for (CoordinationProtos.DrillbitEndpoint endpoint : getDrillbits()) {
-      hostEndpointMap.put(endpoint.getAddress(), endpoint);
-    }
-
-    rowGroupInfos = new ArrayList<>();
-    for (ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
-      int rgIndex = 0;
-      for (RowGroupMetadata rg : file.getRowGroups()) {
-        RowGroupInfo rowGroupInfo =
-            new RowGroupInfo(file.getPath(), rg.getStart(), rg.getLength(), rgIndex, rg.getRowCount());
-        EndpointByteMap endpointByteMap = new EndpointByteMapImpl();
-        rg.getHostAffinity().keySet().stream()
-            .filter(hostEndpointMap::containsKey)
-            .forEach(host ->
-                endpointByteMap.add(hostEndpointMap.get(host), (long) (rg.getHostAffinity().get(host) * rg.getLength())));
-
-        rowGroupInfo.setEndpointByteMap(endpointByteMap);
-        rowGroupInfo.setColumns(rg.getColumns());
-        rgIndex++;
-        rowGroupInfos.add(rowGroupInfo);
-      }
-    }
-
-    this.endpointAffinities = AffinityCreator.getAffinityMap(rowGroupInfos);
-    this.parquetGroupScanStatistics = new ParquetGroupScanStatistics(rowGroupInfos, parquetTableMetadata);
-  }
-
-  protected String getFilterString() {
-    return filter == null || filter.equals(ValueExpressions.BooleanExpression.TRUE) ?
-        "" : ExpressionStringBuilder.toString(this.filter);
+    this.endpointAffinities = AffinityCreator.getAffinityMap(getRowGroupInfos());
   }
 
   // abstract methods block start
   protected abstract void initInternal() throws IOException;
   protected abstract Collection<CoordinationProtos.DrillbitEndpoint> getDrillbits();
   protected abstract AbstractParquetGroupScan cloneWithFileSelection(Collection<String> filePaths) throws IOException;
-  protected abstract boolean supportsFileImplicitColumns();
+  protected abstract AbstractParquetGroupScan cloneWithRowGroups(Multimap<FileMetadata, ? extends BaseMetadata> rowGroups) throws IOException;
   protected abstract List<String> getPartitionValues(RowGroupInfo rowGroupInfo);
   // abstract methods block end
 

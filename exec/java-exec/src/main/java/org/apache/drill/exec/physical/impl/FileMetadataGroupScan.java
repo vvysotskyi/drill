@@ -15,13 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.dfs.easy;
+package org.apache.drill.exec.physical.impl;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Iterators;
+import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
+import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
@@ -32,36 +35,28 @@ import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
-import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
-import org.apache.drill.exec.store.StoragePluginRegistry;
+import org.apache.drill.exec.proto.CoordinationProtos;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
+import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
+import org.apache.drill.exec.store.dfs.easy.EasyGroupScan;
+import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.schedule.AffinityCreator;
 import org.apache.drill.exec.store.schedule.AssignmentCreator;
 import org.apache.drill.exec.store.schedule.BlockMapBuilder;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
-import org.apache.drill.exec.store.schedule.CompleteFileWork.FileWorkImpl;
 import org.apache.drill.exec.util.ImpersonationUtil;
-
-import com.fasterxml.jackson.annotation.JacksonInject;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Iterators;
-import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.metastore.FileMetadata;
 
-// TODO: either rework this class to incorporate with filtering files represented in BaseMetadataGroupScan
-// or preferred return another implementation (FileMetadataGroupScan) instead of this one if metadata is used
-@JsonTypeName("fs-scan")
-public class EasyGroupScan extends BaseMetadataGroupScan {
+import java.io.IOException;
+import java.util.Collection;
+import java.util.List;
+
+public class FileMetadataGroupScan extends BaseMetadataGroupScan {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EasyGroupScan.class);
 
   private FileSelection selection;
-  private final EasyFormatPlugin<?> formatPlugin;
+  private EasyFormatPlugin<?> formatPlugin;
   private int maxWidth;
 
   private ListMultimap<Integer, CompleteFileWork> mappings;
@@ -69,40 +64,8 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
   private List<EndpointAffinity> endpointAffinities;
   private String selectionRoot;
 
-  @JsonCreator
-  public EasyGroupScan(
-      @JsonProperty("userName") String userName,
-      @JsonProperty("files") List<String> files, //
-      @JsonProperty("storage") StoragePluginConfig storageConfig, //
-      @JsonProperty("format") FormatPluginConfig formatConfig, //
-      @JacksonInject StoragePluginRegistry engineRegistry, //
-      @JsonProperty("columns") List<SchemaPath> columns,
-      @JsonProperty("selectionRoot") String selectionRoot
-      ) throws IOException, ExecutionSetupException {
-        this(ImpersonationUtil.resolveUserName(userName),
-            FileSelection.create(null, files, selectionRoot),
-            (EasyFormatPlugin<?>)engineRegistry.getFormatPlugin(storageConfig, formatConfig),
-            columns,
-            selectionRoot);
-  }
-
-  public EasyGroupScan(String userName, FileSelection selection, EasyFormatPlugin<?> formatPlugin, String selectionRoot)
-      throws IOException {
-    this(userName, selection, formatPlugin, ALL_COLUMNS, selectionRoot);
-  }
-
-  public EasyGroupScan(
-      String userName,
-      FileSelection selection, //
-      EasyFormatPlugin<?> formatPlugin, //
-      List<SchemaPath> columns,
-      String selectionRoot
-      ) throws IOException{
-    super(userName, columns == null ? ALL_COLUMNS : columns, null);
-    this.selection = Preconditions.checkNotNull(selection);
-    this.formatPlugin = Preconditions.checkNotNull(formatPlugin, "Unable to load format plugin for provided format config.");
-    this.selectionRoot = selectionRoot;
-    initFromSelection(selection, formatPlugin);
+  protected FileMetadataGroupScan(String userName, List<SchemaPath> columns, LogicalExpression filter) {
+    super(userName, columns, filter);
   }
 
   @JsonIgnore
@@ -110,7 +73,7 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
     return () -> Iterators.unmodifiableIterator(chunks.iterator());
   }
 
-  private EasyGroupScan(final EasyGroupScan that) {
+  private FileMetadataGroupScan(final FileMetadataGroupScan that) {
     super(that.getUserName(), that.columns, that.filter);
     selection = that.selection;
     formatPlugin = that.formatPlugin;
@@ -144,8 +107,16 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
 
   @Override
   public ScanStats getScanStats(final PlannerSettings settings) {
-    ScanStats oldScanStats = formatPlugin.getScanStats(settings, this);
-    // TODO: add adequate check for metadata availability
+    // old
+    long data = 0;
+    for (final CompleteFileWork work : getWorkIterable()) {
+      data += work.getTotalBytes();
+    }
+
+    final long estRowCount = data / 1024;
+    ScanStats oldScanStats = new ScanStats(ScanStats.GroupScanProperty.NO_EXACT_ROW_COUNT, estRowCount, 1, data);
+
+
     if (tableMetadata == null) {
       return oldScanStats;
     }
@@ -163,13 +134,6 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
   public List<String> getFiles() {
     return selection.getFiles();
   }
-
-  @Override
-  @JsonProperty("columns")
-  public List<SchemaPath> getColumns() {
-    return columns;
-  }
-
 
   @JsonIgnore
   public FileSelection getFileSelection() {
@@ -199,26 +163,26 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
   @Override
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) throws ExecutionSetupException {
     assert children == null || children.isEmpty();
-    return new EasyGroupScan(this);
+    return new FileMetadataGroupScan(this);
   }
 
 
   @Override
   public List<EndpointAffinity> getOperatorAffinity() {
     if (endpointAffinities == null) {
-        logger.debug("chunks: {}", chunks.size());
-        endpointAffinities = AffinityCreator.getAffinityMap(chunks);
+      logger.debug("chunks: {}", chunks.size());
+      endpointAffinities = AffinityCreator.getAffinityMap(chunks);
     }
     return endpointAffinities;
   }
 
   @Override
-  public void applyAssignments(List<DrillbitEndpoint> incomingEndpoints) {
+  public void applyAssignments(List<CoordinationProtos.DrillbitEndpoint> incomingEndpoints) {
     mappings = AssignmentCreator.getMappings(incomingEndpoints, chunks);
   }
 
   private void createMappings(List<EndpointAffinity> affinities) {
-    List<DrillbitEndpoint> endpoints = Lists.newArrayList();
+    List<CoordinationProtos.DrillbitEndpoint> endpoints = Lists.newArrayList();
     for (EndpointAffinity e : affinities) {
       endpoints.add(e.getEndpoint());
     }
@@ -231,21 +195,21 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
       createMappings(this.endpointAffinities);
     }
     assert minorFragmentId < mappings.size() : String.format(
-        "Mappings length [%d] should be longer than minor fragment id [%d] but it isn't.", mappings.size(),
-        minorFragmentId);
+      "Mappings length [%d] should be longer than minor fragment id [%d] but it isn't.", mappings.size(),
+      minorFragmentId);
 
     List<CompleteFileWork> filesForMinor = mappings.get(minorFragmentId);
 
     Preconditions.checkArgument(!filesForMinor.isEmpty(),
-        String.format("MinorFragmentId %d has no read entries assigned", minorFragmentId));
+      String.format("MinorFragmentId %d has no read entries assigned", minorFragmentId));
 
     EasySubScan subScan = new EasySubScan(getUserName(), convert(filesForMinor), formatPlugin, columns, selectionRoot);
     subScan.setOperatorId(this.getOperatorId());
     return subScan;
   }
 
-  private List<FileWorkImpl> convert(List<CompleteFileWork> list) {
-    List<FileWorkImpl> newList = Lists.newArrayList();
+  private List<CompleteFileWork.FileWorkImpl> convert(List<CompleteFileWork> list) {
+    List<CompleteFileWork.FileWorkImpl> newList = Lists.newArrayList();
     for (CompleteFileWork f : list) {
       newList.add(f.getAsFileWork());
     }
@@ -278,14 +242,14 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
     if (!formatPlugin.supportsPushDown()) {
       throw new IllegalStateException(String.format("%s doesn't support pushdown.", this.getClass().getSimpleName()));
     }
-    EasyGroupScan newScan = new EasyGroupScan(this);
+    FileMetadataGroupScan newScan = new FileMetadataGroupScan(this);
     newScan.columns = columns;
     return newScan;
   }
 
   @Override
   public FileGroupScan clone(FileSelection selection) throws IOException {
-    EasyGroupScan newScan = new EasyGroupScan(this);
+    FileMetadataGroupScan newScan = new FileMetadataGroupScan(this);
     newScan.initFromSelection(selection, formatPlugin);
     newScan.mappings = null; /* the mapping will be created later when we get specific scan
                                 since the end-point affinities are not known at this time */
@@ -297,5 +261,4 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
   public boolean canPushdownProjects(List<SchemaPath> columns) {
     return formatPlugin.supportsPushDown();
   }
-
 }

@@ -87,19 +87,26 @@ public class CompleteFileWork implements FileWork, CompleteWork {
     return new FileWorkImpl(start, length, path);
   }
 
-  public static class FileWorkImpl implements FileWork{
+  @Override
+  public String toString() {
+    return String.format("File: %s start: %d length: %d", path, start, length);
+  }
+
+  public static class FileWorkImpl implements FileWork {
+
+    public long start;
+    public long length;
+    public String path;
 
     @JsonCreator
-    public FileWorkImpl(@JsonProperty("start") long start, @JsonProperty("length") long length, @JsonProperty("path") String path) {
+    public FileWorkImpl(@JsonProperty("start") long start,
+                        @JsonProperty("length") long length,
+                        @JsonProperty("path") String path) {
       super();
       this.start = start;
       this.length = length;
       this.path = path;
     }
-
-    public long start;
-    public long length;
-    public String path;
 
     @Override
     public String getPath() {
@@ -116,10 +123,5 @@ public class CompleteFileWork implements FileWork, CompleteWork {
       return length;
     }
 
-  }
-
-  @Override
-  public String toString() {
-    return String.format("File: %s start: %d length: %d", path, start, length);
   }
 }

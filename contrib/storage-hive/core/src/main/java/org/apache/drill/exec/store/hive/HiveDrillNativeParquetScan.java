@@ -23,10 +23,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.ValueExpressions;
+import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.SubScan;
@@ -39,7 +41,9 @@ import org.apache.drill.exec.store.parquet.AbstractParquetGroupScan;
 import org.apache.drill.exec.store.parquet.RowGroupReadEntry;
 import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.drill.exec.store.parquet.RowGroupInfo;
+import org.apache.drill.exec.store.parquet.metadata.Metadata_V3;
 import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.drill.metastore.FileMetadata;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -115,7 +119,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
       FileSplit fileSplit = (FileSplit) split;
       Path finalPath = fileSplit.getPath();
       String pathString = Path.getPathWithoutSchemeAndAuthority(finalPath).toString();
-      entries.add(new ReadEntryWithPath(pathString));
+//      entries.add(new ReadEntryWithPath(pathString));
 
       // store partition values per path
       Partition partition = logicalInputSplit.getPartition();
@@ -186,9 +190,9 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   public String toString() {
     StringBuilder builder = new StringBuilder();
     builder.append("HiveDrillNativeParquetScan [");
-    builder.append("entries=").append(entries);
+//    builder.append("entries=").append(entries);
     builder.append(", numFiles=").append(getEntries().size());
-    builder.append(", numRowGroups=").append(rowGroupInfos.size());
+//    builder.append(", numRowGroups=").append(rowGroupInfos.size());
 
     String filterString = getFilterString();
     if (!filterString.isEmpty()) {
@@ -203,7 +207,11 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
   @Override
   protected void initInternal() throws IOException {
+    // TODO: move this method to the ParquetTableMetadataCreator and initialize
+    // TableMetadata using created parquetTableMetadata
+    ParquetFormatConfig formatConfig = new ParquetFormatConfig();
     Map<FileStatus, FileSystem> fileStatusConfMap = new LinkedHashMap<>();
+    List<ReadEntryWithPath> entries = getEntries();
     for (ReadEntryWithPath entry : entries) {
       Path path = new Path(entry.getPath());
       Configuration conf = new ProjectionPusher().pushProjectionsAndFilters(
@@ -212,7 +220,12 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
       FileSystem fs = path.getFileSystem(conf);
       fileStatusConfMap.put(fs.getFileStatus(Path.getPathWithoutSchemeAndAuthority(path)), fs);
     }
-    parquetTableMetadata = Metadata.getParquetTableMetadata(fileStatusConfMap, readerConfig);
+    Metadata_V3.ParquetTableMetadata_v3 parquetTableMetadata = Metadata.getParquetTableMetadata(fileStatusConfMap, readerConfig);
+  }
+
+  @Override
+  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
+    return null;
   }
 
   @Override
@@ -221,9 +234,14 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected AbstractParquetGroupScan cloneWithFileSelection(Collection<String> filePaths) throws IOException {
+  protected AbstractParquetGroupScan cloneWithFileSelection(Collection filePaths) throws IOException {
     FileSelection newSelection = new FileSelection(null, new ArrayList<>(filePaths), null, null, false);
     return clone(newSelection);
+  }
+
+  @Override
+  protected AbstractParquetGroupScan cloneWithRowGroups(Multimap rowGroups) throws IOException {
+    return null;
   }
 
   @Override

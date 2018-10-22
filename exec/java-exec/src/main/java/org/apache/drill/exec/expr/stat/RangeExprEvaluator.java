@@ -331,7 +331,7 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
     }
   }
 
-  private static final Map<TypeProtos.MinorType, Set<TypeProtos.MinorType>> CAST_FUNC = new HashMap<>();
+  public static final Map<TypeProtos.MinorType, Set<TypeProtos.MinorType>> CAST_FUNC = new HashMap<>();
   static {
     // float -> double , int, bigint
     CAST_FUNC.put(TypeProtos.MinorType.FLOAT4, new HashSet<>());
