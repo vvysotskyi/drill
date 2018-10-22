@@ -33,6 +33,14 @@
   <name>drill-metastore/Parent Pom</name>
   <packaging>pom</packaging>
 
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.drill.exec</groupId>
+      <artifactId>drill-java-exec</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+  </dependencies>
+
   <modules>
     <module>metastore-file-metadata</module>
     <module>metastore-hive</module>

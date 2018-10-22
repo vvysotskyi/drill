@@ -15,11 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.metastore;
+package org.apache.drill.metastore;
 
+import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos;
 
+import java.util.Map;
 
-
-public interface StatisticsKind {
-  String getName();
+/**
+ * Common statistics provider for table, file or row group.
+ */
+public interface BaseMetadata {
+  Map<SchemaPath, ColumnStatistic> getColumnStatistics();
+  Map<SchemaPath, TypeProtos.MajorType> getFields();
+  Object getStatistic(StatisticsKind statisticsKind);
 }

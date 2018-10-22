@@ -15,15 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.metastore;
+package org.apache.drill.metastore;
 
 
 import com.typesafe.config.Config;
 import org.apache.drill.exec.server.options.OptionManager;
 
 public abstract class MetastoreFactory {
-  OptionManager optionManager;
-  Config conf;
+  private OptionManager optionManager;
+  private Config conf;
 
-  abstract Metastore getMetastore();
+  public abstract Metastore getMetastore();
 }

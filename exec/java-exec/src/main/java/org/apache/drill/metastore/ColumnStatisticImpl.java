@@ -15,32 +15,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.metastore;
+package org.apache.drill.metastore;
 
+import java.util.Comparator;
+import java.util.Map;
 
-import com.google.common.collect.Table;
-import org.apache.calcite.rel.type.RelDataTypeField;
+public class ColumnStatisticImpl<T> implements ColumnStatistic<T> {
+  private Map<String, Object> statistics;
+  private Comparator<T> valueComparator;
 
-import java.util.LinkedHashMap;
-import java.util.Set;
-
-public abstract class TableMetadata {
-  String tableName;
-  String location;
-  LinkedHashMap<String, RelDataTypeField> fields;
-  Table<String, String, Object> columnStatistics; // Guava’s HashBasedTable
-  long lastModifiedTime;
-  String owner;
-  private Set<String> partitionKeys;
-
-  abstract Object getStatisticsForColumn(String columnName, StatisticsKind statisticsKind);
-
-  abstract RelDataTypeField getField(String name);
-
-  abstract boolean isPartitionColumn(String fieldName);
-
-  boolean isPartitioned() {
-    return !partitionKeys.isEmpty();
+  public ColumnStatisticImpl(Map<String, Object> statistics, Comparator<T> valueComparator) {
+    this.statistics = statistics;
+    this.valueComparator = valueComparator;
   }
 
+  @Override
+  public Object getStatistic(StatisticsKind statisticsKind) {
+    return statistics.get(statisticsKind.getName());
+  }
+
+  @Override
+  public boolean containsStatistic(StatisticsKind statisticsKind) {
+    return statistics.containsKey(statisticsKind.getName());
+  }
+
+  @Override
+  public Comparator<T> getValueComparator() {
+    return valueComparator;
+  }
 }

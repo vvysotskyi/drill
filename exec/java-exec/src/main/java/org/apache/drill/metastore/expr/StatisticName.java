@@ -15,27 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.metastore;
+package org.apache.drill.metastore.expr;
 
-
-public enum HiveStatisticKind implements StatisticsKind {
-
-  ROW_COUNT("rowCount"),
-
-  NULLS_COUNT("nullsCount"),
-
-  MIN_VALUE("minVal"),
-
-  MAX_VALUE("maxVal");
-
-  String statisticKey;
-
-  HiveStatisticKind(String statisticKey) {
-    this.statisticKey = statisticKey;
-  }
-
-  public String getName() {
-    return statisticKey;
-  }
-
+public interface StatisticName {
+  String MIN_VALUE = "minValue";
+  String MAX_VALUE = "maxValue";
+  String ROW_COUNT = "rowCount";
+  String NULLS_COUNT = "nullsCount";
 }
