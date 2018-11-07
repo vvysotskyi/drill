@@ -228,7 +228,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
 //  @Override
-//  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
+//  protected AbstractMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
 //    return null;
 //  }
 

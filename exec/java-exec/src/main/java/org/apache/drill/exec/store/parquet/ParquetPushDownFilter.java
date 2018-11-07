@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store.parquet;
 
-import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
+import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.metastore.expr.FilterPredicate;
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.calcite.plan.RelOptRule;
@@ -172,7 +172,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
 
 
     Stopwatch timer = logger.isDebugEnabled() ? Stopwatch.createStarted() : null;
-    BaseMetadataGroupScan newGroupScan = groupScan.applyFilter(conditionExp, optimizerContext,
+    AbstractMetadataGroupScan newGroupScan = groupScan.applyFilter(conditionExp, optimizerContext,
         optimizerContext.getFunctionRegistry(), optimizerContext.getPlannerSettings().getOptions());
     if (timer != null) {
       logger.debug("Took {} ms to apply filter on parquet row groups. ", timer.elapsed(TimeUnit.MILLISECONDS));

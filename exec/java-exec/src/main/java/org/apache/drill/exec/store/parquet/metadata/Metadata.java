@@ -82,6 +82,9 @@ import static org.apache.drill.exec.store.parquet.metadata.Metadata_V3.ParquetFi
 import static org.apache.drill.exec.store.parquet.metadata.Metadata_V3.ParquetTableMetadata_v3;
 import static org.apache.drill.exec.store.parquet.metadata.Metadata_V3.RowGroupMetadata_v3;
 
+/**
+ * This is an utility class, holder for Parquet Table Metadata and {@link ParquetReaderConfig}
+ */
 public class Metadata {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Metadata.class);
 

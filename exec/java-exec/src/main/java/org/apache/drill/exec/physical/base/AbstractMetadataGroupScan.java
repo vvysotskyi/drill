@@ -57,7 +57,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
+public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   // TODO: rewrite initialization of metadata using metadata provider.
   protected TableMetadataProvider metadataProvider;
 
@@ -91,7 +91,7 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   // whether all row groups of this group scan fully match the filter
   protected boolean matchAllRowGroups = false;
 
-  protected BaseMetadataGroupScan(String userName, List<SchemaPath> columns, LogicalExpression filter) {
+  protected AbstractMetadataGroupScan(String userName, List<SchemaPath> columns, LogicalExpression filter) {
     super(userName);
     this.columns = columns;
     this.filter = filter;
@@ -178,8 +178,8 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   @Override
-  public BaseMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
-      FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
+  public AbstractMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
+                                               FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
 
     // Builds filter for pruning. If filter cannot be built, null should be returned.
     FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, optionManager, true);
@@ -461,7 +461,7 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   // partition pruning methods start
   @Override
   public List<SchemaPath> getPartitionColumns() {
-    return partitionColumns;
+    return partitionColumns != null ? partitionColumns : new ArrayList<>();
   }
 
   @JsonIgnore
@@ -548,7 +548,7 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
     protected List<FileMetadata> files;
     protected MetadataLevel overflowLevel = MetadataLevel.NONE;
 
-    public abstract BaseMetadataGroupScan build();
+    public abstract AbstractMetadataGroupScan build();
 
     public GroupScanBuilder withTable(List<TableMetadata> filteredTableMetadata) {
       this.tableMetadata = filteredTableMetadata;

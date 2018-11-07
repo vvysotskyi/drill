@@ -272,6 +272,11 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     // noop
   }
 
+//  @Override
+//  protected AbstractMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
+//    return null;
+//  }
+
   @Override
   protected Collection<DrillbitEndpoint> getDrillbits() {
     return formatPlugin.getContext().getBits();

@@ -29,8 +29,8 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.exec.physical.EndpointAffinity;
-import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
 import org.apache.drill.exec.physical.base.FileGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
@@ -52,7 +52,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-public class FileMetadataGroupScan extends BaseMetadataGroupScan {
+public class FileMetadataGroupScan extends AbstractMetadataGroupScan {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EasyGroupScan.class);
 
   private FileSelection selection;
@@ -151,7 +151,7 @@ public class FileMetadataGroupScan extends BaseMetadataGroupScan {
   }
 
 //  @Override
-//  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
+//  protected AbstractMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
 //    return null;
 //  }
 
@@ -275,7 +275,7 @@ public class FileMetadataGroupScan extends BaseMetadataGroupScan {
     }
 
     @Override
-    public BaseMetadataGroupScan build() {
+    public AbstractMetadataGroupScan build() {
       FileMetadataGroupScan groupScan = new FileMetadataGroupScan(source.getUserName(), source.getColumns(), source.getFilter());
       groupScan.tableMetadata = tableMetadata.get(0);
       groupScan.partitions =  partitions != null ? partitions : Collections.emptyList();

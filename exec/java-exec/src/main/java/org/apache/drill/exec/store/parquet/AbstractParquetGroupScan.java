@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.parquet;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -32,7 +33,6 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.ops.UdfUtilities;
 import org.apache.drill.exec.physical.EndpointAffinity;
-import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.CoordinationProtos;
@@ -60,7 +60,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
+public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractParquetGroupScan.class);
 
@@ -216,7 +216,7 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
   }
 
   @Override
-  public BaseMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
+  public AbstractMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
       FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
     // Builds filter for pruning. If filter cannot be built, null should be returned.
     // TODO: pass implicit and partition columns to getFilterPredicate() along with tableMetadata.getFields()
