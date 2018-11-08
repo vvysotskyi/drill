@@ -73,7 +73,7 @@ public class StreamAggPrule extends AggPruleBase {
           traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL);
 
           RelNode convertedInput = convert(input, traits);
-          new SubsetTransformer<DrillAggregateRel, InvalidRelException>(call){
+          boolean transformed = new SubsetTransformer<DrillAggregateRel, InvalidRelException>(call) {
 
             @Override
             public RelNode convertChild(final DrillAggregateRel join, final RelNode rel) throws InvalidRelException {
@@ -111,6 +111,10 @@ public class StreamAggPrule extends AggPruleBase {
                   OperatorPhase.PHASE_2of2);
             }
           }.go(aggregate, convertedInput);
+
+          if (!transformed) {
+            createTransformRequest(call, aggregate, input, singleDistTrait);
+          }
 
         } else {
           createTransformRequest(call, aggregate, input, singleDistTrait);
