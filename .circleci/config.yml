@@ -48,7 +48,7 @@ jobs:
         # TODO: 3. Caching Dependencies - https://circleci.com/docs/2.0/caching/
         # TODO: 4. Resolving memory issues without "SlowTest" and "UnlikelyTest" excludedGroups in the build
         command:
-          mvn install -Drat.skip=false -Dlicense.skip=false -DmemoryMb=2560 -DdirectMemoryMb=4608 -DexcludedGroups="org.apache.drill.categories.SlowTest,org.apache.drill.categories.UnlikelyTest"
+          mvn install -Drat.skip=false -Dlicense.skip=false -DmemoryMb=2560 -DdirectMemoryMb=4608 -DexcludedGroups="org.apache.drill.categories.SlowTest,org.apache.drill.categories.UnlikelyTest" -Pmapr
 
   build_jdk9:
     machine:
@@ -88,7 +88,7 @@ jobs:
     - run:
         name: Drill project build
         command:
-          mvn install -Drat.skip=false -Dlicense.skip=false -DmemoryMb=2560 -DdirectMemoryMb=4608 -DexcludedGroups="org.apache.drill.categories.SlowTest,org.apache.drill.categories.UnlikelyTest"
+          mvn install -Drat.skip=false -Dlicense.skip=false -DmemoryMb=2560 -DdirectMemoryMb=4608 -DexcludedGroups="org.apache.drill.categories.SlowTest,org.apache.drill.categories.UnlikelyTest" -Pmapr
 
   build_jdk10:
     machine:
@@ -128,7 +128,7 @@ jobs:
     - run:
         name: Drill project build
         command:
-          mvn install -Drat.skip=false -Dlicense.skip=false -DmemoryMb=2560 -DdirectMemoryMb=4608 -DexcludedGroups="org.apache.drill.categories.SlowTest,org.apache.drill.categories.UnlikelyTest"
+          mvn install -Drat.skip=false -Dlicense.skip=false -DmemoryMb=2560 -DdirectMemoryMb=4608 -DexcludedGroups="org.apache.drill.categories.SlowTest,org.apache.drill.categories.UnlikelyTest" -Pmapr
 
   build_jdk11:
     machine:
@@ -168,7 +168,7 @@ jobs:
     - run:
         name: Drill project build
         command:
-          mvn install -Drat.skip=false -Dlicense.skip=false -DmemoryMb=2560 -DdirectMemoryMb=4608 -DforkCount=1 -DexcludedGroups="org.apache.drill.categories.SlowTest,org.apache.drill.categories.UnlikelyTest"
+          mvn install -Drat.skip=false -Dlicense.skip=false -DmemoryMb=2560 -DdirectMemoryMb=4608 -DforkCount=1 -DexcludedGroups="org.apache.drill.categories.SlowTest,org.apache.drill.categories.UnlikelyTest" -Pmapr
 
 workflows:
   version: 2
