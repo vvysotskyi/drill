@@ -46,10 +46,8 @@ import org.apache.drill.exec.store.schedule.AssignmentCreator;
 import org.apache.drill.exec.store.schedule.BlockMapBuilder;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
 import org.apache.drill.exec.util.ImpersonationUtil;
-import org.apache.drill.metastore.FileMetadata;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 
 public class FileMetadataGroupScan extends BaseMetadataGroupScan {
@@ -150,10 +148,10 @@ public class FileMetadataGroupScan extends BaseMetadataGroupScan {
 
   }
 
-  @Override
-  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
-    return null;
-  }
+//  @Override
+//  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
+//    return null;
+//  }
 
   @Override
   protected boolean supportsFileImplicitColumns() {
@@ -238,6 +236,11 @@ public class FileMetadataGroupScan extends BaseMetadataGroupScan {
   }
 
   @Override
+  protected GroupScanBuilder getBuilder() {
+    return new FileMetadataGroupScanBuilder(this);
+  }
+
+  @Override
   public GroupScan clone(List<SchemaPath> columns) {
     if (!formatPlugin.supportsPushDown()) {
       throw new IllegalStateException(String.format("%s doesn't support pushdown.", this.getClass().getSimpleName()));
@@ -260,5 +263,23 @@ public class FileMetadataGroupScan extends BaseMetadataGroupScan {
   @JsonIgnore
   public boolean canPushdownProjects(List<SchemaPath> columns) {
     return formatPlugin.supportsPushDown();
+  }
+
+  private static class FileMetadataGroupScanBuilder extends GroupScanBuilder {
+    FileMetadataGroupScan source;
+
+    public FileMetadataGroupScanBuilder(FileMetadataGroupScan source) {
+      this.source = source;
+    }
+
+    @Override
+    public BaseMetadataGroupScan build() {
+      FileMetadataGroupScan groupScan = new FileMetadataGroupScan(source.getUserName(), source.getColumns(), source.getFilter());
+      groupScan.tableMetadata = tableMetadata.get(0);
+      groupScan.partitions = partitions;
+      groupScan.files = files;
+
+      return groupScan;
+    }
   }
 }

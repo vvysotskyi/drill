@@ -94,7 +94,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
    * @return <tt>true</tt> if the parquet file does not have nulls and <tt>false</tt> otherwise
    */
   static boolean hasNoNulls(ColumnStatistic stat) {
-    return (int) stat.getStatistic(() -> "rowCount") == 0;
+    return (int) stat.getStatistic(() -> "nullsCount") == 0;
   }
 
   /**

@@ -39,7 +39,6 @@ import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.util.ImpersonationUtil;
-import org.apache.drill.metastore.FileMetadata;
 import org.apache.hadoop.fs.Path;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
@@ -78,7 +77,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.cacheFileRoot = cacheFileRoot;
 
     ParquetTableMetadataCreator metadataCreator = new ParquetTableMetadataCreator(engineRegistry, userName, entries, storageConfig,
-        formatConfig, selectionRoot, cacheFileRoot, null);
+        formatConfig, selectionRoot, cacheFileRoot, null, readerConfig);
 
     this.formatPlugin = Preconditions.checkNotNull(metadataCreator.getFormatPlugin());
     this.fs = metadataCreator.getFs();
@@ -90,7 +89,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
     rowGroups = metadataCreator.getRowGroupsMeta();
 
-    files = new ArrayList<>(rowGroups.keySet());
+//    files = new ArrayList<>(rowGroups.keySet());
 
     init();
   }
@@ -125,7 +124,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
     rowGroups = metadataCreator.getRowGroupsMeta();
 
-    files = new ArrayList<>(rowGroups.keySet());
+//    files = new ArrayList<>(rowGroups.keySet());
 
     // TODO: initialize TableMetadata, FileMetadata and RowGroupMetadata from
     // parquetTableMetadata if it wasn't fetched from the metastore using ParquetTableMetadataCreator
@@ -243,14 +242,19 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
 
   @Override
+  protected RowGroupScanBuilder getBuilder() {
+    return new ParquetGroupScanBuilder(this);
+  }
+
+  @Override
   protected void initInternal() throws IOException {
     // noop
   }
 
-  @Override
-  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
-    return null;
-  }
+//  @Override
+//  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
+//    return null;
+//  }
 
   @Override
   protected Collection<DrillbitEndpoint> getDrillbits() {
@@ -265,6 +269,26 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   @Override
   protected List<String> getPartitionValues(RowGroupInfo rowGroupInfo) {
     return ColumnExplorer.listPartitionValues(rowGroupInfo.getPath(), selectionRoot);
+  }
+
+  private static class ParquetGroupScanBuilder extends RowGroupScanBuilder {
+    private final ParquetGroupScan source;
+
+    public ParquetGroupScanBuilder(ParquetGroupScan source) {
+      this.source = source;
+    }
+
+    @Override
+    public BaseMetadataGroupScan build() {
+      ParquetGroupScan groupScan = new ParquetGroupScan(source);
+      groupScan.tableMetadata = tableMetadata.get(0);
+      groupScan.partitions = partitions;
+      groupScan.files = files;
+      groupScan.rowGroups = rowGroups;
+      groupScan.partitionColumns = source.partitionColumns;
+
+      return groupScan;
+    }
   }
   // overridden protected methods block end
 

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.apache.drill.exec.store.parquet.ParquetFormatConfig;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
@@ -28,7 +29,6 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.ValueExpressions;
-import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.SubScan;
@@ -43,7 +43,6 @@ import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.drill.exec.store.parquet.RowGroupInfo;
 import org.apache.drill.exec.store.parquet.metadata.Metadata_V3;
 import org.apache.drill.exec.util.ImpersonationUtil;
-import org.apache.drill.metastore.FileMetadata;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -206,6 +205,11 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
   @Override
+  protected RowGroupScanBuilder getBuilder() {
+    return null;
+  }
+
+  @Override
   protected void initInternal() throws IOException {
     // TODO: move this method to the ParquetTableMetadataCreator and initialize
     // TableMetadata using created parquetTableMetadata
@@ -223,10 +227,10 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     Metadata_V3.ParquetTableMetadata_v3 parquetTableMetadata = Metadata.getParquetTableMetadata(fileStatusConfMap, readerConfig);
   }
 
-  @Override
-  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
-    return null;
-  }
+//  @Override
+//  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
+//    return null;
+//  }
 
   @Override
   protected Collection<CoordinationProtos.DrillbitEndpoint> getDrillbits() {

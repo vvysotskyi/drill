@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.dfs.easy;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -52,7 +51,6 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Iterators;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-import org.apache.drill.metastore.FileMetadata;
 
 // TODO: either rework this class to incorporate with filtering files represented in BaseMetadataGroupScan
 // or preferred return another implementation (FileMetadataGroupScan) instead of this one if metadata is used
@@ -186,10 +184,10 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
 
   }
 
-  @Override
-  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
-    return null;
-  }
+//  @Override
+//  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
+//    return null;
+//  }
 
   @Override
   protected boolean supportsFileImplicitColumns() {
@@ -271,6 +269,11 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
   @Override
   public String getDigest() {
     return toString();
+  }
+
+  @Override
+  protected GroupScanBuilder getBuilder() {
+    return null;
   }
 
   @Override

@@ -89,6 +89,7 @@ public class ParquetTableMetadataCreator {
   // may change when filter push down / partition pruning is applied
   private String selectionRoot;
   private String cacheFileRoot;
+  protected ParquetReaderConfig readerConfig;
 
   public ParquetTableMetadataCreator(StoragePluginRegistry engineRegistry,
                           String userName,
@@ -97,7 +98,8 @@ public class ParquetTableMetadataCreator {
                           FormatPluginConfig formatConfig,
                           String selectionRoot,
                           String cacheFileRoot,
-                          Set<String> fileSet) throws IOException, ExecutionSetupException {
+                          Set<String> fileSet,
+                          ParquetReaderConfig readerConfig) throws IOException, ExecutionSetupException {
     this.entries = entries;
     Preconditions.checkNotNull(storageConfig);
     Preconditions.checkNotNull(formatConfig);
@@ -108,6 +110,7 @@ public class ParquetTableMetadataCreator {
     this.cacheFileRoot = cacheFileRoot;
     this.metaContext = new MetadataContext();
     this.fileSet = fileSet;
+    this.readerConfig = readerConfig;
 
     init();
   }
@@ -124,6 +127,7 @@ public class ParquetTableMetadataCreator {
 
     MetadataContext metadataContext = selection.getMetaContext();
     this.metaContext = metadataContext != null ? metadataContext : new MetadataContext();
+    readerConfig = ParquetReaderConfig.getDefaultInstance();
 
     FileSelection fileSelection = expandIfNecessary(selection);
     if (fileSelection != null) {
@@ -283,7 +287,7 @@ public class ParquetTableMetadataCreator {
       Map<String, Object> statistics = new HashMap<>();
       statistics.put("minVal", minVals.get(column));
       statistics.put("maxVal", maxVals.get(column));
-      statistics.put("nullsCounts", nullsCounts.get(column).getValue());
+      statistics.put("nullsCount", nullsCounts.get(column).getValue());
       columnStatistics.put(column, new ColumnStatisticImpl(statistics, valComparator.get(column)));
     }
 
@@ -334,7 +338,7 @@ public class ParquetTableMetadataCreator {
       Map<String, Object> statistics = new HashMap<>();
       statistics.put("minVal", minVals.get(column));
       statistics.put("maxVal", maxVals.get(column));
-      statistics.put("nullsCounts", nullsCounts.get(column).getValue());
+      statistics.put("nullsCount", nullsCounts.get(column).getValue());
       columnStatistics.put(column, new ColumnStatisticImpl(statistics, valComparator.get(column)));
     }
 
@@ -358,7 +362,7 @@ public class ParquetTableMetadataCreator {
       Map<String, Object> statistics = new HashMap<>();
       statistics.put("minVal", column.getMinValue());
       statistics.put("maxVal", column.getMaxValue());
-      statistics.put("nullsCounts", nulls);
+      statistics.put("nullsCount", nulls);
       columnStatistics.put(colPath, new ColumnStatisticImpl(statistics, comparator));
     }
 
@@ -446,13 +450,13 @@ public class ParquetTableMetadataCreator {
       }
       if (!metaContext.isMetadataCacheCorrupted() && metaPath != null && fs.exists(metaPath)) {
         // TODO: implement some caching to avoid rereading the same metadata several times
-        parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, formatConfig);
+        parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
         if (parquetTableMetadata != null) {
           usedMetadataCache = true;
         }
       }
       if (!usedMetadataCache) {
-        parquetTableMetadata = Metadata.getParquetTableMetadata(processUserFileSystem, p.toString(), formatConfig);
+        parquetTableMetadata = Metadata.getParquetTableMetadata(processUserFileSystem, p.toString(), readerConfig);
       }
     } else {
       Path p = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot));
@@ -460,7 +464,7 @@ public class ParquetTableMetadataCreator {
       if (!metaContext.isMetadataCacheCorrupted() && fs.isDirectory(new Path(selectionRoot))
         && fs.exists(metaPath)) {
         if (parquetTableMetadata == null) {
-          parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, formatConfig);
+          parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
         }
         if (parquetTableMetadata != null) {
           usedMetadataCache = true;
@@ -484,7 +488,7 @@ public class ParquetTableMetadataCreator {
               (oldFs, newFs) -> newFs,
               LinkedHashMap::new));
 
-        parquetTableMetadata = Metadata.getParquetTableMetadata(statusMap, formatConfig);
+        parquetTableMetadata = Metadata.getParquetTableMetadata(statusMap, readerConfig);
       }
     }
   }
@@ -552,14 +556,14 @@ public class ParquetTableMetadataCreator {
     // get (and set internal field) the metadata for the directory by reading the metadata file
     ParquetFormatConfig formatConfig = formatPlugin.getConfig();
     FileSystem processUserFileSystem = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), fs.getConf());
-    parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaFilePath, metaContext, formatConfig);
+    parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaFilePath, metaContext, readerConfig);
     if (ignoreExpandingSelection(parquetTableMetadata)) {
       return selection;
     }
     if (formatConfig.areCorruptDatesAutoCorrected()) {
       ParquetReaderUtility.correctDatesInMetadataCache(this.parquetTableMetadata);
     }
-    ParquetReaderUtility.correctBinaryInMetadataCache(parquetTableMetadata);
+    ParquetReaderUtility.transformBinaryInMetadataCache(parquetTableMetadata, readerConfig);
     List<FileStatus> fileStatuses = selection.getStatuses(fs);
 
     if (fileSet == null) {
@@ -593,7 +597,7 @@ public class ParquetTableMetadataCreator {
         if (status.isDirectory()) {
           //TODO [DRILL-4496] read the metadata cache files in parallel
           final Path metaPath = new Path(cacheFileRoot, Metadata.METADATA_FILENAME);
-          final MetadataBase.ParquetTableMetadataBase metadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, formatConfig);
+          final MetadataBase.ParquetTableMetadataBase metadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
           if (ignoreExpandingSelection(metadata)) {
             return selection;
           }
