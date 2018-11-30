@@ -71,9 +71,8 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   // set of the files to be handled
   protected Set<String> fileSet;
 
-//  protected List<EndpointAffinity> endpointAffinities;
-//  private ParquetGroupScanStatistics parquetGroupScanStatistics;
-  private boolean allMatch = true;
+  // whether all row groups of this group scan fully match the filter
+  protected boolean matchAllRowGroups = false;
 
   protected BaseMetadataGroupScan(String userName, List<SchemaPath> columns, LogicalExpression filter) {
     super(userName);
@@ -91,6 +90,11 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   @JsonIgnore
+  public Map<SchemaPath, TypeProtos.MajorType> getColumnsMap() {
+    return tableMetadata.getFields();
+  }
+
+  @JsonIgnore
   @Override
   public Collection<String> getFiles() {
     return fileSet;
@@ -99,6 +103,11 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   @Override
   public boolean hasFiles() {
     return true;
+  }
+
+  @JsonIgnore
+  public boolean isMatchAllRowGroups() {
+    return matchAllRowGroups;
   }
 
   /**
@@ -220,21 +229,28 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
       if (match == ParquetFilterPredicate.RowsMatch.NONE) {
         continue; // No file comply to the filter => drop the row group
       }
-      if (allMatch) {
-        allMatch = match == ParquetFilterPredicate.RowsMatch.ALL;
+      if (matchAllRowGroups) {
+        matchAllRowGroups = match == ParquetFilterPredicate.RowsMatch.ALL;
       }
       qualifiedFiles.add(fileMetadata);
     }
     return qualifiedFiles;
   }
 
-  public boolean isAllMatch() {
-    return allMatch;
-  }
+  /**
+   * Returns parquet filter predicate built from specified {@code filterExpr}.
+   *
+   * @param filterExpr                     filter expression to build
+   * @param udfUtilities                   udf utilities
+   * @param functionImplementationRegistry context to find drill function holder
+   * @param omitUnsupportedExprs           whether expressions which cannot be converted
+   *                                       may be omitted from the resulting expression
+   * @return parquet filter predicate
+   */
+  public FilterPredicate getFilterPredicate(LogicalExpression filterExpr,
+                                            UdfUtilities udfUtilities, FunctionImplementationRegistry functionImplementationRegistry,
+                                            boolean omitUnsupportedExprs, Map<SchemaPath, TypeProtos.MajorType> types) {
 
-  protected FilterPredicate buildFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
-                                      FunctionImplementationRegistry functionImplementationRegistry,
-                                      Map<SchemaPath, TypeProtos.MajorType> types) {
     ErrorCollector errorCollector = new ErrorCollectorImpl();
     LogicalExpression materializedFilter = ExpressionTreeMaterializer.materializeFilterExpr(
       filterExpr, types, errorCollector, functionImplementationRegistry);
@@ -247,7 +263,7 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
     logger.debug("materializedFilter : {}", ExpressionStringBuilder.toString(materializedFilter));
 
     Set<LogicalExpression> constantBoundaries = ConstantExpressionIdentifier.getConstantExpressionSet(materializedFilter);
-    return FilterBuilder.buildFilterPredicate(materializedFilter, constantBoundaries, udfUtilities);
+    return FilterBuilder.buildFilterPredicate(materializedFilter, constantBoundaries, udfUtilities, omitUnsupportedExprs);
   }
 
   private boolean containsImplicitCol(Set<SchemaPath> schemaPaths, OptionManager optionManager) {
@@ -271,33 +287,42 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
     maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
     // further optimization : minimize # of files chosen, or the affinity of files chosen.
 
-    // Calculate number of rowGroups to read based on maxRecords and update
+    long tableRowCount = (long) tableMetadata.getStatistic(() -> "rowCount");
+    if (tableRowCount <= maxRecords) {
+      logger.debug("limit push down does not apply, since total number of rows [{}] is less or equal to the required [{}].",
+        tableRowCount, maxRecords);
+      return null;
+    }
+
+    // Calculate number of files to read based on maxRecords and update
     // number of records to read for each of those rowGroups.
-    int index = updateRowGroupInfo(maxRecords);
+    Multimap<PartitionMetadata, FileMetadata> qualifiedFiles = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
+    int currentRowCount = 0;
+    for (Map.Entry<PartitionMetadata, FileMetadata> rowGroupInfo : files.entries()) {
+      long rowCount = (long) rowGroupInfo.getKey().getStatistic(() -> "rowCount");
+      if (currentRowCount + rowCount <= maxRecords) {
+        currentRowCount += rowCount;
+//        rowGroupInfo.setNumRecordsToRead(rowCount);
+        qualifiedFiles.put(rowGroupInfo.getKey(), rowGroupInfo.getValue());
+        continue;
+      } else if (currentRowCount < maxRecords) {
+//        rowGroupInfo.setNumRecordsToRead(maxRecords - currentRowCount);
+        qualifiedFiles.put(rowGroupInfo.getKey(), rowGroupInfo.getValue());
+      }
+      break;
+    }
 
-    // HashSet keeps a filePath unique.
-    Set<String> filePaths = files.subList(0, index).stream()
-        .map(FileMetadata::getLocation)
-        .collect(Collectors.toSet());
-
-
-    // If there is no change in fileSet, no need to create new groupScan.
-    if (filePaths.size() == files.size()) {
-      // There is no reduction of rowGroups. Return the original groupScan.
-      logger.debug("applyLimit() does not apply!");
+    if (files.size() == qualifiedFiles.size()) {
+      logger.debug("limit push down does not apply, since number of row groups was not reduced.");
       return null;
     }
 
-    logger.debug("applyLimit() reduce parquet file # from {} to {}", files.size(), filePaths.size());
+    logger.debug("applyLimit() reduce files # from {} to {}.", files.size(), qualifiedFiles.size());
 
-    try {
-      BaseMetadataGroupScan newScan = cloneWithFileSet(files.subList(0, index));
-      newScan.updateRowGroupInfo(maxRecords);
-      return newScan;
-    } catch (IOException e) {
-      logger.warn("Could not apply rowcount based prune due to Exception : {}", e);
-      return null;
-    }
+    return getBuilder()
+        .withPartitions(new ArrayList<>(qualifiedFiles.keys()))
+        .withPartitionFiles(qualifiedFiles)
+        .build();
   }
   // limit push down methods end
 
@@ -361,12 +386,12 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
 
   // private methods block start
   /**
-   * Based on maxRecords to read for the scan,
-   * figure out how many rowGroups to read
-   * and update number of records to read for each of them.
+   * Clones current group scan with set of file paths from given row groups,
+   * updates new scan with list of given row groups,
+   * re-calculates statistics and endpoint affinities.
    *
-   * @param maxRecords max records to read
-   * @return total number of rowGroups to read
+   * @param rowGroupInfos list of row group infos
+   * @return new parquet group scan
    */
   private int updateRowGroupInfo(int maxRecords) {
     long count = 0;

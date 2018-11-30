@@ -23,8 +23,8 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.TypedFieldExpr;
 import org.apache.drill.common.expression.ValueExpressions;
-import org.apache.drill.common.expression.fn.CastFunctions;
 import org.apache.drill.common.expression.fn.FuncHolder;
+import org.apache.drill.common.expression.fn.FunctionReplacementUtils;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
@@ -42,6 +42,7 @@ import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticImpl;
 import org.apache.drill.metastore.StatisticsKind;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.Map;
 
@@ -131,6 +132,19 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     return new MinMaxStatistics<>(exprValue, exprValue, Integer::compareTo);
   }
 
+  // TODO: check and fix problems for the cases when parquet statistics representation
+  //  won't be comparable with this one.
+  @Override
+  public ColumnStatistic<String> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) throws RuntimeException {
+    String stringValue = quotedString.getString();
+    return new MinMaxStatistics<>(stringValue, stringValue, String::compareTo);
+  }
+
+  @Override
+  public ColumnStatistic<BigDecimal> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) throws RuntimeException {
+    return new MinMaxStatistics<>(decExpr.getBigDecimal(), decExpr.getBigDecimal(), BigDecimal::compareTo);
+  }
+
   @Override
   public ColumnStatistic visitFunctionHolderExpression(FunctionHolderExpression holderExpr, Void value) throws RuntimeException {
     FuncHolder funcHolder = holderExpr.getHolder();
@@ -142,7 +156,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
 
     final String funcName = ((DrillSimpleFuncHolder) funcHolder).getRegisteredNames()[0];
 
-    if (CastFunctions.isCastFunction(funcName)) {
+    if (FunctionReplacementUtils.isCastFunction(funcName)) {
       ColumnStatistic<T> stat = holderExpr.args.get(0).accept(this, null);
       if (!isNullOrEmpty(stat)) {
         return evalCastFunc(holderExpr, stat);

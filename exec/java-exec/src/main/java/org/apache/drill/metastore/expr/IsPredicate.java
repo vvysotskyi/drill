@@ -17,13 +17,13 @@
  */
 package org.apache.drill.metastore.expr;
 
+import org.apache.drill.exec.expr.stat.ParquetFilterPredicate.RowsMatch;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.LogicalExpressionBase;
 import org.apache.drill.common.expression.TypedFieldExpr;
 import org.apache.drill.common.expression.visitors.ExprVisitor;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.parquet.column.statistics.BooleanStatistics;
 
@@ -37,10 +37,10 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
 
   private final LogicalExpression expr;
 
-  private final BiFunction<ColumnStatistic<C>, StatisticsProvider<C>, ParquetFilterPredicate.RowsMatch> predicate;
+  private final BiFunction<ColumnStatistic<C>, StatisticsProvider<C>, RowsMatch> predicate;
 
   private IsPredicate(LogicalExpression expr,
-                      BiFunction<ColumnStatistic<C>, StatisticsProvider<C>, ParquetFilterPredicate.RowsMatch> predicate) {
+                      BiFunction<ColumnStatistic<C>, StatisticsProvider<C>, RowsMatch> predicate) {
     super(expr.getPosition());
     this.expr = expr;
     this.predicate = predicate;
@@ -62,9 +62,9 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
    * Apply the filter condition against the meta of the rowgroup.
    */
   @Override
-  public ParquetFilterPredicate.RowsMatch matches(StatisticsProvider<C> evaluator) {
+  public RowsMatch matches(StatisticsProvider<C> evaluator) {
     ColumnStatistic<C> exprStat = expr.accept(evaluator, null);
-    return isNullOrEmpty(exprStat) ? ParquetFilterPredicate.RowsMatch.SOME : predicate.apply(exprStat, evaluator);
+    return isNullOrEmpty(exprStat) ? RowsMatch.SOME : predicate.apply(exprStat, evaluator);
   }
 
   /**
@@ -83,8 +83,8 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
    * If it contains some null values, then we change the RowsMatch.ALL into RowsMatch.SOME, which sya that maybe
    * some values (the null ones) should be disgarded.
    */
-  private static ParquetFilterPredicate.RowsMatch checkNull(ColumnStatistic exprStat) {
-    return hasNoNulls(exprStat) ? ParquetFilterPredicate.RowsMatch.ALL : ParquetFilterPredicate.RowsMatch.SOME;
+  private static RowsMatch checkNull(ColumnStatistic exprStat) {
+    return hasNoNulls(exprStat) ? RowsMatch.ALL : RowsMatch.SOME;
   }
 
   /**
@@ -108,13 +108,13 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
         if (expr instanceof TypedFieldExpr) {
           TypedFieldExpr typedFieldExpr = (TypedFieldExpr) expr;
           if (typedFieldExpr.getPath().isArray()) {
-            return ParquetFilterPredicate.RowsMatch.SOME;
+            return RowsMatch.SOME;
           }
         }
         if (hasNoNulls(exprStat)) {
-          return ParquetFilterPredicate.RowsMatch.NONE;
+          return RowsMatch.NONE;
         }
-        return isAllNulls(exprStat, evaluator.getRowCount()) ? ParquetFilterPredicate.RowsMatch.ALL : ParquetFilterPredicate.RowsMatch.SOME;
+        return isAllNulls(exprStat, evaluator.getRowCount()) ? RowsMatch.ALL : RowsMatch.SOME;
       });
   }
 
@@ -139,7 +139,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
    */
   private static <C extends Comparable<C>> LogicalExpression createIsNotNullPredicate(LogicalExpression expr) {
     return new IsPredicate<C>(expr,
-      (exprStat, evaluator) -> isAllNulls(exprStat, evaluator.getRowCount()) ? ParquetFilterPredicate.RowsMatch.NONE : checkNull(exprStat)
+      (exprStat, evaluator) -> isAllNulls(exprStat, evaluator.getRowCount()) ? RowsMatch.NONE : checkNull(exprStat)
     );
   }
 
@@ -149,15 +149,15 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
   private static LogicalExpression createIsTruePredicate(LogicalExpression expr) {
     return new IsPredicate<Boolean>(expr, (exprStat, evaluator) -> {
       if (isAllNulls(exprStat, evaluator.getRowCount())) {
-        return ParquetFilterPredicate.RowsMatch.NONE;
+        return RowsMatch.NONE;
       }
       if (!hasNonNullValues(exprStat)) {
-        return ParquetFilterPredicate.RowsMatch.SOME;
+        return RowsMatch.SOME;
       }
       if (!((BooleanStatistics) exprStat).getMax()) {
-        return ParquetFilterPredicate.RowsMatch.NONE;
+        return RowsMatch.NONE;
       }
-      return ((BooleanStatistics) exprStat).getMin() ? checkNull(exprStat) : ParquetFilterPredicate.RowsMatch.SOME;
+      return ((BooleanStatistics) exprStat).getMin() ? checkNull(exprStat) : RowsMatch.SOME;
     });
   }
 
@@ -167,15 +167,15 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
   private static LogicalExpression createIsFalsePredicate(LogicalExpression expr) {
     return new IsPredicate<Boolean>(expr, (exprStat, evaluator) -> {
       if (isAllNulls(exprStat, evaluator.getRowCount())) {
-        return ParquetFilterPredicate.RowsMatch.NONE;
+        return RowsMatch.NONE;
       }
       if (!hasNonNullValues(exprStat)) {
-        return ParquetFilterPredicate.RowsMatch.SOME;
+        return RowsMatch.SOME;
       }
       if (((BooleanStatistics) exprStat).getMin()) {
-        return ParquetFilterPredicate.RowsMatch.NONE;
+        return RowsMatch.NONE;
       }
-      return ((BooleanStatistics) exprStat).getMax() ? ParquetFilterPredicate.RowsMatch.SOME : checkNull(exprStat);
+      return ((BooleanStatistics) exprStat).getMax() ? RowsMatch.SOME : checkNull(exprStat);
     });
   }
 
@@ -185,15 +185,15 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
   private static LogicalExpression createIsNotTruePredicate(LogicalExpression expr) {
     return new IsPredicate<Boolean>(expr, (exprStat, evaluator) -> {
       if (isAllNulls(exprStat, evaluator.getRowCount())) {
-        return ParquetFilterPredicate.RowsMatch.ALL;
+        return RowsMatch.ALL;
       }
       if (!hasNonNullValues(exprStat)) {
-        return ParquetFilterPredicate.RowsMatch.SOME;
+        return RowsMatch.SOME;
       }
       if (((BooleanStatistics) exprStat).getMin()) {
-        return hasNoNulls(exprStat) ? ParquetFilterPredicate.RowsMatch.NONE : ParquetFilterPredicate.RowsMatch.SOME;
+        return hasNoNulls(exprStat) ? RowsMatch.NONE : RowsMatch.SOME;
       }
-      return ((BooleanStatistics) exprStat).getMax() ? ParquetFilterPredicate.RowsMatch.SOME : ParquetFilterPredicate.RowsMatch.ALL;
+      return ((BooleanStatistics) exprStat).getMax() ? RowsMatch.SOME : RowsMatch.ALL;
     });
   }
 
@@ -203,15 +203,15 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
   private static LogicalExpression createIsNotFalsePredicate(LogicalExpression expr) {
     return new IsPredicate<Boolean>(expr, (exprStat, evaluator) -> {
       if (isAllNulls(exprStat, evaluator.getRowCount())) {
-        return ParquetFilterPredicate.RowsMatch.ALL;
+        return RowsMatch.ALL;
       }
       if (!hasNonNullValues(exprStat)) {
-        return ParquetFilterPredicate.RowsMatch.SOME;
+        return RowsMatch.SOME;
       }
       if (!((BooleanStatistics) exprStat).getMax()) {
-        return hasNoNulls(exprStat) ? ParquetFilterPredicate.RowsMatch.NONE : ParquetFilterPredicate.RowsMatch.SOME;
+        return hasNoNulls(exprStat) ? RowsMatch.NONE : RowsMatch.SOME;
       }
-      return ((BooleanStatistics) exprStat).getMin() ? ParquetFilterPredicate.RowsMatch.ALL : ParquetFilterPredicate.RowsMatch.SOME;
+      return ((BooleanStatistics) exprStat).getMin() ? RowsMatch.ALL : RowsMatch.SOME;
     });
   }
 

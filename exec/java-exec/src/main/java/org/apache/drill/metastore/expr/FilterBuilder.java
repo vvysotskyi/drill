@@ -17,13 +17,15 @@
  */
 package org.apache.drill.metastore.expr;
 
+import org.apache.drill.common.expression.fn.FunctionReplacementUtils;
+import org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers;
+import org.apache.drill.exec.expr.holders.VarCharHolder;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.FunctionHolderExpression;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.TypedFieldExpr;
 import org.apache.drill.common.expression.ValueExpressions;
-import org.apache.drill.common.expression.fn.CastFunctions;
 import org.apache.drill.common.expression.fn.FuncHolder;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
 import org.apache.drill.common.types.TypeProtos;
@@ -49,9 +51,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * A visitor which visits a materialized logical expression, and build FilterPredicate
+ * If a visitXXX method returns null, that means the corresponding filter branch is not qualified for push down.
+ */
 public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<LogicalExpression>, RuntimeException> {
-  static final Logger logger = LoggerFactory.getLogger(FilterBuilder.class);
+  private static final Logger logger = LoggerFactory.getLogger(FilterBuilder.class);
 
+  // Flag to check whether predicate cannot be fully converted
+  // to metadata filter predicate without omitting its parts.
+  // It should be set to false for the case when we want to
+  // verify that predicate is fully convertible to metadata filter predicate,
+  // otherwise null is returned instead of the converted expression.
+  private final boolean omitUnsupportedExprs;
   private final UdfUtilities udfUtilities;
 
   /**
@@ -59,20 +71,24 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
    * @param constantBoundaries set of constant expressions
    * @param udfUtilities udf utilities
    *
-   * @return parquet filter predicate
+   * @return metadata filter predicate
    */
-  public static FilterPredicate buildFilterPredicate(LogicalExpression expr, final Set<LogicalExpression> constantBoundaries, UdfUtilities udfUtilities) {
-    LogicalExpression logicalExpression = expr.accept(new FilterBuilder(udfUtilities), constantBoundaries);
+  public static FilterPredicate buildFilterPredicate(LogicalExpression expr, Set<LogicalExpression> constantBoundaries,
+                                                     UdfUtilities udfUtilities, boolean omitUnsupportedExprs) {
+    LogicalExpression logicalExpression = expr.accept(new FilterBuilder(udfUtilities, omitUnsupportedExprs), constantBoundaries);
     if (logicalExpression instanceof FilterPredicate) {
       return (FilterPredicate) logicalExpression;
+    } else if (logicalExpression instanceof TypedFieldExpr) {
+      // Calcite simplifies `= true` expression to field name, wrap it with is true predicate
+      return (FilterPredicate) IsPredicate.createIsPredicate(FunctionGenerationHelper.IS_TRUE, logicalExpression);
     }
     logger.debug("Logical expression {} was not qualified for filter push down", logicalExpression);
     return null;
   }
 
-
-  private FilterBuilder(UdfUtilities udfUtilities) {
+  private FilterBuilder(UdfUtilities udfUtilities, boolean omitUnsupportedExprs) {
     this.udfUtilities = udfUtilities;
+    this.omitUnsupportedExprs = omitUnsupportedExprs;
   }
 
   @Override
@@ -137,6 +153,11 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
   }
 
   @Override
+  public LogicalExpression visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Set<LogicalExpression> value) throws RuntimeException {
+    return quotedString;
+  }
+
+  @Override
   public LogicalExpression visitBooleanOperator(BooleanOperator op, Set<LogicalExpression> value) {
     List<LogicalExpression> childPredicates = new ArrayList<>();
     String functionName = op.getName();
@@ -144,8 +165,9 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
     for (LogicalExpression arg : op.args) {
       LogicalExpression childPredicate = arg.accept(this, value);
       if (childPredicate == null) {
-        if (functionName.equals("booleanOr")) {
+        if (functionName.equals("booleanOr") || !omitUnsupportedExprs) {
           // we can't include any leg of the OR if any of the predicates cannot be converted
+          // or prohibited omitting of unconverted operands
           return null;
         }
       } else {
@@ -191,6 +213,10 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
         return ValueExpressions.getTime(((TimeHolder) holder).value);
       case BIT:
         return ValueExpressions.getBit(((BitHolder) holder).value == 1);
+      case VARCHAR:
+        VarCharHolder varCharHolder = (VarCharHolder) holder;
+        String value = StringFunctionHelpers.toStringFromUTF8(varCharHolder.start, varCharHolder.end, varCharHolder.buffer);
+        return ValueExpressions.getChar(value, value.length());
       default:
         return null;
     }
@@ -228,7 +254,7 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
       return handleIsFunction(funcHolderExpr, value);
     }
 
-    if (CastFunctions.isCastFunction(funcName)) {
+    if (FunctionReplacementUtils.isCastFunction(funcName)) {
       List<LogicalExpression> newArgs = generateNewExpressions(funcHolderExpr.args, value);
       if (newArgs == null) {
         return null;
@@ -269,8 +295,8 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
     if (functionHolderExpression.getHolder() instanceof DrillSimpleFuncHolder) {
       funcName = ((DrillSimpleFuncHolder) functionHolderExpression.getHolder()).getRegisteredNames()[0];
     } else {
-      logger.warn("Can not cast {} to DrillSimpleFuncHolder. Parquet filter pushdown can not handle function.",
-        functionHolderExpression.getHolder());
+      logger.warn("Can not cast {} to DrillSimpleFuncHolder. Metadata filter pushdown can not handle function.",
+          functionHolderExpression.getHolder());
       return null;
     }
     LogicalExpression arg = functionHolderExpression.args.get(0);
@@ -291,13 +317,13 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
   static {
     ImmutableSet.Builder<String> builder = ImmutableSet.builder();
     COMPARE_FUNCTIONS_SET = builder
-      .add(FunctionGenerationHelper.EQ)
-      .add(FunctionGenerationHelper.GT)
-      .add(FunctionGenerationHelper.GE)
-      .add(FunctionGenerationHelper.LT)
-      .add(FunctionGenerationHelper.LE)
-      .add(FunctionGenerationHelper.NE)
-      .build();
+        .add(FunctionGenerationHelper.EQ)
+        .add(FunctionGenerationHelper.GT)
+        .add(FunctionGenerationHelper.GE)
+        .add(FunctionGenerationHelper.LT)
+        .add(FunctionGenerationHelper.LE)
+        .add(FunctionGenerationHelper.NE)
+        .build();
   }
 
   private static final ImmutableSet<String> IS_FUNCTIONS_SET;
@@ -305,12 +331,12 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
   static {
     ImmutableSet.Builder<String> builder = ImmutableSet.builder();
     IS_FUNCTIONS_SET = builder
-      .add(FunctionGenerationHelper.IS_NULL)
-      .add(FunctionGenerationHelper.IS_NOT_NULL)
-      .add(FunctionGenerationHelper.IS_TRUE)
-      .add(FunctionGenerationHelper.IS_NOT_TRUE)
-      .add(FunctionGenerationHelper.IS_FALSE)
-      .add(FunctionGenerationHelper.IS_NOT_FALSE)
-      .build();
+        .add(FunctionGenerationHelper.IS_NULL)
+        .add(FunctionGenerationHelper.IS_NOT_NULL)
+        .add(FunctionGenerationHelper.IS_TRUE)
+        .add(FunctionGenerationHelper.IS_NOT_TRUE)
+        .add(FunctionGenerationHelper.IS_FALSE)
+        .add(FunctionGenerationHelper.IS_NOT_FALSE)
+        .build();
   }
 }

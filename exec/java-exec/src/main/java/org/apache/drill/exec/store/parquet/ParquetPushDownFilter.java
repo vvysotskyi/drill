@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
+import org.apache.drill.metastore.expr.FilterPredicate;
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -27,7 +29,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.ValueExpressions;
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 import org.apache.drill.exec.planner.logical.DrillOptiq;
@@ -145,11 +146,10 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
             new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, pred);
 
         // checks whether predicate may be used for filter pushdown
-        ParquetFilterPredicate parquetFilterPredicate =
-            groupScan.getParquetFilterPredicate(drillPredicate,
+        FilterPredicate parquetFilterPredicate =
+            groupScan.getFilterPredicate(drillPredicate,
                 optimizerContext,
-                optimizerContext.getFunctionRegistry(),
-                optimizerContext.getPlannerSettings().getOptions(), false);
+                optimizerContext.getFunctionRegistry(), false, groupScan.getColumnsMap());
         // collects predicates that contain unsupported for filter pushdown expressions
         // to build filter with them
         if (parquetFilterPredicate == null) {
@@ -172,7 +172,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
 
 
     Stopwatch timer = logger.isDebugEnabled() ? Stopwatch.createStarted() : null;
-    AbstractParquetGroupScan newGroupScan = groupScan.applyFilter(conditionExp, optimizerContext,
+    BaseMetadataGroupScan newGroupScan = groupScan.applyFilter(conditionExp, optimizerContext,
         optimizerContext.getFunctionRegistry(), optimizerContext.getPlannerSettings().getOptions());
     if (timer != null) {
       logger.debug("Took {} ms to apply filter on parquet row groups. ", timer.elapsed(TimeUnit.MILLISECONDS));
