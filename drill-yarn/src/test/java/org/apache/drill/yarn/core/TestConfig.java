@@ -167,16 +167,16 @@ public class TestConfig {
     assertNull(doyConfig.mockEnv.get(DrillOnYarnConfig.DRILL_HOME_ENV_VAR));
     doyConfig.mockEnv.put(DrillOnYarnConfig.DRILL_SITE_ENV_VAR, "/drill/site");
     doyConfig.setClientPaths();
-    assertEquals("/config/drill/home",
+    assertEquals(new File("/config/drill/home").getAbsolutePath(),
         doyConfig.getLocalDrillHome().getAbsolutePath());
     assertTrue(doyConfig.hasSiteDir());
-    assertEquals("/drill/site", doyConfig.getLocalSiteDir().getAbsolutePath());
+    assertEquals(new File("/drill/site").getAbsolutePath(), doyConfig.getLocalSiteDir().getAbsolutePath());
 
     // Home set in an env var
 
     doyConfig.mockEnv.put(DrillOnYarnConfig.DRILL_HOME_ENV_VAR, "/drill/home");
     doyConfig.setClientPaths();
-    assertEquals("/drill/home",
+    assertEquals(new File("/drill/home").getAbsolutePath(),
         doyConfig.getLocalDrillHome().getAbsolutePath());
 
     // Remote site: localized case
@@ -202,11 +202,11 @@ public class TestConfig {
     // root...)
     // With no site dir, app id is in parent of the drill directory.
 
-    assertEquals("/drill/home",
+    assertEquals(new File("/drill/home").getAbsolutePath(),
         doyConfig.getLocalDrillHome().getAbsolutePath());
     assertEquals("drill", config.getString(DrillOnYarnConfig.ZK_ROOT));
     assertEquals("drillbits1", config.getString(DrillOnYarnConfig.CLUSTER_ID));
-    assertEquals("/drill/home/drill-drillbits1.appid",
+    assertEquals(new File("/drill/home/drill-drillbits1.appid").getAbsolutePath(),
         doyConfig.getLocalAppIdFile().getAbsolutePath());
 
     // Again, but with a site directory. App id is in parent of the site
@@ -215,7 +215,7 @@ public class TestConfig {
     doyConfig.mockEnv.put(DrillOnYarnConfig.DRILL_SITE_ENV_VAR,
         "/var/drill/site");
     doyConfig.setClientPaths();
-    assertEquals("/var/drill/drill-drillbits1.appid",
+    assertEquals(new File("/var/drill/drill-drillbits1.appid").getAbsolutePath(),
         doyConfig.getLocalAppIdFile().getAbsolutePath());
   }
 

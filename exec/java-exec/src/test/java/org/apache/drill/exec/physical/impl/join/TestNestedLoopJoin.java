@@ -33,7 +33,6 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
-import static junit.framework.TestCase.fail;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -399,8 +398,6 @@ public class TestNestedLoopJoin extends JoinTestBase {
         .baselineTypes(typeMap)
         .go();
 
-    } catch (Exception e) {
-      fail();
     } finally {
       test(ENABLE_NLJ_SCALAR);
       test(RESET_JOIN_OPTIMIZATION);

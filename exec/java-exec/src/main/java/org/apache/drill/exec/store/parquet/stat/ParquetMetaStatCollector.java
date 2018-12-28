@@ -18,6 +18,8 @@
 package org.apache.drill.exec.store.parquet.stat;
 
 import org.apache.drill.exec.physical.base.GroupScan;
+import org.apache.drill.exec.store.parquet.metadata.Metadata_V1.ParquetTableMetadata_v1;
+import org.apache.drill.exec.store.parquet.metadata.Metadata_V2.ParquetTableMetadata_v2;
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
@@ -92,18 +94,27 @@ public class ParquetMetaStatCollector implements  ColumnStatCollector {
       ColumnMetadata columnMetadata = columnMetadataMap.get(field.getUnIndexed());
       if (columnMetadata != null) {
         ColumnStatisticsBuilder statisticsBuilder = ColumnStatisticsBuilder.builder()
-          .setMin(columnMetadata.getMinValue())
-          .setMax(columnMetadata.getMaxValue())
-          .setNumNulls(columnMetadata.getNulls() == null ? GroupScan.NO_COLUMN_STATS: columnMetadata.getNulls())
-          .setPrimitiveType(parquetTableMetadata.getPrimitiveType(columnMetadata.getName()))
-          .setOriginalType(parquetTableMetadata.getOriginalType(columnMetadata.getName()));
+            .setMin(columnMetadata.getMinValue())
+            .setMax(columnMetadata.getMaxValue())
+            .setNumNulls(columnMetadata.getNulls() == null ? GroupScan.NO_COLUMN_STATS: columnMetadata.getNulls());
 
         // ColumnTypeMetadata_v3 stores information about scale and precision
         if (parquetTableMetadata instanceof ParquetTableMetadata_v3) {
           ColumnTypeMetadata_v3 columnTypeInfo = ((ParquetTableMetadata_v3) parquetTableMetadata)
-                                                                          .getColumnTypeInfo(columnMetadata.getName());
-          statisticsBuilder.setScale(columnTypeInfo.scale);
-          statisticsBuilder.setPrecision(columnTypeInfo.precision);
+              .getColumnTypeInfo(columnMetadata.getName());
+          statisticsBuilder
+              .setPrimitiveType(parquetTableMetadata.getPrimitiveType(columnMetadata.getName()))
+              .setOriginalType(parquetTableMetadata.getOriginalType(columnMetadata.getName()))
+              .setScale(columnTypeInfo.scale)
+              .setPrecision(columnTypeInfo.precision);
+        } else if (parquetTableMetadata instanceof ParquetTableMetadata_v2) {
+          statisticsBuilder
+              .setPrimitiveType(parquetTableMetadata.getPrimitiveType(columnMetadata.getName()))
+              .setOriginalType(parquetTableMetadata.getOriginalType(columnMetadata.getName()));
+        } else if (parquetTableMetadata instanceof ParquetTableMetadata_v1) {
+          statisticsBuilder
+              .setPrimitiveType(columnMetadata.getPrimitiveType())
+              .setOriginalType(columnMetadata.getOriginalType());
         }
 
         statMap.put(field, statisticsBuilder.build());

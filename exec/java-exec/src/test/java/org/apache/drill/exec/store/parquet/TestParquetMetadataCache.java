@@ -26,6 +26,7 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.drill.exec.store.parquet.metadata.MetadataVersion;
+import org.apache.hadoop.fs.Path;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -35,7 +36,6 @@ import org.junit.experimental.categories.Category;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.util.Collection;
@@ -70,7 +70,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1994", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_1);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1994", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_1);
     PlanTestBase.testPlanMatchingPatterns(query, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {});
   }
@@ -89,7 +89,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1994", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_1);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1994", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_1);
     PlanTestBase.testPlanMatchingPatterns(query, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {"Filter"});
   }
@@ -263,7 +263,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1995/Q3", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_2);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1995/Q3", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_2);
     PlanTestBase.testPlanMatchingPatterns(query1, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {"Filter"});
   }
@@ -285,7 +285,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1995", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_2);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1995", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_2);
     PlanTestBase.testPlanMatchingPatterns(query1, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {"Filter"});
   }
@@ -307,7 +307,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_2);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_2);
     PlanTestBase.testPlanMatchingPatterns(query1, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {});
   }
@@ -329,7 +329,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/*/*", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_2);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/*/*", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_2);
     PlanTestBase.testPlanMatchingPatterns(query1, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {});
   }
@@ -349,7 +349,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_1);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_1);
     PlanTestBase.testPlanMatchingPatterns(query, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {});
   }
@@ -372,7 +372,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1995", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_2);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s/1995", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_2);
     PlanTestBase.testPlanMatchingPatterns(query1, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {});
 
@@ -396,7 +396,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
     assertEquals(expectedRowCount, actualRowCount);
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_2);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_2);
     PlanTestBase.testPlanMatchingPatterns(query1, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {});
   }
@@ -422,7 +422,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
 
     String numFilesPattern = "numFiles=" + expectedNumFiles;
     String usedMetaPattern = "usedMetadataFile=true";
-    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", dirTestWatcher.getRootDir().getCanonicalPath(), TABLE_NAME_2);
+    String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), TABLE_NAME_2);
     PlanTestBase.testPlanMatchingPatterns(query1, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
         new String[] {});
 
@@ -451,8 +451,8 @@ public class TestParquetMetadataCache extends PlanTestBase {
 
   @Test
   public void testOldMetadataVersions() throws Exception {
-    final Path tablePath = Paths.get("absolute_paths_metadata");
-    final Path rootMetadataPath = Paths.get("parquet", "metadata_files_with_old_versions");
+    java.nio.file.Path tablePath = Paths.get("absolute_paths_metadata");
+    java.nio.file.Path rootMetadataPath = Paths.get("parquet", "metadata_files_with_old_versions");
     // gets folders with different metadata cache versions
     String[] metadataPaths = dirTestWatcher.getRootDir()
       .toPath()
@@ -464,35 +464,35 @@ public class TestParquetMetadataCache extends PlanTestBase {
       try {
         test("use dfs.tmp");
         // creating two inner directories to leverage METADATA_DIRECTORIES_FILENAME metadata file as well
-        final Path absolutePathsMetadataT1 = tablePath.resolve("t1");
-        final Path absolutePathsMetadataT2 = tablePath.resolve("t2");
+        java.nio.file.Path absolutePathsMetadataT1 = tablePath.resolve("t1");
+        java.nio.file.Path absolutePathsMetadataT2 = tablePath.resolve("t2");
 
         String createQuery = "create table `%s` as select * from cp.`tpch/nation.parquet`";
 
-        test(createQuery, absolutePathsMetadataT1);
-        test(createQuery, absolutePathsMetadataT2);
+        test(createQuery, new Path(absolutePathsMetadataT1.toString()));
+        test(createQuery, new Path(absolutePathsMetadataT2.toString()));
 
-        Path relativePath = rootMetadataPath.resolve(metadataPath);
+        java.nio.file.Path relativePath = rootMetadataPath.resolve(metadataPath);
 
         File metaFile = dirTestWatcher.copyResourceToTestTmp(
           relativePath.resolve("metadata_directories.requires_replace.txt"),
           tablePath.resolve(Metadata.METADATA_DIRECTORIES_FILENAME));
-        dirTestWatcher.replaceMetaDataContents(metaFile, dirTestWatcher.getDfsTestTmpDir(),
+        dirTestWatcher.replaceMetaDataContents(metaFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(),
           null);
         metaFile = dirTestWatcher.copyResourceToTestTmp(
           relativePath.resolve("metadata_table.requires_replace.txt"),
           tablePath.resolve(Metadata.METADATA_FILENAME));
-        dirTestWatcher.replaceMetaDataContents(metaFile, dirTestWatcher.getDfsTestTmpDir(),
+        dirTestWatcher.replaceMetaDataContents(metaFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(),
           null);
         metaFile = dirTestWatcher.copyResourceToTestTmp(
           relativePath.resolve("metadata_table_t1.requires_replace.txt"),
           absolutePathsMetadataT1.resolve(Metadata.METADATA_FILENAME));
-        dirTestWatcher.replaceMetaDataContents(metaFile, dirTestWatcher.getDfsTestTmpDir(),
+        dirTestWatcher.replaceMetaDataContents(metaFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(),
           null);
         metaFile = dirTestWatcher.copyResourceToTestTmp(
           relativePath.resolve("metadata_table_t2.requires_replace.txt"),
           absolutePathsMetadataT2.resolve(Metadata.METADATA_FILENAME));
-        dirTestWatcher.replaceMetaDataContents(metaFile, dirTestWatcher.getDfsTestTmpDir(),
+        dirTestWatcher.replaceMetaDataContents(metaFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(),
           null);
         String query = String.format("select * from %s", tablePath);
         int expectedRowCount = 50;
@@ -502,7 +502,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
                       expectedRowCount, actualRowCount);
         String numFilesPattern = "numFiles=" + expectedNumFiles;
         String usedMetaPattern = "usedMetadataFile=true";
-        String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", dirTestWatcher.getDfsTestTmpDir().getCanonicalPath(), tablePath);
+        String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", new Path(dirTestWatcher.getDfsTestTmpDir().getCanonicalPath()).toString(), tablePath);
         PlanTestBase.testPlanMatchingPatterns(query, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
                                               new String[]{"Filter"});
       } finally {
@@ -529,7 +529,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
           expectedRowCount, actualRowCount);
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetadataFile=true";
-      String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", dirTestWatcher.getRootDir().getCanonicalPath(), pathWithSpaces);
+      String cacheFileRootPattern = String.format("cacheFileRoot=%s/%s", new Path(dirTestWatcher.getRootDir().getCanonicalPath()).toString(), pathWithSpaces);
       PlanTestBase.testPlanMatchingPatterns(query, new String[]{numFilesPattern, usedMetaPattern, cacheFileRootPattern},
           new String[] {"Filter"});
     } finally {
@@ -549,7 +549,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
       File metaDataFile = dirTestWatcher.copyResourceToTestTmp(
         Paths.get("parquet", "unsupported_metadata", "unsupported_metadata_version.requires_replace.txt"),
         Paths.get(unsupportedMetadataVersion, Metadata.METADATA_FILENAME));
-      dirTestWatcher.replaceMetaDataContents(metaDataFile, dirTestWatcher.getDfsTestTmpDir(), futureVersion);
+      dirTestWatcher.replaceMetaDataContents(metaDataFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(), futureVersion);
       String query = String.format("select * from %s", unsupportedMetadataVersion);
       int expectedRowCount = 25;
       int expectedNumFiles = 1;

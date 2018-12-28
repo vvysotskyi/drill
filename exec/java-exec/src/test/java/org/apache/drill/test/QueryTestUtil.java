@@ -25,6 +25,8 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import mockit.Mock;
+import mockit.MockUp;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
@@ -44,6 +46,10 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.util.VectorUtil;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsAction;
+import org.apache.hadoop.io.nativeio.NativeIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -314,5 +320,30 @@ public class QueryTestUtil {
 
     throw new BindException(String.format("Free port could not be found in the range [%s-%s].\n" +
         "Please release any of used ports in this range.", portNumber, portNumber + numberOfAttempts));
+  }
+
+  /**
+   * Mocks {@link NativeIO.Windows.access(String, NativeIO.Windows.AccessRight)} method for Windows.
+   */
+  public static void mockNativeIoWindowsAccess() {
+    if (System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // workaround to avoid problems with native methods from hadoop-winutils on windows
+      new MockUp<NativeIO.Windows>() {
+        @Mock
+        boolean access(String pathString, NativeIO.Windows.AccessRight desiredAccess) throws IOException {
+          Path path = new Path(pathString);
+          FsAction userAction = path.getFileSystem(new Configuration()).getFileStatus(path).getPermission().getUserAction();
+          switch (desiredAccess) {
+            case ACCESS_READ:
+              return userAction.SYMBOL.contains("r");
+            case ACCESS_WRITE:
+              return userAction.SYMBOL.contains("w");
+            case ACCESS_EXECUTE:
+              return userAction.SYMBOL.contains("x");
+          }
+          return false;
+        }
+      };
+    }
   }
 }

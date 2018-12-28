@@ -19,7 +19,6 @@ package org.apache.drill.test;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -61,6 +60,7 @@ import org.apache.drill.exec.util.StoragePluginTestUtils;
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.io.Resources;
+import org.apache.hadoop.fs.Path;
 
 import static org.apache.drill.exec.util.StoragePluginTestUtils.DFS_TMP_SCHEMA;
 import static org.apache.drill.exec.util.StoragePluginTestUtils.ROOT_SCHEMA;
@@ -265,9 +265,12 @@ public class ClusterFixture extends BaseFixture implements AutoCloseable {
     final StoragePluginRegistry pluginRegistry = bit.getContext().getStorage();
     StoragePluginTestUtils.configureFormatPlugins(pluginRegistry);
 
-    StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry, builder.dirTestWatcher.getDfsTestTmpDir(), TMP_SCHEMA);
-    StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry, builder.dirTestWatcher.getRootDir(), ROOT_SCHEMA);
-    StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry, builder.dirTestWatcher.getRootDir(), SchemaFactory.DEFAULT_WS_NAME);
+    StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
+        new Path(builder.dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(), TMP_SCHEMA);
+    StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
+        new Path(builder.dirTestWatcher.getRootDir().toURI()).toUri().getPath(), ROOT_SCHEMA);
+    StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
+        new Path(builder.dirTestWatcher.getRootDir().toURI()).toUri().getPath(), SchemaFactory.DEFAULT_WS_NAME);
 
     // Create the mock data plugin
 
@@ -678,7 +681,7 @@ public class ClusterFixture extends BaseFixture implements AutoCloseable {
   }
 
   public File getDrillTempDir() {
-    return new File(URI.create(config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH)).getPath());
+    return new File(new Path(config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH)).toUri().getPath());
   }
 
   public boolean usesZK() {

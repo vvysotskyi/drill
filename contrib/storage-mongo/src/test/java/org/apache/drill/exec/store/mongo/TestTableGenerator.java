@@ -17,10 +17,11 @@
  */
 package org.apache.drill.exec.store.mongo;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 
 import de.flapdoodle.embed.mongo.MongoImportProcess;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,9 +41,8 @@ public class TestTableGenerator implements MongoTestConstants {
       .getLogger(TestTableGenerator.class);
 
   public static void importData(String dbName, String collectionName,
-      String fileName) throws InterruptedException,IOException {
-    String jsonFile = Resources.getResource(fileName).toString();
-    jsonFile = jsonFile.replaceFirst("file:", StringUtils.EMPTY);
+      String fileName) throws InterruptedException, IOException, URISyntaxException {
+    String jsonFile = new File(Resources.getResource(fileName).toURI()).getAbsolutePath();
     generateTable(dbName, collectionName, jsonFile, true, true, false);
   }
 

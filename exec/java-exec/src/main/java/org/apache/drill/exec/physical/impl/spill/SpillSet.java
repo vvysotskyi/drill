@@ -292,15 +292,15 @@ public class SpillSet {
 
   private static class LocalFileManager implements FileManager {
 
-    private File baseDir;
+    private String baseDir;
 
     public LocalFileManager(String fsName) {
-      baseDir = new File(fsName.replace(FileSystem.DEFAULT_FS, ""));
+      baseDir = fsName;
     }
 
     @Override
-    public void deleteOnExit(String fragmentSpillDir) throws IOException {
-      File dir = new File(baseDir, fragmentSpillDir);
+    public void deleteOnExit(String fragmentSpillDir) {
+      File dir = new File(new Path(baseDir, fragmentSpillDir).toUri());
       dir.mkdirs();
       dir.deleteOnExit();
     }
@@ -308,7 +308,7 @@ public class SpillSet {
     @SuppressWarnings("resource")
     @Override
     public WritableByteChannel createForWrite(String fileName) throws IOException {
-      return FileChannel.open(new File(baseDir, fileName).toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+      return FileChannel.open(new File(new Path(baseDir, fileName).toUri()).toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
     }
 
     @SuppressWarnings("resource")
@@ -316,25 +316,26 @@ public class SpillSet {
     public InputStream openForInput(String fileName) throws IOException {
       return new CountingInputStream(
                 new BufferedInputStream(
-                    new FileInputStream(new File(baseDir, fileName))));
+                    new FileInputStream(new File(new Path(baseDir, fileName).toUri()))));
     }
 
     @Override
-    public void deleteFile(String fileName) throws IOException {
-      new File(baseDir, fileName).delete();
+    public void deleteFile(String fileName) {
+      new File(new Path(baseDir, fileName).toUri()).delete();
     }
 
     @Override
     public void deleteDir(String fragmentSpillDir) throws IOException {
-      boolean deleted = new File(baseDir, fragmentSpillDir).delete();
-      if ( ! deleted ) { throw new IOException("Failed to delete: " + fragmentSpillDir);}
+      boolean deleted = new File(new Path(baseDir, fragmentSpillDir).toUri()).delete();
+      if (!deleted) {
+        throw new IOException("Failed to delete: " + fragmentSpillDir);
+      }
     }
 
     @Override
-    public long getWriteBytes(WritableByteChannel channel)
-    {
+    public long getWriteBytes(WritableByteChannel channel) {
       try {
-        return ((FileChannel)channel).position();
+        return ((FileChannel) channel).position();
       } catch (Exception e) {
         return 0;
       }

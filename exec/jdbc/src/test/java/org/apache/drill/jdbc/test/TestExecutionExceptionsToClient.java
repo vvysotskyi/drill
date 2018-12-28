@@ -205,7 +205,7 @@ public class TestExecutionExceptionsToClient extends JdbcTestBase {
   public void testConvertFromError() throws Exception {
     final Statement statement = connection.createStatement();
     try {
-      statement.executeUpdate("select CONVERT_FROM('1','INTEGER') from (values(1))");
+      statement.executeUpdate("select CONVERT_FROM('1', 'INTEGER')");
     } catch (SQLException e) {
       assertThat("Null getCause(); missing expected wrapped exception",
         e.getCause(), notNullValue());
@@ -217,7 +217,7 @@ public class TestExecutionExceptionsToClient extends JdbcTestBase {
         e.getCause(), instanceOf(UserRemoteException.class));
 
       assertTrue("No expected current \"UNSUPPORTED_OPERATION ERROR\" and/or \"Did you mean\"",
-        e.getMessage().matches("^UNSUPPORTED_OPERATION ERROR(.|\\n)*Did you mean(.|\\n)*"));
+        e.getMessage().matches("^UNSUPPORTED_OPERATION ERROR(.|\\n|\\r)*Did you mean(.|\\n|\\r)*"));
       throw e;
     }
   }

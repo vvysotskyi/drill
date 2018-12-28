@@ -57,7 +57,7 @@ public class HiveTestDataGenerator {
   }
 
   private void generateDataInternal(Driver hiveDriver) throws Exception {
-    File part1Dir = createDirWithPosixPermissions(baseDir, "part1");
+    String part1Dir = createDirWithPosixPermissions(baseDir, "part1");
     // generate (key, value) test data
     String testDataFile = generateTestDataFile();
 
@@ -99,123 +99,143 @@ public class HiveTestDataGenerator {
     }
 
     // create a Hive table that has columns with data types which are supported for reading in Drill.
-    testDataFile = generateAllTypesDataFile();
-    executeQuery(hiveDriver,
-        "CREATE TABLE IF NOT EXISTS readtest (" +
-        "  binary_field BINARY," +
-        "  boolean_field BOOLEAN," +
-        "  tinyint_field TINYINT," +
-        "  decimal0_field DECIMAL," +
-        "  decimal9_field DECIMAL(6, 2)," +
-        "  decimal18_field DECIMAL(15, 5)," +
-        "  decimal28_field DECIMAL(23, 1)," +
-        "  decimal38_field DECIMAL(30, 3)," +
-        "  double_field DOUBLE," +
-        "  float_field FLOAT," +
-        "  int_field INT," +
-        "  bigint_field BIGINT," +
-        "  smallint_field SMALLINT," +
-        "  string_field STRING," +
-        "  varchar_field VARCHAR(50)," +
-        "  timestamp_field TIMESTAMP," +
-        "  date_field DATE," +
-        "  char_field CHAR(10)" +
-        ") PARTITIONED BY (" +
+    StringBuilder createQuery = new StringBuilder()
+        .append("CREATE TABLE IF NOT EXISTS readtest (")
+        .append("  binary_field BINARY,")
+        .append("  boolean_field BOOLEAN,")
+        .append("  tinyint_field TINYINT,")
+        .append("  decimal0_field DECIMAL,")
+        .append("  decimal9_field DECIMAL(6, 2),")
+        .append("  decimal18_field DECIMAL(15, 5),")
+        .append("  decimal28_field DECIMAL(23, 1),")
+        .append("  decimal38_field DECIMAL(30, 3),")
+        .append("  double_field DOUBLE,")
+        .append("  float_field FLOAT,")
+        .append("  int_field INT,")
+        .append("  bigint_field BIGINT,")
+        .append("  smallint_field SMALLINT,")
+        .append("  string_field STRING,")
+        .append("  varchar_field VARCHAR(50),")
+        .append("  timestamp_field TIMESTAMP,")
+        .append("  date_field DATE,")
+        .append("  char_field CHAR(10)")
+        .append(") PARTITIONED BY (")
         // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-        // "  binary_part BINARY," +
-        "  boolean_part BOOLEAN," +
-        "  tinyint_part TINYINT," +
-        "  decimal0_part DECIMAL," +
-        "  decimal9_part DECIMAL(6, 2)," +
-        "  decimal18_part DECIMAL(15, 5)," +
-        "  decimal28_part DECIMAL(23, 1)," +
-        "  decimal38_part DECIMAL(30, 3)," +
-        "  double_part DOUBLE," +
-        "  float_part FLOAT," +
-        "  int_part INT," +
-        "  bigint_part BIGINT," +
-        "  smallint_part SMALLINT," +
-        "  string_part STRING," +
-        "  varchar_part VARCHAR(50)," +
-        "  timestamp_part TIMESTAMP," +
-        "  date_part DATE," +
-        "  char_part CHAR(10)" +
-        ") ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' " +
-        "TBLPROPERTIES ('serialization.null.format'='') "
-    );
+        // .append("  binary_part BINARY,")
+        .append("  boolean_part BOOLEAN,")
+        .append("  tinyint_part TINYINT,")
+        .append("  decimal0_part DECIMAL,")
+        .append("  decimal9_part DECIMAL(6, 2),")
+        .append("  decimal18_part DECIMAL(15, 5),")
+        .append("  decimal28_part DECIMAL(23, 1),")
+        .append("  decimal38_part DECIMAL(30, 3),")
+        .append("  double_part DOUBLE,")
+        .append("  float_part FLOAT,")
+        .append("  int_part INT,")
+        .append("  bigint_part BIGINT,")
+        .append("  smallint_part SMALLINT,")
+        .append("  string_part STRING,")
+        .append("  varchar_part VARCHAR(50),")
+        .append("  timestamp_part TIMESTAMP,")
+        .append("  date_part DATE");
+    if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // disable is for windows due to the problem with trailing spaces in folder names
+      createQuery.append(",  char_part CHAR(10)");
+    }
+
+    createQuery.append(") ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ")
+        .append("TBLPROPERTIES ('serialization.null.format'='') ");
+    testDataFile = generateAllTypesDataFile();
+    executeQuery(hiveDriver, createQuery.toString());
 
     // Add a partition to table 'readtest'
-    executeQuery(hiveDriver,
-        "ALTER TABLE readtest ADD IF NOT EXISTS PARTITION ( " +
+    StringBuilder alterQuery = new StringBuilder()
+        .append("ALTER TABLE readtest ADD IF NOT EXISTS PARTITION ( ")
         // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-        // "  binary_part='binary', " +
-        "  boolean_part='true', " +
-        "  tinyint_part='64', " +
-        "  decimal0_part='36.9', " +
-        "  decimal9_part='36.9', " +
-        "  decimal18_part='3289379872.945645', " +
-        "  decimal28_part='39579334534534.35345', " +
-        "  decimal38_part='363945093845093890.9', " +
-        "  double_part='8.345', " +
-        "  float_part='4.67', " +
-        "  int_part='123456', " +
-        "  bigint_part='234235', " +
-        "  smallint_part='3455', " +
-        "  string_part='string', " +
-        "  varchar_part='varchar', " +
-        "  timestamp_part='2013-07-05 17:01:00', " +
-        "  date_part='2013-07-05', " +
-        "  char_part='char')"
-    );
+        // .append("  binary_part='binary', ")
+        .append("  boolean_part='true', ")
+        .append("  tinyint_part='64', ")
+        .append("  decimal0_part='36.9', ")
+        .append("  decimal9_part='36.9', ")
+        .append("  decimal18_part='3289379872.945645', ")
+        .append("  decimal28_part='39579334534534.35345', ")
+        .append("  decimal38_part='363945093845093890.9', ")
+        .append("  double_part='8.345', ")
+        .append("  float_part='4.67', ")
+        .append("  int_part='123456', ")
+        .append("  bigint_part='234235', ")
+        .append("  smallint_part='3455', ")
+        .append("  string_part='string', ")
+        .append("  varchar_part='varchar', ")
+        .append("  timestamp_part='2013-07-05 17:01:00', ")
+        .append("  date_part='2013-07-05'");
+    if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // disable is for windows due to the problem with trailing spaces in folder names
+      alterQuery.append(",  char_part='char'");
+    }
+    alterQuery.append(")");
+
+    executeQuery(hiveDriver, alterQuery.toString());
 
     // Add a second partition to table 'readtest' which contains the same values as the first partition except
     // for tinyint_part partition column
-    executeQuery(hiveDriver,
-        "ALTER TABLE readtest ADD IF NOT EXISTS PARTITION ( " +
-            // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-            // "  binary_part='binary', " +
-            "  boolean_part='true', " +
-            "  tinyint_part='65', " +
-            "  decimal0_part='36.9', " +
-            "  decimal9_part='36.9', " +
-            "  decimal18_part='3289379872.945645', " +
-            "  decimal28_part='39579334534534.35345', " +
-            "  decimal38_part='363945093845093890.9', " +
-            "  double_part='8.345', " +
-            "  float_part='4.67', " +
-            "  int_part='123456', " +
-            "  bigint_part='234235', " +
-            "  smallint_part='3455', " +
-            "  string_part='string', " +
-            "  varchar_part='varchar', " +
-            "  timestamp_part='2013-07-05 17:01:00', " +
-            "  date_part='2013-07-05', " +
-            "  char_part='char')"
-    );
+    StringBuilder alterNewPart = new StringBuilder()
+        .append("ALTER TABLE readtest ADD IF NOT EXISTS PARTITION ( ")
+        // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
+        // .append("  binary_part='binary', ")
+        .append("  boolean_part='true', ")
+        .append("  tinyint_part='65', ")
+        .append("  decimal0_part='36.9', ")
+        .append("  decimal9_part='36.9', ")
+        .append("  decimal18_part='3289379872.945645', ")
+        .append("  decimal28_part='39579334534534.35345', ")
+        .append("  decimal38_part='363945093845093890.9', ")
+        .append("  double_part='8.345', ")
+        .append("  float_part='4.67', ")
+        .append("  int_part='123456', ")
+        .append("  bigint_part='234235', ")
+        .append("  smallint_part='3455', ")
+        .append("  string_part='string', ")
+        .append("  varchar_part='varchar', ")
+        .append("  timestamp_part='2013-07-05 17:01:00', ")
+        .append("  date_part='2013-07-05'");
+    if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // disable is for windows due to the problem with trailing spaces in folder names
+      alterNewPart.append(",  char_part='char'");
+    }
+    alterNewPart.append(")");
+
+    executeQuery(hiveDriver, alterNewPart.toString());
 
     // Load data into table 'readtest'
-    executeQuery(hiveDriver,
-        String.format("LOAD DATA LOCAL INPATH '%s' INTO TABLE default.readtest PARTITION (" +
+
+    StringBuilder loadDataQuery = new StringBuilder()
+        .append(String.format("LOAD DATA LOCAL INPATH '%s' INTO TABLE default.readtest PARTITION (", testDataFile))
         // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-        // "  binary_part='binary', " +
-        "  boolean_part='true', " +
-        "  tinyint_part='64', " +
-        "  decimal0_part='36.9', " +
-        "  decimal9_part='36.9', " +
-        "  decimal18_part='3289379872.945645', " +
-        "  decimal28_part='39579334534534.35345', " +
-        "  decimal38_part='363945093845093890.9', " +
-        "  double_part='8.345', " +
-        "  float_part='4.67', " +
-        "  int_part='123456', " +
-        "  bigint_part='234235', " +
-        "  smallint_part='3455', " +
-        "  string_part='string', " +
-        "  varchar_part='varchar', " +
-        "  timestamp_part='2013-07-05 17:01:00', " +
-        "  date_part='2013-07-05'," +
-        "  char_part='char'" +
-            ")", testDataFile));
+        // .append("  binary_part='binary', ")
+        .append("  boolean_part='true', ")
+        .append("  tinyint_part='64', ")
+        .append("  decimal0_part='36.9', ")
+        .append("  decimal9_part='36.9', ")
+        .append("  decimal18_part='3289379872.945645', ")
+        .append("  decimal28_part='39579334534534.35345', ")
+        .append("  decimal38_part='363945093845093890.9', ")
+        .append("  double_part='8.345', ")
+        .append("  float_part='4.67', ")
+        .append("  int_part='123456', ")
+        .append("  bigint_part='234235', ")
+        .append("  smallint_part='3455', ")
+        .append("  string_part='string', ")
+        .append("  varchar_part='varchar', ")
+        .append("  timestamp_part='2013-07-05 17:01:00', ")
+        .append("  date_part='2013-07-05'");
+    if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // disable is for windows due to the problem with trailing spaces in folder names
+      loadDataQuery.append(",  char_part='char'");
+    }
+    loadDataQuery.append(")");
+
+    executeQuery(hiveDriver, loadDataQuery.toString());
 
     // create a table that has all Hive types. This is to test how hive tables metadata is populated in
     // Drill's INFORMATION_SCHEMA.
@@ -244,114 +264,130 @@ public class HiveTestDataGenerator {
     /*
      * Create a PARQUET table with all supported types.
      */
-    executeQuery(hiveDriver,
-        "CREATE TABLE readtest_parquet (" +
-            "  binary_field BINARY, " +
-            "  boolean_field BOOLEAN, " +
-            "  tinyint_field TINYINT," +
-            "  decimal0_field DECIMAL," +
-            "  decimal9_field DECIMAL(6, 2)," +
-            "  decimal18_field DECIMAL(15, 5)," +
-            "  decimal28_field DECIMAL(23, 1)," +
-            "  decimal38_field DECIMAL(30, 3)," +
-            "  double_field DOUBLE," +
-            "  float_field FLOAT," +
-            "  int_field INT," +
-            "  bigint_field BIGINT," +
-            "  smallint_field SMALLINT," +
-            "  string_field STRING," +
-            "  varchar_field VARCHAR(50)," +
-            "  timestamp_field TIMESTAMP," +
-            "  char_field CHAR(10)" +
-            ") PARTITIONED BY (" +
-            // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-            // "  binary_part BINARY," +
-            "  boolean_part BOOLEAN," +
-            "  tinyint_part TINYINT," +
-            "  decimal0_part DECIMAL," +
-            "  decimal9_part DECIMAL(6, 2)," +
-            "  decimal18_part DECIMAL(15, 5)," +
-            "  decimal28_part DECIMAL(23, 1)," +
-            "  decimal38_part DECIMAL(30, 3)," +
-            "  double_part DOUBLE," +
-            "  float_part FLOAT," +
-            "  int_part INT," +
-            "  bigint_part BIGINT," +
-            "  smallint_part SMALLINT," +
-            "  string_part STRING," +
-            "  varchar_part VARCHAR(50)," +
-            "  timestamp_part TIMESTAMP," +
-            "  date_part DATE," +
-            "  char_part CHAR(10)" +
-            ") STORED AS parquet "
-    );
-
-    executeQuery(hiveDriver, "INSERT OVERWRITE TABLE readtest_parquet " +
-        "PARTITION (" +
+    StringBuilder createParquetQuery = new StringBuilder()
+        .append("CREATE TABLE readtest_parquet (")
+        .append("  binary_field BINARY, ")
+        .append("  boolean_field BOOLEAN, ")
+        .append("  tinyint_field TINYINT,")
+        .append("  decimal0_field DECIMAL,")
+        .append("  decimal9_field DECIMAL(6, 2),")
+        .append("  decimal18_field DECIMAL(15, 5),")
+        .append("  decimal28_field DECIMAL(23, 1),")
+        .append("  decimal38_field DECIMAL(30, 3),")
+        .append("  double_field DOUBLE,")
+        .append("  float_field FLOAT,")
+        .append("  int_field INT,")
+        .append("  bigint_field BIGINT,")
+        .append("  smallint_field SMALLINT,")
+        .append("  string_field STRING,")
+        .append("  varchar_field VARCHAR(50),")
+        .append("  timestamp_field TIMESTAMP,")
+        .append("  char_field CHAR(10)")
+        .append(") PARTITIONED BY (")
         // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-        // "  binary_part='binary', " +
-        "  boolean_part='true', " +
-        "  tinyint_part='64', " +
-        "  decimal0_part='36.9', " +
-        "  decimal9_part='36.9', " +
-        "  decimal18_part='3289379872.945645', " +
-        "  decimal28_part='39579334534534.35345', " +
-        "  decimal38_part='363945093845093890.9', " +
-        "  double_part='8.345', " +
-        "  float_part='4.67', " +
-        "  int_part='123456', " +
-        "  bigint_part='234235', " +
-        "  smallint_part='3455', " +
-        "  string_part='string', " +
-        "  varchar_part='varchar', " +
-        "  timestamp_part='2013-07-05 17:01:00', " +
-        "  date_part='2013-07-05', " +
-        "  char_part='char'" +
-        ") " +
-        " SELECT " +
-        "  binary_field," +
-        "  boolean_field," +
-        "  tinyint_field," +
-        "  decimal0_field," +
-        "  decimal9_field," +
-        "  decimal18_field," +
-        "  decimal28_field," +
-        "  decimal38_field," +
-        "  double_field," +
-        "  float_field," +
-        "  int_field," +
-        "  bigint_field," +
-        "  smallint_field," +
-        "  string_field," +
-        "  varchar_field," +
-        "  timestamp_field," +
-        "  char_field" +
-        " FROM readtest WHERE tinyint_part = 64");
+        // .append("  binary_part BINARY,")
+        .append("  boolean_part BOOLEAN,")
+        .append("  tinyint_part TINYINT,")
+        .append("  decimal0_part DECIMAL,")
+        .append("  decimal9_part DECIMAL(6, 2),")
+        .append("  decimal18_part DECIMAL(15, 5),")
+        .append("  decimal28_part DECIMAL(23, 1),")
+        .append("  decimal38_part DECIMAL(30, 3),")
+        .append("  double_part DOUBLE,")
+        .append("  float_part FLOAT,")
+        .append("  int_part INT,")
+        .append("  bigint_part BIGINT,")
+        .append("  smallint_part SMALLINT,")
+        .append("  string_part STRING,")
+        .append("  varchar_part VARCHAR(50),")
+        .append("  timestamp_part TIMESTAMP,")
+        .append("  date_part DATE");
+    if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // disable is for windows due to the problem with trailing spaces in folder names
+      createParquetQuery.append(",  char_part CHAR(10)");
+    }
+    createParquetQuery.append(") STORED AS parquet ");
+
+    executeQuery(hiveDriver, createParquetQuery.toString());
+
+    StringBuilder insertOverwriteQuery = new StringBuilder()
+        .append("INSERT OVERWRITE TABLE readtest_parquet ")
+        .append("PARTITION (")
+        // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
+        // .append("  binary_part='binary', " +
+        .append("  boolean_part='true', ")
+        .append("  tinyint_part='64', ")
+        .append("  decimal0_part='36.9', ")
+        .append("  decimal9_part='36.9', ")
+        .append("  decimal18_part='3289379872.945645', ")
+        .append("  decimal28_part='39579334534534.35345', ")
+        .append("  decimal38_part='363945093845093890.9', ")
+        .append("  double_part='8.345', ")
+        .append("  float_part='4.67', ")
+        .append("  int_part='123456', ")
+        .append("  bigint_part='234235', ")
+        .append("  smallint_part='3455', ")
+        .append("  string_part='string', ")
+        .append("  varchar_part='varchar', ")
+        .append("  timestamp_part='2013-07-05 17:01:00', ")
+        .append("  date_part='2013-07-05'");
+    if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // disable is for windows due to the problem with trailing spaces in folder names
+      insertOverwriteQuery.append(",  char_part='char'");
+    }
+    insertOverwriteQuery.append(") ")
+        .append(" SELECT ")
+        .append("  binary_field,")
+        .append("  boolean_field,")
+        .append("  tinyint_field,")
+        .append("  decimal0_field,")
+        .append("  decimal9_field,")
+        .append("  decimal18_field,")
+        .append("  decimal28_field,")
+        .append("  decimal38_field,")
+        .append("  double_field,")
+        .append("  float_field,")
+        .append("  int_field,")
+        .append("  bigint_field,")
+        .append("  smallint_field,")
+        .append("  string_field,")
+        .append("  varchar_field,")
+        .append("  timestamp_field,")
+        .append("  char_field")
+        .append(" FROM readtest WHERE tinyint_part = 64");
+
+
+    executeQuery(hiveDriver, insertOverwriteQuery.toString());
 
     // Add a second partition to table 'readtest_parquet' which contains the same values as the first partition except
     // for tinyint_part partition column
-    executeQuery(hiveDriver,
-        "ALTER TABLE readtest_parquet ADD PARTITION ( " +
-            // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-            // "  binary_part='binary', " +
-            "  boolean_part='true', " +
-            "  tinyint_part='65', " +
-            "  decimal0_part='36.9', " +
-            "  decimal9_part='36.9', " +
-            "  decimal18_part='3289379872.945645', " +
-            "  decimal28_part='39579334534534.35345', " +
-            "  decimal38_part='363945093845093890.9', " +
-            "  double_part='8.345', " +
-            "  float_part='4.67', " +
-            "  int_part='123456', " +
-            "  bigint_part='234235', " +
-            "  smallint_part='3455', " +
-            "  string_part='string', " +
-            "  varchar_part='varchar', " +
-            "  timestamp_part='2013-07-05 17:01:00', " +
-            "  date_part='2013-07-05', " +
-            "  char_part='char')"
-    );
+    StringBuilder alterParuetQuery = new StringBuilder()
+        .append("ALTER TABLE readtest_parquet ADD PARTITION ( ")
+        // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
+        // .append("  binary_part='binary', ")
+        .append("  boolean_part='true', ")
+        .append("  tinyint_part='65', ")
+        .append("  decimal0_part='36.9', ")
+        .append("  decimal9_part='36.9', ")
+        .append("  decimal18_part='3289379872.945645', ")
+        .append("  decimal28_part='39579334534534.35345', ")
+        .append("  decimal38_part='363945093845093890.9', ")
+        .append("  double_part='8.345', ")
+        .append("  float_part='4.67', ")
+        .append("  int_part='123456', ")
+        .append("  bigint_part='234235', ")
+        .append("  smallint_part='3455', ")
+        .append("  string_part='string', ")
+        .append("  varchar_part='varchar', ")
+        .append("  timestamp_part='2013-07-05 17:01:00', ")
+        .append("  date_part='2013-07-05'");
+    if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // disable is for windows due to the problem with trailing spaces in folder names
+      alterParuetQuery.append(",  char_part='char'");
+    }
+    alterParuetQuery.append(")");
+
+    executeQuery(hiveDriver, alterParuetQuery.toString());
 
     executeQuery(hiveDriver, "CREATE TABLE IF NOT EXISTS " +
         "partition_pruning_test_loadtable(a DATE, b TIMESTAMP, c INT, d INT, e INT) " +
@@ -378,8 +414,7 @@ public class HiveTestDataGenerator {
 
     // Add a partition with custom location
     executeQuery(hiveDriver,
-        String.format("ALTER TABLE partition_pruning_test ADD PARTITION (c=99, d=98, e=97) LOCATION '%s'",
-          part1Dir.getAbsolutePath()));
+        String.format("ALTER TABLE partition_pruning_test ADD PARTITION (c=99, d=98, e=97) LOCATION '%s'", part1Dir));
     executeQuery(hiveDriver,
         String.format("INSERT INTO TABLE partition_pruning_test PARTITION(c=99, d=98, e=97) " +
                 "SELECT '%s', '%s' FROM kv LIMIT 1",
@@ -501,7 +536,8 @@ public class HiveTestDataGenerator {
     String tableName = "sub_dir_table";
     dirTestWatcher.copyResourceToRoot(Paths.get(testDataFile), Paths.get(tableName, "sub_dir", "data.txt"));
 
-    String tableLocation = Paths.get(dirTestWatcher.getRootDir().toURI().getPath(), tableName).toUri().getPath();
+    // Paths.get() throws exception on windows for the case when : symbol is found (C:\\)
+    String tableLocation = new File(dirTestWatcher.getRootDir().toURI().getPath(), tableName).toURI().getPath();
 
     String tableDDL = String.format("create external table sub_dir_table (key int, value string) " +
         "row format delimited fields terminated by ',' stored as textfile location '%s'", tableLocation);

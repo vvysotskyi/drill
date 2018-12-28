@@ -173,7 +173,8 @@ public class TestDirectoryExplorerUDFs extends PlanTestBase {
     //Initially update the location of dfs_test.tmp workspace with "path" temp directory just for use in this UTest
     final StoragePluginRegistry pluginRegistry = getDrillbitContext().getStorage();
     try {
-      StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry, test, StoragePluginTestUtils.TMP_SCHEMA);
+      StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
+          new org.apache.hadoop.fs.Path(test.toURI()).toUri().getPath(), StoragePluginTestUtils.TMP_SCHEMA);
 
       //Results comparison of using Query Directory Functions (MAXDIR, IMAXDIR, MINDIR, IMINDIR) with one and two arguments
     String queryWithTwoArgFunc = "select * from dfs.`" + path + "/*/*.csv` where dir0 = %s('dfs.root','" + path + "')";
@@ -186,7 +187,8 @@ public class TestDirectoryExplorerUDFs extends PlanTestBase {
           .go();
     }
     } finally {
-      StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry, dirTestWatcher.getDfsTestTmpDir(), StoragePluginTestUtils.TMP_SCHEMA);
+      StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
+          new org.apache.hadoop.fs.Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(), StoragePluginTestUtils.TMP_SCHEMA);
     }
   }
 

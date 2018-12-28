@@ -3478,6 +3478,48 @@
         </plugins>
       </build>
     </profile>
+    <profile>
+      <id>windows-tests</id>
+      <activation>
+        <os>
+          <family>windows</family>
+        </os>
+      </activation>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-dependency-plugin</artifactId>
+              <version>3.1.1</version>
+              <executions>
+                <execution>
+                  <id>unpack-winutils</id>
+                  <goals>
+                    <goal>unpack</goal>
+                  </goals>
+                  <phase>generate-test-resources</phase>
+                  <configuration>
+                    <!--suppress UnresolvedMavenProperty -->
+                    <skip>${skipTests}</skip>
+                    <artifactItems>
+                      <artifactItem>
+                        <groupId>org.apache.hadoop</groupId>
+                        <artifactId>hadoop-winutils</artifactId>
+                        <version>2.7.1</version>
+                        <type>zip</type>
+                        <overWrite>true</overWrite>
+                        <outputDirectory>${project.build.directory}/hadoop/bin</outputDirectory>
+                      </artifactItem>
+                    </artifactItems>
+                  </configuration>
+                </execution>
+              </executions>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
   </profiles>
   <modules>
     <module>tools</module>

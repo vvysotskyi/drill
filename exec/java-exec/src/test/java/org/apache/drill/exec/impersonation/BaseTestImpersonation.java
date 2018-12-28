@@ -27,6 +27,7 @@ import org.apache.drill.exec.dotdrill.DotDrillType;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
+import org.apache.drill.test.QueryTestUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -88,6 +89,7 @@ public class BaseTestImpersonation extends PlanTestBase {
    * @throws Exception in case of errors during start up
    */
   protected static void startMiniDfsCluster(String testClass, boolean isImpersonationEnabled) throws Exception {
+    QueryTestUtil.mockNativeIoWindowsAccess();
     Preconditions.checkArgument(!Strings.isNullOrEmpty(testClass), "Expected a non-null and non-empty test class name");
     dfsConf = new Configuration();
 

@@ -32,6 +32,7 @@ import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.vector.BigIntVector;
 import org.apache.drill.exec.vector.VarCharVector;
+import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
@@ -50,9 +51,9 @@ public class TestWriter extends BaseTestQuery {
 
     String plan = Files.asCharSource(DrillFileUtils.getResourceAsFile("/writer/simple_csv_writer.json"), Charsets.UTF_8).read();
     plan = plan
-      .replace(ROOT_DIR_REPLACEMENT, dirTestWatcher.getRootDir().getAbsolutePath())
-      .replace(TMP_DIR_REPLACEMENT, dirTestWatcher.getTmpDir().getAbsolutePath())
-      .replace(TEST_DIR_REPLACEMENT, testDir.getAbsolutePath());
+        .replace(ROOT_DIR_REPLACEMENT, new Path(dirTestWatcher.getRootDir().getAbsolutePath()).toUri().getPath())
+        .replace(TMP_DIR_REPLACEMENT, new Path(dirTestWatcher.getTmpDir().getAbsolutePath()).toUri().getPath())
+        .replace(TEST_DIR_REPLACEMENT, new Path(testDir.getAbsolutePath()).toUri().getPath());
 
     List<QueryDataBatch> results = testPhysicalWithResults(plan);
 

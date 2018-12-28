@@ -17,7 +17,6 @@
  */
 package org.apache.drill.jdbc.impl;
 
-import java.io.File;
 import java.sql.Blob;
 import java.sql.CallableStatement;
 import java.sql.Clob;
@@ -685,19 +684,19 @@ public class DrillConnectionImpl extends AvaticaConnection
         if (dfsTmpPath == null) {
           logger.warn(logMessage, UNIT_TEST_DFS_TMP_PROP);
         } else {
-          updateSchemaLocation(DFS_PLUGIN_NAME, pluginRegistry, new File(dfsTmpPath), TMP_SCHEMA);
+          updateSchemaLocation(DFS_PLUGIN_NAME, pluginRegistry, dfsTmpPath, TMP_SCHEMA);
         }
 
         if (dfsRootPath == null) {
           logger.warn(logMessage, UNIT_TEST_DFS_ROOT_PROP);
         } else {
-          updateSchemaLocation(DFS_PLUGIN_NAME, pluginRegistry, new File(dfsRootPath), ROOT_SCHEMA);
+          updateSchemaLocation(DFS_PLUGIN_NAME, pluginRegistry, dfsRootPath, ROOT_SCHEMA);
         }
 
         if (dfsDefaultPath == null) {
           logger.warn(logMessage, UNIT_TEST_DFS_DEFAULT_PROP);
         } else {
-          updateSchemaLocation(DFS_PLUGIN_NAME, pluginRegistry, new File(dfsDefaultPath), SchemaFactory.DEFAULT_WS_NAME);
+          updateSchemaLocation(DFS_PLUGIN_NAME, pluginRegistry, dfsDefaultPath, SchemaFactory.DEFAULT_WS_NAME);
         }
       }
     } catch(Throwable e) {

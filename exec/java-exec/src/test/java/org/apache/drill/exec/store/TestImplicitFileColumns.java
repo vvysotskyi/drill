@@ -77,8 +77,10 @@ public class TestImplicitFileColumns extends BaseTestQuery {
         .sqlQuery("select *, filename, suffix, fqn, filepath from dfs.`%s` order by filename", FILES)
         .ordered()
         .baselineColumns("columns", "dir0", "filename", "suffix", "fqn", "filepath")
-        .baselineValues(mainColumnValues, null, mainFile.getName(), CSV, mainFile.getCanonicalPath(), mainFile.getParentFile().getCanonicalPath())
-        .baselineValues(nestedColumnValues, NESTED, NESTED_FILE, CSV, nestedFile.getCanonicalPath(), nestedFile.getParentFile().getCanonicalPath())
+        .baselineValues(mainColumnValues, null, mainFile.getName(), CSV,
+            new org.apache.hadoop.fs.Path(mainFile.toURI()).toUri().getPath(), new org.apache.hadoop.fs.Path(mainFile.toURI()).getParent().toUri().getPath())
+        .baselineValues(nestedColumnValues, NESTED, NESTED_FILE, CSV,
+            new org.apache.hadoop.fs.Path(nestedFile.toURI()).toUri().getPath(), new org.apache.hadoop.fs.Path(nestedFile.toURI()).getParent().toUri().getPath())
         .go();
   }
 

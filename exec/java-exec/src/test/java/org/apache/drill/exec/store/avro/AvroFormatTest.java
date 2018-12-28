@@ -54,6 +54,7 @@ import org.apache.drill.exec.util.JsonStringHashMap;
 import org.apache.drill.exec.work.ExecErrorConstants;
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.test.TestBuilder;
+import org.apache.hadoop.fs.Path;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -210,13 +211,13 @@ public class AvroFormatTest extends BaseTestQuery {
     AvroTestUtil.AvroTestRecordWriter testWriter = generateSimplePrimitiveSchema_NoNullValues(1);
     final String file = testWriter.getFileName();
     // removes "." and ".." from the path
-    String tablePath = new File(testWriter.getFilePath()).getCanonicalPath();
+    Path tablePath = new Path(testWriter.getFilePath());
 
     List<Map<String, Object>> expectedRecords = testWriter.getExpectedRecords();
     expectedRecords.get(0).put("`filename`", file);
     expectedRecords.get(0).put("`suffix`", "avro");
-    expectedRecords.get(0).put("`fqn`", tablePath);
-    expectedRecords.get(0).put("`filepath`", new File(tablePath).getParent());
+    expectedRecords.get(0).put("`fqn`", tablePath.toUri().getPath());
+    expectedRecords.get(0).put("`filepath`", tablePath.getParent().toUri().getPath());
     try {
       testBuilder()
           .sqlQuery("select filename, *, suffix, fqn, filepath from dfs.`%s`", file)
@@ -224,7 +225,7 @@ public class AvroFormatTest extends BaseTestQuery {
           .baselineRecords(expectedRecords)
           .go();
     } finally {
-      FileUtils.deleteQuietly(new File(tablePath));
+      FileUtils.deleteQuietly(new File(tablePath.toUri().getPath()));
     }
   }
 
@@ -268,8 +269,8 @@ public class AvroFormatTest extends BaseTestQuery {
   @Test
   public void testPartitionColumn() throws Exception {
     setSessionOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL, "directory");
-    String file = "avroTable";
-    String partitionColumn = "2018";
+    String file = "avroTableWithPartitionCol";
+    String partitionColumn = "2019";
     AvroTestUtil.AvroTestRecordWriter testWriter =
         generateSimplePrimitiveSchema_NoNullValues(1, FileUtils.getFile(file, partitionColumn).getPath());
     try {

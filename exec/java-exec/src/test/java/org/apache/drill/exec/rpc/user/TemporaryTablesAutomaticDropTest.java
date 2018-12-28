@@ -74,19 +74,20 @@ public class TemporaryTablesAutomaticDropTest extends BaseTestQuery {
 
   @Test
   public void testAutomaticDropOfSeveralSessionTemporaryLocations() throws Exception {
-    final File firstSessionTemporaryLocation =
+    File firstSessionTemporaryLocation =
       createAndCheckSessionTemporaryLocation("first_location", dirTestWatcher.getDfsTestTmpDir());
-    final StoragePluginRegistry pluginRegistry = getDrillbitContext().getStorage();
-    final File tempDir = DirTestWatcher.createTempDir(dirTestWatcher.getDir());
+    StoragePluginRegistry pluginRegistry = getDrillbitContext().getStorage();
+    File tempDir = DirTestWatcher.createTempDir(dirTestWatcher.getDir());
 
     try {
-      StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry, tempDir);
-      final File secondSessionTemporaryLocation = createAndCheckSessionTemporaryLocation("second_location", tempDir);
+      StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry, new Path(tempDir.toURI()).toUri().getPath());
+      File secondSessionTemporaryLocation = createAndCheckSessionTemporaryLocation("second_location", tempDir);
       updateClient("new_client");
       assertFalse("First session temporary location should be absent", firstSessionTemporaryLocation.exists());
       assertFalse("Second session temporary location should be absent", secondSessionTemporaryLocation.exists());
     } finally {
-      StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry, dirTestWatcher.getDfsTestTmpDir());
+      StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
+          new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath());
     }
   }
 

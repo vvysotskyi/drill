@@ -25,6 +25,8 @@ import org.apache.drill.exec.ZookeeperTestUtil;
 import org.apache.drill.exec.util.GuavaPatcher;
 import org.apache.drill.hbase.test.Drill2130StorageHBaseHamcrestConfigurationTest;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HConstants;
@@ -53,7 +55,7 @@ import org.junit.runners.Suite.SuiteClasses;
   TestOrderedBytesConvertFunctions.class
 })
 public class HBaseTestsSuite {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HBaseTestsSuite.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HBaseTestsSuite.class);
 
   static {
     GuavaPatcher.patch();
@@ -115,6 +117,12 @@ public class HBaseTestsSuite {
             UTIL.startMiniZKCluster();
             String old_home = System.getProperty("user.home");
             System.setProperty("user.home", UTIL.getDataTestDir().toString());
+            if (System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+              // explicitly provide write permissions for test data dir for windows
+              // to be able to create files inside this directory
+              Path homePath = new Path(UTIL.getDataTestDir().toString());
+              homePath.getFileSystem(conf).setPermission(homePath, new FsPermission("644"));
+            }
             UTIL.startMiniHBaseCluster(1, 1);
             System.setProperty("user.home", old_home);
             hbaseClusterCreated = true;

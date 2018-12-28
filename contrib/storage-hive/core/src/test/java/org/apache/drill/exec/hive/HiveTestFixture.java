@@ -32,6 +32,7 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.hive.HiveStoragePlugin;
 import org.apache.drill.exec.store.hive.HiveStoragePluginConfig;
 import org.apache.drill.test.BaseDirTestWatcher;
+import org.apache.drill.test.QueryTestUtil;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
@@ -162,8 +163,8 @@ public class HiveTestFixture {
       driverOption(FileSystem.FS_DEFAULT_NAME_KEY, FileSystem.DEFAULT_FS);
       driverOption(ConfVars.METASTOREWAREHOUSE, warehouseDir);
       driverOption("mapred.job.tracker", "local");
-      driverOption(ConfVars.SCRATCHDIR, createDirWithPosixPermissions(baseDir, "scratch_dir").getAbsolutePath());
-      driverOption(ConfVars.LOCALSCRATCHDIR, createDirWithPosixPermissions(baseDir, "local_scratch_dir").getAbsolutePath());
+      driverOption(ConfVars.SCRATCHDIR, createDirWithPosixPermissions(baseDir, "scratch_dir"));
+      driverOption(ConfVars.LOCALSCRATCHDIR, createDirWithPosixPermissions(baseDir, "local_scratch_dir"));
       driverOption(ConfVars.DYNAMICPARTITIONINGMODE, "nonstrict");
       driverOption(ConfVars.METASTORE_AUTO_CREATE_ALL, Boolean.toString(true));
       driverOption(ConfVars.METASTORE_SCHEMA_VERIFICATION, Boolean.toString(false));
@@ -279,6 +280,7 @@ public class HiveTestFixture {
     }
 
     public void runWithinSession(Consumer<Driver> driverConsumer) {
+      QueryTestUtil.mockNativeIoWindowsAccess();
       final HiveConf hiveConf = new HiveConf(SessionState.class);
       driverConf.forEach(hiveConf::set);
       SessionState ss = new SessionState(hiveConf);

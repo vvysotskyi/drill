@@ -20,11 +20,11 @@ package org.apache.drill.exec.hive;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.EnumSet;
 import java.util.Set;
 
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.CommandNeedRetryException;
 import org.apache.hadoop.hive.ql.Driver;
 import org.apache.hadoop.hive.ql.processors.CommandProcessorResponse;
@@ -68,19 +68,19 @@ public class HiveTestUtilities {
    *
    * @param parentDir parent directory
    * @param dirName directory name
-   * @return file representing created dir with all posix permissions
+   * @return string representing path to created dir with all posix permissions
    */
-  public static File createDirWithPosixPermissions(File parentDir, String dirName) {
+  public static String createDirWithPosixPermissions(File parentDir, String dirName) {
     File dir = new File(parentDir, dirName);
     dir.mkdirs();
-    Path path = dir.toPath();
-    try {
-      Files.setPosixFilePermissions(path, ALL_POSIX_PERMISSIONS);
-    } catch (IOException e) {
-      throw new RuntimeException(
-          String.format("Failed to set all posix permissions for directory [%s]", dir), e);
+    if (!System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      try {
+        Files.setPosixFilePermissions(dir.toPath(), ALL_POSIX_PERMISSIONS);
+      } catch (IOException e) {
+        throw new RuntimeException(String.format("Failed to set all posix permissions for directory [%s]", dir), e);
+      }
     }
-    return dir;
+    return new Path(dir.toURI()).toUri().getPath();
   }
 
 }

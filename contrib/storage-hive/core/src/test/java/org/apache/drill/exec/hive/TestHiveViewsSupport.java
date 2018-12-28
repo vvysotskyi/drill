@@ -18,6 +18,7 @@
 package org.apache.drill.exec.hive;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 
 import org.apache.drill.categories.HiveStorageTest;
 import org.apache.drill.categories.SlowTest;
@@ -97,105 +98,122 @@ public class TestHiveViewsSupport extends HiveTestBase {
 
   @Test
   public void viewWithAllSupportedDataTypes() throws Exception {
+    String[] baselineColumns = {
+        "binary_field",
+        "boolean_field",
+        "tinyint_field",
+        "decimal0_field",
+        "decimal9_field",
+        "decimal18_field",
+        "decimal28_field",
+        "decimal38_field",
+        "double_field",
+        "float_field",
+        "int_field",
+        "bigint_field",
+        "smallint_field",
+        "string_field",
+        "varchar_field",
+        "timestamp_field",
+        "date_field",
+        "char_field",
+        // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
+        //"binary_part",
+        "boolean_part",
+        "tinyint_part",
+        "decimal0_part",
+        "decimal9_part",
+        "decimal18_part",
+        "decimal28_part",
+        "decimal38_part",
+        "double_part",
+        "float_part",
+        "int_part",
+        "bigint_part",
+        "smallint_part",
+        "string_part",
+        "varchar_part",
+        "timestamp_part",
+        "date_part",
+        "char_part"
+    };
+
+    Object[] firstValues = {
+        "binaryfield".getBytes(),
+        false,
+        34,
+        new BigDecimal("66"),
+        new BigDecimal("2347.92"),
+        new BigDecimal("2758725827.99990"),
+        new BigDecimal("29375892739852.8"),
+        new BigDecimal("89853749534593985.783"),
+        8.345d,
+        4.67f,
+        123456,
+        234235L,
+        3455,
+        "stringfield",
+        "varcharfield",
+        DateUtility.parseBest("2013-07-05 17:01:00"),
+        DateUtility.parseLocalDate("2013-07-05"),
+        "charfield",
+        // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
+        //"binary",
+        true,
+        64,
+        new BigDecimal("37"),
+        new BigDecimal("36.90"),
+        new BigDecimal("3289379872.94565"),
+        new BigDecimal("39579334534534.4"),
+        new BigDecimal("363945093845093890.900"),
+        8.345d,
+        4.67f,
+        123456,
+        234235L,
+        3455,
+        "string",
+        "varchar",
+        DateUtility.parseBest("2013-07-05 17:01:00"),
+        DateUtility.parseLocalDate("2013-07-05"),
+        "char"
+    };
+
+    Object[] secondValues = {
+        // All fields are null, but partition fields have non-null values
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
+        //"binary",
+        true,
+        64,
+        new BigDecimal("37"),
+        new BigDecimal("36.90"),
+        new BigDecimal("3289379872.94565"),
+        new BigDecimal("39579334534534.4"),
+        new BigDecimal("363945093845093890.900"),
+        8.345d,
+        4.67f,
+        123456,
+        234235L,
+        3455,
+        "string",
+        "varchar",
+        DateUtility.parseBest("2013-07-05 17:01:00"),
+        DateUtility.parseLocalDate("2013-07-05"),
+        "char"
+    };
+
+    if (System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // disable char_part for windows due to the problem with trailing spaces in folder names
+      baselineColumns = Arrays.copyOfRange(baselineColumns, 0, baselineColumns.length - 1);
+      firstValues = Arrays.copyOfRange(firstValues, 0, firstValues.length - 1);
+      secondValues = Arrays.copyOfRange(secondValues, 0, secondValues.length - 1);
+    }
+
     testBuilder().sqlQuery("SELECT * FROM hive.readtest_view")
         .unOrdered()
-        .baselineColumns(
-            "binary_field",
-            "boolean_field",
-            "tinyint_field",
-            "decimal0_field",
-            "decimal9_field",
-            "decimal18_field",
-            "decimal28_field",
-            "decimal38_field",
-            "double_field",
-            "float_field",
-            "int_field",
-            "bigint_field",
-            "smallint_field",
-            "string_field",
-            "varchar_field",
-            "timestamp_field",
-            "date_field",
-            "char_field",
-            // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-            //"binary_part",
-            "boolean_part",
-            "tinyint_part",
-            "decimal0_part",
-            "decimal9_part",
-            "decimal18_part",
-            "decimal28_part",
-            "decimal38_part",
-            "double_part",
-            "float_part",
-            "int_part",
-            "bigint_part",
-            "smallint_part",
-            "string_part",
-            "varchar_part",
-            "timestamp_part",
-            "date_part",
-            "char_part")
-        .baselineValues(
-            "binaryfield".getBytes(),
-            false,
-            34,
-            new BigDecimal("66"),
-            new BigDecimal("2347.92"),
-            new BigDecimal("2758725827.99990"),
-            new BigDecimal("29375892739852.8"),
-            new BigDecimal("89853749534593985.783"),
-            8.345d,
-            4.67f,
-            123456,
-            234235L,
-            3455,
-            "stringfield",
-            "varcharfield",
-            DateUtility.parseBest("2013-07-05 17:01:00"),
-            DateUtility.parseLocalDate("2013-07-05"),
-            "charfield",
-            // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-            //"binary",
-            true,
-            64,
-            new BigDecimal("37"),
-            new BigDecimal("36.90"),
-            new BigDecimal("3289379872.94565"),
-            new BigDecimal("39579334534534.4"),
-            new BigDecimal("363945093845093890.900"),
-            8.345d,
-            4.67f,
-            123456,
-            234235L,
-            3455,
-            "string",
-            "varchar",
-            DateUtility.parseBest("2013-07-05 17:01:00"),
-            DateUtility.parseLocalDate("2013-07-05"),
-            "char")
-        .baselineValues( // All fields are null, but partition fields have non-null values
-            null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-            // There is a regression in Hive 1.2.1 in binary type partition columns. Disable for now.
-            //"binary",
-            true,
-            64,
-            new BigDecimal("37"),
-            new BigDecimal("36.90"),
-            new BigDecimal("3289379872.94565"),
-            new BigDecimal("39579334534534.4"),
-            new BigDecimal("363945093845093890.900"),
-            8.345d,
-            4.67f,
-            123456,
-            234235L,
-            3455,
-            "string",
-            "varchar",
-            DateUtility.parseBest("2013-07-05 17:01:00"),
-            DateUtility.parseLocalDate("2013-07-05"),
-            "char")
+        .baselineColumns(baselineColumns)
+        .baselineValues(firstValues)
+        .baselineValues(secondValues)
         .go();
   }
 

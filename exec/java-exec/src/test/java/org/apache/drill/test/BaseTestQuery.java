@@ -63,6 +63,7 @@ import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.util.StoragePluginTestUtils;
 import org.apache.drill.exec.util.VectorUtil;
+import org.apache.hadoop.fs.Path;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
@@ -190,11 +191,11 @@ public class BaseTestQuery extends ExecTest {
       StoragePluginTestUtils.configureFormatPlugins(pluginRegistry);
 
       StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
-        dirTestWatcher.getDfsTestTmpDir(), TMP_SCHEMA);
+          new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(), TMP_SCHEMA);
       StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
-        dirTestWatcher.getRootDir(), ROOT_SCHEMA);
+          new Path(dirTestWatcher.getRootDir().toURI()).toUri().getPath(), ROOT_SCHEMA);
       StoragePluginTestUtils.updateSchemaLocation(StoragePluginTestUtils.DFS_PLUGIN_NAME, pluginRegistry,
-        dirTestWatcher.getRootDir(), SchemaFactory.DEFAULT_WS_NAME);
+          new Path(dirTestWatcher.getRootDir().toURI()).toUri().getPath(), SchemaFactory.DEFAULT_WS_NAME);
     }
 
     if (!properties.containsKey(DrillProperties.DRILLBIT_CONNECTION)) {

@@ -915,7 +915,7 @@ public class TestAggregateFunctions extends BaseTestQuery {
       fail("Exception was not thrown");
     } catch (UserRemoteException e) {
       assertTrue("No expected current \"Expression 'tpch/nation.parquet.**' is not being grouped\"",
-          e.getMessage().matches(".*Expression 'tpch/nation\\.parquet\\.\\*\\*' is not being grouped(.*\\n)*"));
+          e.getMessage().matches(".*Expression 'tpch/nation\\.parquet\\.\\*\\*' is not being grouped(.*|\\n|\\r)*"));
     }
   }
 }

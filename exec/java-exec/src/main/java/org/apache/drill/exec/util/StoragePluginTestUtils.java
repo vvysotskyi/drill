@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.util;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -62,9 +61,9 @@ public class StoragePluginTestUtils {
    * @param pluginRegistry A plugin registry.
    * @param tmpDirPath The directory to use.
    */
-  public static void updateSchemaLocation(final String pluginName,
-                                          final StoragePluginRegistry pluginRegistry,
-                                          final File tmpDirPath,
+  public static void updateSchemaLocation(String pluginName,
+                                          StoragePluginRegistry pluginRegistry,
+                                          String tmpDirPath,
                                           String... schemas) throws ExecutionSetupException {
     @SuppressWarnings("resource")
     final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry.getPlugin(pluginName);
@@ -81,7 +80,7 @@ public class StoragePluginTestUtils {
     for (String schema : schemas) {
       WorkspaceConfig workspaceConfig = newWorkspaces.get(schema);
       String inputFormat = workspaceConfig == null ? null : workspaceConfig.getDefaultInputFormat();
-      WorkspaceConfig newWorkspaceConfig = new WorkspaceConfig(tmpDirPath.getAbsolutePath(), true, inputFormat, false);
+      WorkspaceConfig newWorkspaceConfig = new WorkspaceConfig(tmpDirPath, true, inputFormat, false);
       newWorkspaces.put(schema, newWorkspaceConfig);
     }
 

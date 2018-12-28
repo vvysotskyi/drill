@@ -17,8 +17,11 @@
  */
 package org.apache.drill.test;
 
-import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
 import org.apache.commons.io.FileUtils;
+import org.apache.drill.shaded.guava.com.google.common.base.Charsets;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.junit.runner.Description;
 
 import java.io.File;
@@ -99,6 +102,16 @@ public class BaseDirTestWatcher extends DirTestWatcher {
     tmpDir = makeSubDir(Paths.get("tmp"));
     storeDir = makeSubDir(Paths.get("store"));
     dfsTestTmpParentDir = makeSubDir(Paths.get("dfsTestTmp"));
+
+    if (System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // sets write permissions for test dirs for windows since default perms are empty
+      setWritePermissions(new Configuration(), codegenDir);
+      setWritePermissions(new Configuration(), spillDir);
+      setWritePermissions(new Configuration(), rootDir);
+      setWritePermissions(new Configuration(), tmpDir);
+      setWritePermissions(new Configuration(), storeDir);
+      setWritePermissions(new Configuration(), dfsTestTmpParentDir);
+    }
 
     newDfsTestTmpDir();
   }
@@ -308,7 +321,7 @@ public class BaseDirTestWatcher extends DirTestWatcher {
    * @param replacePath The path to replace <b>REPLACED_IN_TEST</b> with in the parquet metadata file.
    * @param customStringReplacement If this is provided a <b>CUSTOM_STRING_REPLACEMENT</b> is replaced in the parquet metadata file with this string.
    */
-  public void replaceMetaDataContents(File metaDataFile, File replacePath, String customStringReplacement) {
+  public void replaceMetaDataContents(File metaDataFile, String replacePath, String customStringReplacement) {
     try {
       String metadataFileContents = FileUtils.readFileToString(metaDataFile, Charsets.UTF_8);
 
@@ -316,10 +329,26 @@ public class BaseDirTestWatcher extends DirTestWatcher {
         metadataFileContents = metadataFileContents.replace("CUSTOM_STRING_REPLACEMENT", customStringReplacement);
       }
 
-      metadataFileContents = metadataFileContents.replace("REPLACED_IN_TEST", replacePath.getCanonicalPath());
+      metadataFileContents = metadataFileContents.replace("REPLACED_IN_TEST", replacePath);
       FileUtils.write(metaDataFile, metadataFileContents, Charsets.UTF_8);
     } catch (IOException e) {
       throw new RuntimeException("This should not happen", e);
+    }
+  }
+
+  /**
+   * Sets -rwx permissions for specified file.
+   *
+   * @param conf configuration to create file system
+   * @param file file to change permissions
+   */
+  public static void setWritePermissions(Configuration conf, File file) {
+    try {
+      org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(Paths.get(file.toURI()).normalize().toUri());
+      FileSystem fs = path.getFileSystem(conf);
+      fs.setPermission(path, new FsPermission("777"));
+    } catch (IOException e) {
+      throw new RuntimeException("Unable to set file permissions due to exception:", e);
     }
   }
 }

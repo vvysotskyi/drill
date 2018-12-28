@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.calcite.schema.Schema.TableType;
 import org.apache.drill.exec.impersonation.BaseTestImpersonation;
 import org.apache.drill.exec.store.hive.HiveStoragePluginConfig;
+import org.apache.drill.test.HadoopUtils;
 import org.apache.drill.test.TestBuilder;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -65,16 +66,16 @@ public class BaseTestHiveImpersonation extends BaseTestImpersonation {
   protected static void prepHiveConfAndData() throws Exception {
     hiveConf = new HiveConf();
 
-    File scratchDir = createDirWithPosixPermissions(dirTestWatcher.getRootDir(), "scratch_dir");
-    File localScratchDir = createDirWithPosixPermissions(dirTestWatcher.getRootDir(), "local_scratch_dir");
+    String scratchDir = createDirWithPosixPermissions(dirTestWatcher.getRootDir(), "scratch_dir");
+    String localScratchDir = createDirWithPosixPermissions(dirTestWatcher.getRootDir(), "local_scratch_dir");
     File metaStoreDBDir = new File(dirTestWatcher.getRootDir(), "metastore_db");
 
     // Configure metastore persistence db location on local filesystem
     final String dbUrl = String.format("jdbc:derby:;databaseName=%s;create=true",  metaStoreDBDir.getAbsolutePath());
     hiveConf.set(ConfVars.METASTORECONNECTURLKEY.varname, dbUrl);
 
-    hiveConf.set(ConfVars.SCRATCHDIR.varname, "file://" + scratchDir.getAbsolutePath());
-    hiveConf.set(ConfVars.LOCALSCRATCHDIR.varname, localScratchDir.getAbsolutePath());
+    hiveConf.set(ConfVars.SCRATCHDIR.varname, HadoopUtils.LOCAL_FS_SCHEME + scratchDir);
+    hiveConf.set(ConfVars.LOCALSCRATCHDIR.varname, localScratchDir);
     hiveConf.set(ConfVars.METASTORE_SCHEMA_VERIFICATION.varname, "false");
     hiveConf.set(ConfVars.METASTORE_AUTO_CREATE_ALL.varname, "true");
     hiveConf.set(ConfVars.HIVE_CBO_ENABLED.varname, "false");
