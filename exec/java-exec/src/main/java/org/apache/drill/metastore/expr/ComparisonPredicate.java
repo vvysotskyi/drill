@@ -20,10 +20,15 @@ package org.apache.drill.metastore.expr;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.LogicalExpressionBase;
 import org.apache.drill.common.expression.visitors.ExprVisitor;
+import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
 import org.apache.drill.exec.expr.stat.ParquetFilterPredicate.RowsMatch;
 import org.apache.drill.metastore.ColumnStatistic;
+import org.apache.drill.metastore.ColumnStatisticsKind;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -39,7 +44,8 @@ import static org.apache.drill.metastore.expr.IsPredicate.isNullOrEmpty;
  * Comparison predicates for metadata filter pushdown.
  */
 public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpressionBase
-  implements FilterPredicate<C> {
+    implements FilterPredicate<C> {
+
   private final LogicalExpression left;
   private final LogicalExpression right;
 
@@ -100,46 +106,43 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
     if (isAllNulls(leftStat, evaluator.getRowCount()) || isAllNulls(rightStat, evaluator.getRowCount())) {
       return RowsMatch.NONE;
     }
-    if (!hasNonNullValues(leftStat) || hasNonNullValues(rightStat)) {
+    if (!hasNonNullValues(leftStat, evaluator.getRowCount()) || !hasNonNullValues(rightStat, evaluator.getRowCount())) {
       return RowsMatch.SOME;
     }
 
-//    if (left.getMajorType().getMinorType() == TypeProtos.MinorType.VARDECIMAL) {
-//      /*
-//        to compare correctly two decimal statistics we need to ensure that min and max values have the same scale,
-//        otherwise adjust statistics to the highest scale
-//        since decimal value is stored as unscaled we need to move dot to the right on the difference between scales
-//       */
-//      int leftScale = left.getMajorType().getScale();
-//      int rightScale = right.getMajorType().getScale();
-//      if (leftScale > rightScale) {
-//        rightStat = adjustDecimalStatistics(rightStat, leftScale - rightScale);
-//      } else if (leftScale < rightScale) {
-//        leftStat = adjustDecimalStatistics(leftStat, rightScale - leftScale);
-//      }
-//    }
+    if (left.getMajorType().getMinorType() == TypeProtos.MinorType.VARDECIMAL) {
+      /*
+        to compare correctly two decimal statistics we need to ensure that min and max values have the same scale,
+        otherwise adjust statistics to the highest scale
+        since decimal value is stored as unscaled we need to move dot to the right on the difference between scales
+       */
+      int leftScale = left.getMajorType().getScale();
+      int rightScale = right.getMajorType().getScale();
+      if (leftScale > rightScale) {
+        rightStat = adjustDecimalStatistics(rightStat, leftScale - rightScale);
+      } else if (leftScale < rightScale) {
+        leftStat = adjustDecimalStatistics(leftStat, rightScale - leftScale);
+      }
+    }
     return predicate.apply(leftStat, rightStat);
   }
 
-//  /**
-//   * Creates decimal statistics where min and max values are re-created using given scale.
-//   *
-//   * @param statistics statistics that needs to be adjusted
-//   * @param scale adjustment scale
-//   * @return adjusted statistics
-//   */
-//  @SuppressWarnings("unchecked")
-//  private ColumnStatistic<C> adjustDecimalStatistics(ColumnStatistic<C> statistics, int scale) {
-//    byte[] minBytes = new BigDecimal(new BigInteger(statistics.getMinBytes()))
-//      .setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
-//    byte[] maxBytes = new BigDecimal(new BigInteger(statistics.getMaxBytes()))
-//      .setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
-//    return (Statistics<C>) Statistics.getBuilderForReading(statistics.type())
-//      .withMin(minBytes)
-//      .withMax(maxBytes)
-//      .withNumNulls(statistics.getNumNulls())
-//      .build();
-//  }
+  /**
+   * Creates decimal statistics where min and max values are re-created using given scale.
+   *
+   * @param statistics statistics that needs to be adjusted
+   * @param scale adjustment scale
+   * @return adjusted statistics
+   */
+  @SuppressWarnings("unchecked")
+  private ColumnStatistic<C> adjustDecimalStatistics(ColumnStatistic<C> statistics, int scale) {
+    byte[] minBytes = new BigDecimal(new BigInteger((byte[]) statistics.getStatistic(ColumnStatisticsKind.MIN_VALUE)))
+        .setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
+    byte[] maxBytes = new BigDecimal(new BigInteger((byte[]) statistics.getStatistic(ColumnStatisticsKind.MAX_VALUE)))
+        .setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
+
+    return new StatisticsProvider.MinMaxStatistics(minBytes, maxBytes, StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR);
+  }
 
   /**
    * If one rowgroup contains some null values, change the RowsMatch.ALL into RowsMatch.SOME (null values should be discarded by filter)
@@ -161,7 +164,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
       // compare left max and right min
       int leftToRightComparison = valueComparator.compare(getMaxValue(leftStat), getMinValue(rightStat));
       // compare right max and left min
-      int rightToLeftComparison = valueComparator.compare(getMaxValue(leftStat), getMinValue(leftStat));
+      int rightToLeftComparison = valueComparator.compare(getMaxValue(rightStat), getMinValue(leftStat));
 
       // if both comparison results are equal to 0 and both statistics have no nulls,
       // it means that min and max values in each statistics are the same and match each other,
@@ -196,12 +199,12 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
     });
   }
 
-  static <C extends Comparable<C>> C getMaxValue(ColumnStatistic<C> leftStat) {
-    return leftStat.getValueStatistic(() -> "maxValue");
+  static <C> C getMaxValue(ColumnStatistic<C> leftStat) {
+    return leftStat.getValueStatistic(ColumnStatisticsKind.MAX_VALUE);
   }
 
-  static <C extends Comparable<C>> C getMinValue(ColumnStatistic<C> leftStat) {
-    return leftStat.getValueStatistic(() -> "minValue");
+  static <C> C getMinValue(ColumnStatistic<C> leftStat) {
+    return leftStat.getValueStatistic(ColumnStatisticsKind.MIN_VALUE);
   }
 
   /**

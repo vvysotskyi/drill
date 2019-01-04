@@ -29,14 +29,16 @@ public class RowGroupMetadata implements BaseMetadata {
   private final Map<String, Object> rowGroupStatistics;
   private Map<String, Float> hostAffinity;
   private int rowGroupIndex;
+  private String location;
 
   public RowGroupMetadata(LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields,
-                          Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> rowGroupStatistics, Map<String, Float> hostAffinity, int rowGroupIndex) {
+                          Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> rowGroupStatistics, Map<String, Float> hostAffinity, int rowGroupIndex, String location) {
     this.fields = fields;
     this.columnStatistics = columnStatistics;
     this.rowGroupStatistics = rowGroupStatistics;
     this.hostAffinity = hostAffinity;
     this.rowGroupIndex = rowGroupIndex;
+    this.location = location;
   }
 
 
@@ -60,5 +62,9 @@ public class RowGroupMetadata implements BaseMetadata {
 
   public Map<String, Float> getHostAffinity() {
     return hostAffinity;
+  }
+
+  public String getLocation() {
+    return location;
   }
 }

@@ -15,29 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.metastore;
+package org.apache.drill.exec.physical.base;
 
-import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.metastore.expr.StatisticName;
+import org.apache.drill.metastore.FileMetadata;
+import org.apache.drill.metastore.PartitionMetadata;
+import org.apache.drill.metastore.TableMetadata;
 
-public enum TableStatistics implements StatisticsKind {
-  ROW_COUNT(StatisticName.ROW_COUNT) {
-    @Override
-    public Object getValue(TableMetadata tableMetadata) {
-      Long rowCount = (Long) tableMetadata.getStatistic(this);
-      return rowCount != null ? rowCount : Long.valueOf(GroupScan.NO_COLUMN_STATS);
-    }
-  };
+import java.util.List;
 
-  private final String statisticKey;
-
-  TableStatistics(String statisticKey) {
-    this.statisticKey = statisticKey;
-  }
-
-  public String getName() {
-    return statisticKey;
-  }
-
-  public abstract Object getValue(TableMetadata tableMetadata);
+/**
+ * Base interface for providing table, partition, file etc. metadata.
+ */
+public interface TableMetadataProvider {
+  TableMetadata getTableMetadata(String location, String tableName);
+  List<PartitionMetadata> getPartitions(String location, String tableName);
+  PartitionMetadata getPartitionMetadata(String location, String tableName, String columnName);
+  FileMetadata getFileMetadata(String location, String tableName);
+  List<FileMetadata> getFilesForPartition(PartitionMetadata partition);
 }

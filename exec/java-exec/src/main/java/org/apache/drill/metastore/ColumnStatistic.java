@@ -26,8 +26,9 @@ public interface ColumnStatistic<T> {
 
   /**
    * Returns statistic associated with value type, like a min or max value etc.
-   * @param statisticsKind
-   * @return
+   *
+   * @param statisticsKind kind of statistic
+   * @return statistic value for specified statistic kind
    */
   @SuppressWarnings("unchecked")
   default T getValueStatistic(StatisticsKind statisticsKind) {

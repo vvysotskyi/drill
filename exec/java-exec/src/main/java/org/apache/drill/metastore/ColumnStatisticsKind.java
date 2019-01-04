@@ -17,21 +17,25 @@
  */
 package org.apache.drill.metastore;
 
-import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.metastore.expr.StatisticName;
-
-public enum TableStatistics implements StatisticsKind {
-  ROW_COUNT(StatisticName.ROW_COUNT) {
+public enum ColumnStatisticsKind  implements StatisticsKind {
+  ROW_COUNT("rowCount"),
+  NULLS_COUNT("nullsCount"),
+  MIN_VALUE("minValue") {
     @Override
-    public Object getValue(TableMetadata tableMetadata) {
-      Long rowCount = (Long) tableMetadata.getStatistic(this);
-      return rowCount != null ? rowCount : Long.valueOf(GroupScan.NO_COLUMN_STATS);
+    public boolean valueStatistic() {
+      return true;
+    }
+  },
+  MAX_VALUE("maxValue") {
+    @Override
+    public boolean valueStatistic() {
+      return true;
     }
   };
 
   private final String statisticKey;
 
-  TableStatistics(String statisticKey) {
+  ColumnStatisticsKind(String statisticKey) {
     this.statisticKey = statisticKey;
   }
 
@@ -39,5 +43,4 @@ public enum TableStatistics implements StatisticsKind {
     return statisticKey;
   }
 
-  public abstract Object getValue(TableMetadata tableMetadata);
 }

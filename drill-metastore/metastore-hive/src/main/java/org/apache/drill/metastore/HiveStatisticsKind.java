@@ -21,13 +21,13 @@ public enum HiveStatisticsKind implements StatisticsKind {
 
   ROW_COUNT("rowCount"),
   NULLS_COUNT("nullsCount"),
-  MIN_VALUE("minVal") {
+  MIN_VALUE("minValue") {
     @Override
     public boolean valueStatistic() {
       return true;
     }
   },
-  MAX_VALUE("maxVal") {
+  MAX_VALUE("maxValue") {
     @Override
     public boolean valueStatistic() {
       return true;

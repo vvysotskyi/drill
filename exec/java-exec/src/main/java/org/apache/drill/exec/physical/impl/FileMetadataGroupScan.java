@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Iterators;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
@@ -48,6 +49,7 @@ import org.apache.drill.exec.store.schedule.CompleteFileWork;
 import org.apache.drill.exec.util.ImpersonationUtil;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 public class FileMetadataGroupScan extends BaseMetadataGroupScan {
@@ -118,7 +120,7 @@ public class FileMetadataGroupScan extends BaseMetadataGroupScan {
     if (tableMetadata == null) {
       return oldScanStats;
     }
-    long rowCount = (long) tableMetadata.getStatistic(() -> "rowCount");
+    long rowCount = (long) tableMetadata.getStatistic(TableStatistics.ROW_COUNT);
     return new ScanStats(ScanStats.GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, oldScanStats.getDiskCost());
   }
 
@@ -276,8 +278,8 @@ public class FileMetadataGroupScan extends BaseMetadataGroupScan {
     public BaseMetadataGroupScan build() {
       FileMetadataGroupScan groupScan = new FileMetadataGroupScan(source.getUserName(), source.getColumns(), source.getFilter());
       groupScan.tableMetadata = tableMetadata.get(0);
-      groupScan.partitions = partitions;
-      groupScan.files = files;
+      groupScan.partitions =  partitions != null ? partitions : Collections.emptyList();
+      groupScan.files = files != null ? files : Collections.emptyList();
 
       return groupScan;
     }

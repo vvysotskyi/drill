@@ -125,7 +125,7 @@ public class ParquetRGFilterEvaluator {
   private static boolean isRepeated(Set<SchemaPath> fields, Map<SchemaPath, TypeProtos.MajorType> fileMetadata) {
     for (SchemaPath field : fields) {
       TypeProtos.MajorType fieldType = fileMetadata.get(field);
-      if (fieldType != null && fieldType.getMode()== TypeProtos.DataMode.OPTIONAL) {
+      if (fieldType != null && fieldType.getMode() == TypeProtos.DataMode.REPEATED) {
         return true;
       }
     }

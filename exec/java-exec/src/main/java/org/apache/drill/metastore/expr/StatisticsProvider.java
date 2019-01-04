@@ -40,9 +40,14 @@ import org.apache.drill.exec.expr.holders.ValueHolder;
 import org.apache.drill.exec.vector.ValueHolderHelper;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticImpl;
+import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.StatisticsKind;
+import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveComparator;
+import org.apache.parquet.schema.PrimitiveType;
 
-import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.Map;
 
@@ -52,6 +57,34 @@ import static org.apache.drill.metastore.expr.ComparisonPredicate.getMinValue;
 import static org.apache.drill.metastore.expr.IsPredicate.isNullOrEmpty;
 
 public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVisitor<ColumnStatistic, Void, RuntimeException> {
+
+  public static final Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR =
+      Comparator.nullsFirst((b1, b2) -> PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
+
+  private static final PrimitiveType UINT32_TYPE = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.INT32)
+      .as(OriginalType.UINT_32)
+      .named("unsigned_type");
+
+  public static final Comparator<Integer> UINT32_COMPARATOR =
+      Comparator.nullsFirst((i1, i2) -> Statistics.getBuilderForReading(UINT32_TYPE).build().comparator().compare(i1, i2));
+
+  private static final PrimitiveType UINT64_TYPE = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
+      .as(OriginalType.UINT_64)
+      .named("unsigned_type");
+
+  public static final Comparator<Long> UINT64_COMPARATOR =
+      Comparator.nullsFirst((i1, i2) -> Statistics.getBuilderForReading(UINT64_TYPE).build().comparator().compare(i1, i2));
+
+  public static Comparator<byte[]> BINARY_AS_SIGNED_INTEGER_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
+      org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+            .as(OriginalType.DECIMAL)
+            .length(1)
+            .precision(1)
+            .scale(0)
+            .named("decimal_type")
+          .comparator()
+        .compare(b1, b2));
+
   private final Map<SchemaPath, ColumnStatistic> columnStatMap;
   private final long rowCount;
 
@@ -132,17 +165,19 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     return new MinMaxStatistics<>(exprValue, exprValue, Integer::compareTo);
   }
 
-  // TODO: check and fix problems for the cases when parquet statistics representation
-  //  won't be comparable with this one.
   @Override
-  public ColumnStatistic<String> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) throws RuntimeException {
-    String stringValue = quotedString.getString();
-    return new MinMaxStatistics<>(stringValue, stringValue, String::compareTo);
+  public ColumnStatistic<byte[]> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) throws RuntimeException {
+    byte[] binary = quotedString.getString().getBytes();
+    return new MinMaxStatistics<>(binary, binary, UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR);
   }
 
   @Override
-  public ColumnStatistic<BigDecimal> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) throws RuntimeException {
-    return new MinMaxStatistics<>(decExpr.getBigDecimal(), decExpr.getBigDecimal(), BigDecimal::compareTo);
+  public ColumnStatistic<byte[]> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) throws RuntimeException {
+    byte[] bytes = decExpr.getBigDecimal().unscaledValue().toByteArray();
+    return new MinMaxStatistics<>(
+        bytes,
+        bytes,
+        BINARY_AS_SIGNED_INTEGER_COMPARATOR);
   }
 
   @Override
@@ -234,14 +269,14 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
         default:
           return null;
       }
-      statistics.setNullsCount((long) input.getStatistic(() -> "nullsCount"));
+      statistics.setNullsCount((long) input.getStatistic(ColumnStatisticsKind.NULLS_COUNT));
       return statistics;
     } catch (Exception e) {
       throw new DrillRuntimeException("Error in evaluating function of " + holderExpr.getName() );
     }
   }
 
-  private class MinMaxStatistics<V> implements ColumnStatistic<V> {
+  public static class MinMaxStatistics<V> implements ColumnStatistic<V> {
     private V minVal;
     private V maxVal;
     private long nullsCount;
@@ -262,8 +297,8 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
           return maxVal;
         case StatisticName.NULLS_COUNT:
           return nullsCount;
-        case StatisticName.ROW_COUNT:
-          return 1;
+//        case StatisticName.ROW_COUNT:
+//          return 1;
         default:
           return null;
       }
@@ -274,7 +309,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
       switch (statisticsKind.getName()) {
         case StatisticName.MIN_VALUE:
         case StatisticName.MAX_VALUE:
-        case StatisticName.ROW_COUNT:
+        case StatisticName.NULLS_COUNT:
           return true;
         default:
           return false;

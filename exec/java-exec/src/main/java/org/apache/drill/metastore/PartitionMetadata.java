@@ -21,12 +21,15 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
+// actually this class represents not a partition metadata,
+// but a metadata for table part which corresponds to the concrete partition key.
+// Therefore such fields as Map<String, Object> values should be removed.
 public class PartitionMetadata implements BaseMetadata {
   private final String columnName;
-  private final List<String> values;
+  // part location -> part column value
+  private final Map<String, Object> values;
   // TODO: currently it is impossible to obtain statistics for the concrete partition.
   // Refactor this code to allow that.
   private final LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields;
@@ -37,11 +40,14 @@ public class PartitionMetadata implements BaseMetadata {
   // TODO: decide whether this field is required
   private final String tableName;
   private final long lastModifiedTime;
-  // TODO: move common for file and row group info to the base class and create a separate class for row group
-  private List<FileMetadata> rowGroups;
 
-  public PartitionMetadata(String columnName, List<String> values,
-                           LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields, Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> partitionStatistics, String location, String tableName, long lastModifiedTime) {
+  public PartitionMetadata(String columnName,
+      Map<String, Object> values,
+      LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields,
+      Map<SchemaPath, ColumnStatistic> columnStatistics,
+      Map<String, Object> partitionStatistics, String location,
+      String tableName,
+      long lastModifiedTime) {
     this.columnName = columnName;
     this.values = values;
     this.fields = fields;
@@ -56,7 +62,7 @@ public class PartitionMetadata implements BaseMetadata {
     return columnName;
   }
 
-  public List<String> getValues() {
+  public Map<String, Object> getValues() {
     return values;
   }
 

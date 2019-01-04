@@ -20,13 +20,12 @@ package org.apache.drill.exec.store.parquet;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
-import org.apache.drill.metastore.PartitionMetadata;
+import org.apache.drill.metastore.ColumnStatisticsKind;
+import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
-import org.apache.drill.shaded.guava.com.google.common.collect.Multimaps;
 import org.apache.drill.common.expression.ExpressionStringBuilder;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
@@ -54,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,9 +64,9 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractParquetGroupScan.class);
 
-//  protected List<ReadEntryWithPath> entries;
-  protected Multimap<FileMetadata, RowGroupMetadata> rowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
-  protected Map<Integer, Long> rowGroupAndNumsToRead =  new HashMap<>();
+  protected List<ReadEntryWithPath> entries;
+  protected List<RowGroupMetadata> rowGroups = new ArrayList<>();
+  protected Map<Integer, Long> rowGroupAndNumsToRead = new HashMap<>();
 
 //  protected ParquetTableMetadataBase parquetTableMetadata;
 //  private List<RowGroupInfo> rowGroupInfos;
@@ -83,7 +83,7 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
                                      ParquetReaderConfig readerConfig,
                                      LogicalExpression filter) {
     super(userName, columns, filter);
-//    this.entries = entries;
+    this.entries = entries;
     this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
   }
 
@@ -93,15 +93,14 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
     this.rowGroups = that.rowGroups;
     this.files = that.files;
     this.tableMetadata = that.tableMetadata;
-    this.fileSet = that.fileSet;
     this.partitions = that.partitions;
 //    this.parquetTableMetadata = that.parquetTableMetadata;
 //    this.rowGroupInfos = that.rowGroupInfos == null ? null : new ArrayList<>(that.rowGroupInfos);
     this.endpointAffinities = that.endpointAffinities == null ? null : new ArrayList<>(that.endpointAffinities);
     this.mappings = that.mappings == null ? null : ArrayListMultimap.create(that.mappings);
 //    this.parquetGroupScanStatistics = that.parquetGroupScanStatistics == null ? null : new ParquetGroupScanStatistics(that.parquetGroupScanStatistics);
-//    this.fileSet = that.fileSet == null ? null : new HashSet<>(that.fileSet);
-//    this.entries = that.entries == null ? null : new ArrayList<>(that.entries);
+    this.fileSet = that.fileSet == null ? null : new HashSet<>(that.fileSet);
+    this.entries = that.entries == null ? null : new ArrayList<>(that.entries);
     this.readerConfig = that.readerConfig;
   }
 
@@ -113,7 +112,13 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
 
   @JsonProperty
   public List<ReadEntryWithPath> getEntries() {
-    return rowGroups.keySet().stream()
+    // master version has incorrect behavior: all files list is known and stored in metadata,
+    // but it is ignored and is affected only when pruning is happened.
+    // Is it done in order to decrease plan?
+    if (files == null) {
+      return entries;
+    }
+    return files.stream()
         .map(fileMetadata -> new ReadEntryWithPath(fileMetadata.getLocation()))
         .collect(Collectors.toList());
   }
@@ -160,14 +165,13 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
     }
     AtomicInteger rgIndex = new AtomicInteger();
 
-    return rowGroups.entries().stream()
-        .map(e -> {
-          RowGroupMetadata rowGroupMetadata = e.getValue();
-          RowGroupInfo rowGroupInfo = new RowGroupInfo(e.getKey().getLocation(),
+    return rowGroups.stream()
+        .map(rowGroupMetadata -> {
+          RowGroupInfo rowGroupInfo = new RowGroupInfo(rowGroupMetadata.getLocation(),
               (long) rowGroupMetadata.getStatistic(() -> "start"),
               (long) rowGroupMetadata.getStatistic(() -> "length"),
               rowGroupMetadata.getRowGroupIndex(),
-              (long) rowGroupMetadata.getStatistic(() -> "rowCount"));
+              (long) rowGroupMetadata.getStatistic(ColumnStatisticsKind.ROW_COUNT));
           rowGroupInfo.setNumRecordsToRead(
               rowGroupAndNumsToRead.getOrDefault(rgIndex.getAndIncrement(), rowGroupInfo.getRowCount()));
 
@@ -215,14 +219,14 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
   public BaseMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
       FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
     // Builds filter for pruning. If filter cannot be built, null should be returned.
-    FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, false, tableMetadata.getFields());
+    FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, true, tableMetadata.getFields());
     if (filterPredicate == null) {
       logger.debug("FilterPredicate cannot be built.");
       return null;
     }
 
-    final Set<SchemaPath> schemaPathsInExpr =
-      filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
+    Set<SchemaPath> schemaPathsInExpr =
+        filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
 
     RowGroupScanBuilder builder = getBuilder();
 
@@ -234,15 +238,15 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
 
     filterRowGroupMetadata(optionManager, filterPredicate, schemaPathsInExpr, builder);
 
-    if (builder.rowGroups.size() == rowGroups.size()) {
+    if (builder.rowGroups != null && builder.rowGroups.size() == rowGroups.size()) {
       // There is no reduction of files. Return the original groupScan.
       logger.debug("applyFilter() does not have any pruning!");
       matchAllRowGroups = builder.isMatchAllRowGroups();
       return null;
     } else if (!builder.isMatchAllRowGroups()
         && builder.getOverflowLevel() == MetadataLevel.NONE
-        && (builder.getTableMetadata().isEmpty() || builder.getPartitions() == null
-            || builder.getPartitions().isEmpty() || builder.getFiles() == null
+        && (builder.getTableMetadata().isEmpty() || ((builder.getPartitions() == null
+            || builder.getPartitions().isEmpty()) && partitions.size() > 0) || builder.getFiles() == null
             || builder.getFiles().isEmpty() || builder.rowGroups == null)) {
       if (rowGroups.size() == 1) {
         // For the case when group scan has single row group and it was filtered,
@@ -250,17 +254,17 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
         return null;
       }
       logger.debug("All row groups have been filtered out. Add back one to get schema from scanner");
-      builder.withMatching(false);
-      PartitionMetadata nextPart = partitions.iterator().next();
-      FileMetadata nextFile = files.get(nextPart).iterator().next();
-      RowGroupMetadata nextRowGroup = rowGroups.get(nextFile).iterator().next();
-      builder.withPartitions(Collections.singletonList(nextPart));
-      builder.withPartitionFiles(Multimaps.newListMultimap(ImmutableMap.of(nextPart, Collections.singletonList(nextFile)), ArrayList::new));
-      builder.withRowGroups(Multimaps.newListMultimap(ImmutableMap.of(nextFile, Collections.singletonList(nextRowGroup)), ArrayList::new));
+      FileMetadata nextFile = files.iterator().next();
+      RowGroupMetadata nextRowGroup = rowGroups.iterator().next();
+      builder.withRowGroups(Collections.singletonList(nextRowGroup))
+          .withTable(Collections.singletonList(tableMetadata))
+          .withMatching(false)
+          .withPartitions(partitions.size() > 0 ? Collections.singletonList(partitions.iterator().next()) : Collections.emptyList())
+          .withFiles(Collections.singletonList(nextFile));
     }
 
     logger.debug("applyFilter {} reduce row groups # from {} to {}",
-      ExpressionStringBuilder.toString(filterExpr), rowGroups.size(), builder.rowGroups.size());
+        ExpressionStringBuilder.toString(filterExpr), rowGroups.size(), builder.rowGroups.size());
 
     return builder.build();
   }
@@ -270,14 +274,19 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
 
   protected void filterRowGroupMetadata(OptionManager optionManager, FilterPredicate filterPredicate,
                                         Set<SchemaPath> schemaPathsInExpr, RowGroupScanBuilder builder) {
-    if (!builder.isMatchAllRowGroups() && builder.getPartitions() != null && builder.getPartitions().size() > 0) {
-      Multimap<FileMetadata, RowGroupMetadata> prunedRowGroups;
+    if (builder.getFiles() != null && builder.getFiles().size() > 0) {
+      List<RowGroupMetadata> prunedRowGroups;
       if (files.size() == builder.getFiles().size()) {
         // no partition pruning happened, no need to prune initial files list
         prunedRowGroups = rowGroups;
       } else {
         // prunes files to leave only files which are contained by pruned partitions
-        prunedRowGroups = pruneRowGroupsForFiles(new ArrayList<>(builder.getFiles().values()));
+        prunedRowGroups = pruneRowGroupsForFiles(builder.getFiles());
+      }
+
+      if (builder.isMatchAllRowGroups()) {
+        builder.withRowGroups(prunedRowGroups);
+        return;
       }
 
       // Stop files pruning for the case:
@@ -286,59 +295,37 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
           PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
 
         boolean matchAllRowGroupsLocal = matchAllRowGroups;
+        matchAllRowGroups = true;
 
-        Multimap<FileMetadata, RowGroupMetadata> filteredFiles = filterNextLevelMetadata(filterPredicate, schemaPathsInExpr, new ArrayList<>(builder.getFiles().values()), rowGroups);
+        List<RowGroupMetadata> filteredRowGroups = filterAndGetMetadata(schemaPathsInExpr, prunedRowGroups, filterPredicate);
 
-        builder
-          .withRowGroups(filteredFiles)
-          .withMatching(matchAllRowGroups);
+        builder.withRowGroups(filteredRowGroups)
+            .withMatching(matchAllRowGroups);
 
         matchAllRowGroups = matchAllRowGroupsLocal;
       } else {
-        builder.withMatching(false)
+        builder.withRowGroups(prunedRowGroups)
+          .withMatching(false)
           .withOverflow(MetadataLevel.FILE);
       }
     }
   }
 
-  protected Multimap<FileMetadata, RowGroupMetadata> pruneRowGroupsForFiles(List<FileMetadata> filteredPartitionMetadata) {
-    Multimap<FileMetadata, RowGroupMetadata> prunedFiles = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
-    rowGroups.entries().stream()
-        .filter(entry -> filteredPartitionMetadata.contains(entry.getKey()))
-        .forEach(entry -> prunedFiles.put(entry.getKey(), entry.getValue()));
+  protected List<RowGroupMetadata> pruneRowGroupsForFiles(List<FileMetadata> filteredPartitionMetadata) {
+    List<RowGroupMetadata> prunedFiles = new ArrayList<>();
+//    rowGroups.entries().stream()
+//        .filter(entry -> filteredPartitionMetadata.contains(entry.getKey()))
+//        .forEach(entry -> prunedFiles.put(entry.getKey(), entry.getValue()));
 
-    return prunedFiles;
-  }
-
-  protected Multimap<FileMetadata, RowGroupMetadata> filterRowGroups(LogicalExpression filterExpr,
-      UdfUtilities udfUtilities, FunctionImplementationRegistry functionImplementationRegistry) {
-    Multimap<FileMetadata, RowGroupMetadata> qualifiedRowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
-    Set<FileMetadata> fileMetadataList = rowGroups.keySet();
-
-    if (fileMetadataList.size() > 0) {
-      FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, true, tableMetadata.getFields());
-      if (filterPredicate == null) {
-        return null;
-      }
-
-      final Set<SchemaPath> schemaPathsInExpr =
-        filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
-
-      for (Map.Entry<FileMetadata, ? extends Collection<RowGroupMetadata>> fileRowGroupEntry : rowGroups.asMap().entrySet()) {
-        Collection<RowGroupMetadata> fileRowGroups = fileRowGroupEntry.getValue();
-        // file has single row group and the same stats
-        if (fileRowGroups.size() == 1) {
-          qualifiedRowGroups.putAll(fileRowGroupEntry.getKey(), fileRowGroups);
-          continue;
-        }
-        List<RowGroupMetadata> prunedRowGroups = filterAndGetMetadata(schemaPathsInExpr, fileRowGroups, filterPredicate);
-
-        if (prunedRowGroups.size() > 0) {
-          qualifiedRowGroups.putAll(fileRowGroupEntry.getKey(), prunedRowGroups);
+    for (FileMetadata filteredPartition : filteredPartitionMetadata) {
+      for (RowGroupMetadata file : rowGroups) {
+        if (file.getLocation().startsWith(filteredPartition.getLocation())) {
+          prunedFiles.add(file);
         }
       }
     }
-    return qualifiedRowGroups;
+
+    return prunedFiles;
   }
   // filter push down methods block end
 
@@ -348,32 +335,43 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
     maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
     // further optimization : minimize # of files chosen, or the affinity of files chosen.
 
-    // Calculate number of rowGroups to read based on maxRecords and update
+    long tableRowCount = (long) tableMetadata.getStatistic(TableStatistics.ROW_COUNT);
+    if (tableRowCount <= maxRecords) {
+      logger.debug("limit push down does not apply, since total number of rows [{}] is less or equal to the required [{}].",
+        tableRowCount, maxRecords);
+      return null;
+    }
+
+    // Calculate number of files to read based on maxRecords and update
     // number of records to read for each of those rowGroups.
-    int index = updateRowGroupInfo(maxRecords);
+    List<RowGroupMetadata> qualifiedRowGroups = new ArrayList<>();
+    int currentRowCount = 0;
+    for (RowGroupMetadata rowGroupInfo : rowGroups) {
+      long rowCount = (long) rowGroupInfo.getStatistic(ColumnStatisticsKind.ROW_COUNT);
+      if (currentRowCount + rowCount <= maxRecords) {
+        currentRowCount += rowCount;
+//        rowGroupInfo.setNumRecordsToRead(rowCount);
+        qualifiedRowGroups.add(rowGroupInfo);
+        continue;
+      } else if (currentRowCount < maxRecords) {
+//        rowGroupInfo.setNumRecordsToRead(maxRecords - currentRowCount);
+        qualifiedRowGroups.add(rowGroupInfo);
+      }
+      break;
+    }
 
-    Multimap<FileMetadata, RowGroupMetadata> qualifiedRowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
-    rowGroups.entries().stream()
-        .limit(index)
-        .forEach(e -> qualifiedRowGroups.put(e.getKey(), e.getValue()));
-
-    // If there is no change in fileSet, no need to create new groupScan.
-    if (qualifiedRowGroups.size() == rowGroups.size() ) {
-      // There is no reduction of rowGroups. Return the original groupScan.
-      logger.debug("applyLimit() does not apply!");
+    if (rowGroups.size() == qualifiedRowGroups.size()) {
+      logger.debug("limit push down does not apply, since number of row groups was not reduced.");
       return null;
     }
 
-    logger.debug("applyLimit() reduce parquet file # from {} to {}", fileSet.size(), qualifiedRowGroups.keySet().size());
+    logger.debug("applyLimit() reduce files # from {} to {}.", rowGroups.size(), qualifiedRowGroups.size());
 
-    try {
-      AbstractParquetGroupScan newScan = cloneWithRowGroups(qualifiedRowGroups);
-      newScan.updateRowGroupInfo(maxRecords);
-      return newScan;
-    } catch (IOException e) {
-      logger.warn("Could not apply row count based prune due to Exception: {}", e);
-      return null;
-    }
+//    return getBuilder()
+//      .withRowGroups(qualifiedRowGroups)
+//      .withFiles()
+//      .build();
+    return super.applyLimit(maxRecords);
   }
   // limit push down methods end
 
@@ -392,15 +390,20 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
   // helper method used for partition pruning and filter push down
   @Override
   public void modifyFileSelection(FileSelection selection) {
-    // TODO: make this method as deprecated and remoe its usage
+    // TODO: make this method as deprecated and remove its usage
     super.modifyFileSelection(selection);
 
-    Multimap<FileMetadata, RowGroupMetadata> qualifiedRowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
-    rowGroups.entries().stream()
-      .filter(entry -> fileSet.contains(entry.getKey().getLocation()))
-      .forEach(entry -> qualifiedRowGroups.put(entry.getKey(), entry.getValue()));
+    List<String> files = selection.getFiles();
+    fileSet = new HashSet<>(files);
+    entries = new ArrayList<>(files.size());
 
-    rowGroups = qualifiedRowGroups;
+    entries.addAll(files.stream()
+        .map(ReadEntryWithPath::new)
+        .collect(Collectors.toList()));
+
+    rowGroups = rowGroups.stream()
+        .filter(entry -> fileSet.contains(entry.getLocation()))
+        .collect(Collectors.toList());
   }
 
 
@@ -419,39 +422,10 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
   protected abstract List<String> getPartitionValues(RowGroupInfo rowGroupInfo);
   // abstract methods block end
 
-  // private methods block start
-  /**
-   * Based on maxRecords to read for the scan,
-   * figure out how many rowGroups to read
-   * and update number of records to read for each of them.
-   *
-   * @param maxRecords max records to read
-   * @return total number of rowGroups to read
-   */
-  private int updateRowGroupInfo(int maxRecords) {
-    long count = 0;
-    int index = 0;
-    for (RowGroupMetadata rowGroupInfo : rowGroups.values()) {
-      long rowCount = (long) rowGroupInfo.getStatistic(() -> "rowCount");
-      if (count + rowCount <= maxRecords) {
-        count += rowCount;
-        rowGroupAndNumsToRead.put(rowGroupInfo.getRowGroupIndex(), rowCount);
-        index++;
-        continue;
-      } else if (count < maxRecords) {
-        rowGroupAndNumsToRead.put(rowGroupInfo.getRowGroupIndex(), maxRecords - count);
-        index++;
-      }
-      break;
-    }
-    return index;
-  }
-  // private methods block end
-
   protected static abstract class RowGroupScanBuilder extends GroupScanBuilder {
-    protected Multimap<FileMetadata, RowGroupMetadata> rowGroups;
+    protected List<RowGroupMetadata> rowGroups;
 
-    public RowGroupScanBuilder withRowGroups(Multimap<FileMetadata, RowGroupMetadata> rowGroups) {
+    public RowGroupScanBuilder withRowGroups(List<RowGroupMetadata> rowGroups) {
       this.rowGroups = rowGroups;
       return this;
     }

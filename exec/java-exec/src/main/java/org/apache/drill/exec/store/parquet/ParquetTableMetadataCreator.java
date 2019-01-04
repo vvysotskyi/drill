@@ -17,20 +17,23 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.calcite.util.Pair;
 import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.resolver.TypeCastRules;
 import org.apache.drill.exec.store.parquet.metadata.Metadata_V3;
+import org.apache.drill.exec.store.parquet.stat.ParquetMetaStatCollector;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticImpl;
+import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.FileMetadata;
+import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
+import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
-import org.apache.drill.shaded.guava.com.google.common.collect.Multimaps;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.logical.FormatPluginConfig;
@@ -48,13 +51,15 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.OriginalType;
-import org.apache.parquet.schema.PrimitiveComparator;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -68,28 +73,22 @@ import java.util.stream.Collectors;
  * Base logic for creating ParquetTableMetadata taken from the ParquetGroupScan.
  */
 public class ParquetTableMetadataCreator {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetTableMetadataCreator.class);
 
   protected List<ReadEntryWithPath> entries;
 
   protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
   private Set<String> fileSet;
+  protected ParquetReaderConfig readerConfig;
 
-  // may be created from rowGroupInfos in or after calling init().
-//  protected List<EndpointAffinity> endpointAffinities;
-
-  // may be created from parquetTableMetadata in or after calling init().
-//  protected ParquetGroupScanStatistics parquetGroupScanStatistics;
-
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetTableMetadataCreator.class);
-
-  // used only for formatPlugin.getContext().getBits() in init() method
   private final ParquetFormatPlugin formatPlugin;
+  private final ParquetFormatConfig formatConfig;
   private final DrillFileSystem fs;
   private final MetadataContext metaContext;
+  private boolean usedMetadataCache; // false by default
   // may change when filter push down / partition pruning is applied
   private String selectionRoot;
   private String cacheFileRoot;
-  protected ParquetReaderConfig readerConfig;
 
   public ParquetTableMetadataCreator(StoragePluginRegistry engineRegistry,
                           String userName,
@@ -98,17 +97,19 @@ public class ParquetTableMetadataCreator {
                           FormatPluginConfig formatConfig,
                           String selectionRoot,
                           String cacheFileRoot,
-                          Set<String> fileSet,
-                          ParquetReaderConfig readerConfig) throws IOException, ExecutionSetupException {
+                          ParquetReaderConfig readerConfig,
+                          Set<String> fileSet) throws IOException, ExecutionSetupException {
     this.entries = entries;
     Preconditions.checkNotNull(storageConfig);
     Preconditions.checkNotNull(formatConfig);
     this.formatPlugin = (ParquetFormatPlugin) engineRegistry.getFormatPlugin(storageConfig, formatConfig);
     Preconditions.checkNotNull(formatPlugin);
     this.fs = ImpersonationUtil.createFileSystem(userName, formatPlugin.getFsConf());
+    this.formatConfig = formatPlugin.getConfig();
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
     this.metaContext = new MetadataContext();
+
     this.fileSet = fileSet;
     this.readerConfig = readerConfig;
 
@@ -116,18 +117,20 @@ public class ParquetTableMetadataCreator {
   }
 
   public ParquetTableMetadataCreator(String userName,
-                          FileSelection selection,
-                          ParquetFormatPlugin formatPlugin) throws IOException {
+                                     FileSelection selection,
+                                     ParquetFormatPlugin formatPlugin,
+                                     ParquetReaderConfig readerConfig) throws IOException {
     this.entries = new ArrayList<>();
+    this.readerConfig = readerConfig;
 
     this.formatPlugin = formatPlugin;
+    this.formatConfig = formatPlugin.getConfig();
     this.fs = ImpersonationUtil.createFileSystem(userName, formatPlugin.getFsConf());
     this.selectionRoot = selection.getSelectionRoot();
     this.cacheFileRoot = selection.getCacheFileRoot();
 
     MetadataContext metadataContext = selection.getMetaContext();
     this.metaContext = metadataContext != null ? metadataContext : new MetadataContext();
-    readerConfig = ParquetReaderConfig.getDefaultInstance();
 
     FileSelection fileSelection = expandIfNecessary(selection);
     if (fileSelection != null) {
@@ -156,10 +159,19 @@ public class ParquetTableMetadataCreator {
     return fs;
   }
 
+  public boolean isUsedMetadataCache() {
+    return usedMetadataCache;
+  }
+
+  public List<ReadEntryWithPath> getEntries() {
+    return entries;
+  }
+
   public TableMetadata getTableMetadata() {
 
     HashMap<String, Object> tableStatistics = new HashMap<>();
-    tableStatistics.put("rowCount", getRowCount(parquetTableMetadata));
+    tableStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getRowCount(parquetTableMetadata));
+
     HashSet<String> partitionKeys = new HashSet<>();
 
     LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields = resolveFields(parquetTableMetadata);
@@ -167,7 +179,26 @@ public class ParquetTableMetadataCreator {
     HashMap<SchemaPath, ColumnStatistic> columnStatistics = getColumnStatistics(parquetTableMetadata, fields.keySet());
 
     return new TableMetadata(selectionRoot, selectionRoot,
-      fields, columnStatistics, tableStatistics, -1, "root", partitionKeys);
+        fields, columnStatistics, tableStatistics, -1, "root", partitionKeys);
+  }
+
+  public List<PartitionMetadata> getPartitionMetadata() {
+    List<PartitionMetadata> result = new ArrayList<>();
+    // TODO: add logic to discover partitions
+
+    return result;
+  }
+
+  protected PartitionMetadata getPartitionMetadata(MetadataBase.ParquetFileMetadata file) {
+    LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getFileFields(parquetTableMetadata, file);
+
+
+    HashMap<String, Object> fileStatistics = new HashMap<>();
+    fileStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getFileRowCount(file));
+
+    return null;
+//      new PartitionMetadata(file.getPath(), columns,
+//        getFileColumnStatistics(file, columns.keySet()), fileStatistics, file.getPath(), selectionRoot, -1);
   }
 
   public List<FileMetadata> getFilesMetadata() {
@@ -183,17 +214,15 @@ public class ParquetTableMetadataCreator {
   protected FileMetadata getFileMetadata(MetadataBase.ParquetFileMetadata file) {
     LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getFileFields(parquetTableMetadata, file);
 
-
     HashMap<String, Object> fileStatistics = new HashMap<>();
-    fileStatistics.put("rowCount", getFileRowCount(file));
+    fileStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getFileRowCount(file));
 
     return new FileMetadata(file.getPath(), columns,
         getFileColumnStatistics(file, columns.keySet()), fileStatistics, file.getPath(), selectionRoot, -1);
   }
 
-  public Multimap<FileMetadata, RowGroupMetadata> getRowGroupsMeta() {
-    Multimap<FileMetadata, RowGroupMetadata> result = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
-
+  public List<RowGroupMetadata> getRowGroupsMeta() {
+    List<RowGroupMetadata> result = new ArrayList<>();
 
     for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
       int index = 0;
@@ -202,14 +231,14 @@ public class ParquetTableMetadataCreator {
 
         HashMap<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(rowGroupMetadata);
         HashMap<String, Object> rowGroupStatistics = new HashMap<>();
-        rowGroupStatistics.put("rowCount", rowGroupMetadata.getRowCount());
+        rowGroupStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
         rowGroupStatistics.put("start", rowGroupMetadata.getStart());
         rowGroupStatistics.put("length", rowGroupMetadata.getLength());
 
         RowGroupMetadata groupMetadata = new RowGroupMetadata(
             getRowGroupFields(parquetTableMetadata, rowGroupMetadata), columnStatistics,
-            rowGroupStatistics, rowGroupMetadata.getHostAffinity(), index++);
-        result.put(fileMetadata, groupMetadata);
+            rowGroupStatistics, rowGroupMetadata.getHostAffinity(), index++, fileMetadata.getLocation());
+        result.add(groupMetadata);
       }
     }
 
@@ -223,6 +252,7 @@ public class ParquetTableMetadataCreator {
       if (rowCount == GroupScan.NO_COLUMN_STATS) {
         return GroupScan.NO_COLUMN_STATS;
       }
+      sum += rowCount;
     }
     return sum;
   }
@@ -245,53 +275,213 @@ public class ParquetTableMetadataCreator {
     Map<SchemaPath, MutableLong> nullsCounts = new HashMap<>();
     Map<SchemaPath, Object> minVals = new HashMap<>();
     Map<SchemaPath, Object> maxVals = new HashMap<>();
-    Map<SchemaPath, PrimitiveComparator> valComparator = new HashMap<>();
+    Map<SchemaPath, Comparator> valComparator = new HashMap<>();
     for (SchemaPath column : columns) {
       nullsCounts.put(column, new MutableLong());
     }
 
     for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
-      // TODO: refactor out common code with getFileColumnStatistics()
       for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
         for (MetadataBase.ColumnMetadata column : rowGroupMetadata.getColumns()) {
-          SchemaPath colPath = SchemaPath.getCompoundPath(column.getName());
-          MutableLong nullsCount = nullsCounts.get(colPath);
-          if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
-            Long nulls = column.getNulls();
-            if (column.isNumNullsSet() && nulls != null) {
-              nullsCount.setValue(nulls);
-            } else {
-              nullsCount.setValue(GroupScan.NO_COLUMN_STATS);
-            }
-          }
-          PrimitiveComparator comparator = valComparator.get(colPath);
-          if (comparator == null) {
-            // TODO: add check for version
-            comparator = Statistics.getStatsBasedOnType(parquetTableMetadata.getPrimitiveType(column.getName())).comparator();
-            valComparator.put(colPath, comparator);
-            minVals.put(colPath, column.getMinValue());
-            maxVals.put(colPath, column.getMaxValue());
-          } else {
-            if (comparator.compare(minVals.get(colPath), column.getMinValue()) > 0) {
-              minVals.put(colPath, column.getMinValue());
-            }
-            if (comparator.compare(maxVals.get(colPath), column.getMaxValue()) < 0) {
-              maxVals.put(colPath, column.getMaxValue());
-            }
-          }
+          collectSingleMetadataEntry(parquetTableMetadata, nullsCounts, minVals, maxVals, valComparator, column);
         }
       }
     }
     HashMap<SchemaPath, ColumnStatistic> columnStatistics = new HashMap<>();
     for (SchemaPath column : columns) {
       Map<String, Object> statistics = new HashMap<>();
-      statistics.put("minVal", minVals.get(column));
-      statistics.put("maxVal", maxVals.get(column));
-      statistics.put("nullsCount", nullsCounts.get(column).getValue());
+      statistics.put(ColumnStatisticsKind.MIN_VALUE.getName(), minVals.get(column));
+      statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), maxVals.get(column));
+      statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), nullsCounts.get(column).getValue());
       columnStatistics.put(column, new ColumnStatisticImpl(statistics, valComparator.get(column)));
     }
 
     return columnStatistics;
+  }
+
+  private static void collectSingleMetadataEntry(MetadataBase.ParquetTableMetadataBase parquetTableMetadata,
+      Map<SchemaPath, MutableLong> nullsCounts, Map<SchemaPath, Object> minVals, Map<SchemaPath, Object> maxVals,
+      Map<SchemaPath, Comparator> valComparator, MetadataBase.ColumnMetadata column) {
+    PrimitiveType.PrimitiveTypeName primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
+    OriginalType originalType = parquetTableMetadata.getOriginalType(column.getName());
+    SchemaPath colPath = SchemaPath.getCompoundPath(column.getName());
+    MutableLong nullsCount = nullsCounts.get(colPath);
+    if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
+      Long nulls = column.getNulls();
+      if (column.isNumNullsSet() && nulls != null) {
+        nullsCount.setValue(nulls);
+      } else {
+        nullsCount.setValue(GroupScan.NO_COLUMN_STATS);
+      }
+    }
+    Comparator comparator = valComparator.get(colPath);
+
+    Pair<Object, Object> minMax = getMinMax(column, primitiveType, originalType);
+
+    Object min = minMax.getKey();
+    Object max = minMax.getValue();
+
+    if (comparator == null) {
+      comparator = getComparator(primitiveType, originalType);
+
+      valComparator.put(colPath, comparator);
+
+      minVals.put(colPath, min);
+      maxVals.put(colPath, max);
+    } else {
+      if (min != null && comparator.compare(minVals.get(colPath), min) > 0) {
+        minVals.put(colPath, min);
+      }
+      if (max != null && comparator.compare(maxVals.get(colPath), max) < 0) {
+        maxVals.put(colPath, max);
+      }
+    }
+  }
+
+  private static Pair<Object, Object> getMinMax(MetadataBase.ColumnMetadata column, PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {
+    Object minValue = column.getMinValue();
+    Object maxValue = column.getMaxValue();
+    switch (primitiveType) {
+      case INT32:
+        if (originalType != null) {
+          switch (originalType) {
+            case DATE:
+              if (minValue != null) {
+                minValue = ParquetMetaStatCollector.convertToDrillDateValue(Integer.parseInt(minValue.toString()));
+              }
+              if (maxValue != null) {
+                maxValue = ParquetMetaStatCollector.convertToDrillDateValue(Integer.parseInt(maxValue.toString()));
+              }
+              break;
+            case DECIMAL:
+              if (minValue != null) {
+                minValue = new BigInteger(minValue.toString()).toByteArray();
+              }
+              if (maxValue != null) {
+                maxValue = new BigInteger(maxValue.toString()).toByteArray();
+              }
+              break;
+            default:
+              if (minValue != null) {
+                minValue = Integer.parseInt(minValue.toString());
+              }
+              if (maxValue != null) {
+                maxValue = Integer.parseInt(maxValue.toString());
+              }
+          }
+        } else {
+          if (minValue != null) {
+            minValue = Integer.parseInt(minValue.toString());
+          }
+          if (maxValue != null) {
+            maxValue = Integer.parseInt(maxValue.toString());
+          }
+        }
+        break;
+
+      case INT64:
+        if (originalType == OriginalType.DECIMAL) {
+          if (minValue != null) {
+            minValue = new BigInteger(minValue.toString()).toByteArray();
+          }
+          if (maxValue != null) {
+            maxValue = new BigInteger(maxValue.toString()).toByteArray();
+          }
+        } else {
+          if (minValue != null) {
+            minValue = Long.parseLong(minValue.toString());
+          }
+          if (maxValue != null) {
+            maxValue = Long.parseLong(maxValue.toString());
+          }
+        }
+        break;
+
+      case BINARY:
+      case FIXED_LEN_BYTE_ARRAY:
+        // wrap up into BigInteger to avoid PARQUET-1417
+        if (originalType == OriginalType.DECIMAL) {
+          if (minValue instanceof Binary) {
+            minValue = new BigInteger(((Binary) minValue).getBytes()).toByteArray();
+          } else if (minValue instanceof byte[]) {
+            minValue = new BigInteger((byte[]) minValue).toByteArray();
+          }
+          if (maxValue instanceof Binary) {
+            maxValue = new BigInteger(((Binary) maxValue).getBytes()).toByteArray();
+          } else if (maxValue instanceof byte[]) {
+            maxValue = new BigInteger((byte[]) maxValue).toByteArray();
+          }
+        } else {
+          if (minValue instanceof Binary) {
+            minValue = ((Binary) minValue).getBytes();
+          }
+          if (maxValue instanceof Binary) {
+            maxValue = ((Binary) maxValue).getBytes();
+          }
+        }
+        break;
+      case FLOAT:
+        if (minValue != null) {
+          minValue = Float.parseFloat(minValue.toString());
+        }
+        if (maxValue != null) {
+          maxValue = Float.parseFloat(maxValue.toString());
+        }
+        break;
+      case DOUBLE:
+        if (minValue != null) {
+          minValue = Double.parseDouble(minValue.toString());
+        }
+        if (maxValue != null) {
+          maxValue = Double.parseDouble(maxValue.toString());
+        }
+    }
+    return Pair.of(minValue, maxValue);
+  }
+
+  private static Comparator getComparator(PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {
+    if (originalType != null) {
+      switch (originalType) {
+        case UINT_8:
+        case UINT_16:
+        case UINT_32:
+          return StatisticsProvider.UINT32_COMPARATOR;
+        case UINT_64:
+          return StatisticsProvider.UINT64_COMPARATOR;
+        case DATE:
+        case INT_8:
+        case INT_16:
+        case INT_32:
+        case INT_64:
+        case TIME_MICROS:
+        case TIME_MILLIS:
+        case TIMESTAMP_MICROS:
+        case TIMESTAMP_MILLIS:
+          return Comparator.nullsFirst(Comparator.naturalOrder());
+        case DECIMAL:
+          return StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR;
+        case UTF8:
+          return StatisticsProvider.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
+        default:
+          return Comparator.nullsFirst((o1, o2) -> Statistics.getStatsBasedOnType(primitiveType).comparator().compare(o1, o2));
+      }
+    } else {
+      switch (primitiveType) {
+        case INT32:
+        case INT64:
+        case FLOAT:
+        case DOUBLE:
+        case BOOLEAN:
+          return Comparator.nullsFirst(Comparator.naturalOrder());
+        case BINARY:
+        case FIXED_LEN_BYTE_ARRAY:
+          return StatisticsProvider.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
+        case INT96:
+          return StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR;
+        default:
+          throw new UnsupportedOperationException("Unsupported type: " + primitiveType);
+      }
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -300,45 +490,22 @@ public class ParquetTableMetadataCreator {
     Map<SchemaPath, MutableLong> nullsCounts = new HashMap<>();
     Map<SchemaPath, Object> minVals = new HashMap<>();
     Map<SchemaPath, Object> maxVals = new HashMap<>();
-    Map<SchemaPath, PrimitiveComparator> valComparator = new HashMap<>();
+    Map<SchemaPath, Comparator> valComparator = new HashMap<>();
     for (SchemaPath column : columns) {
       nullsCounts.put(column, new MutableLong());
     }
 
     for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
       for (MetadataBase.ColumnMetadata column : rowGroupMetadata.getColumns()) {
-        SchemaPath colPath = SchemaPath.getCompoundPath(column.getName());
-        MutableLong nullsCount = nullsCounts.get(colPath);
-        if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
-          Long nulls = column.getNulls();
-          if (column.isNumNullsSet() && nulls != null) {
-            nullsCount.setValue(nulls);
-          } else {
-            nullsCount.setValue(GroupScan.NO_COLUMN_STATS);
-          }
-        }
-        PrimitiveComparator comparator = valComparator.get(colPath);
-        if (comparator == null) {
-          comparator = Statistics.getStatsBasedOnType(parquetTableMetadata.getPrimitiveType(column.getName())).comparator();
-          valComparator.put(colPath, comparator);
-          minVals.put(colPath, column.getMinValue());
-          maxVals.put(colPath, column.getMaxValue());
-        } else {
-          if (comparator.compare(minVals.get(colPath), column.getMinValue()) > 0) {
-            minVals.put(colPath, column.getMinValue());
-          }
-          if (comparator.compare(maxVals.get(colPath), column.getMaxValue()) < 0) {
-            maxVals.put(colPath, column.getMaxValue());
-          }
-        }
+        collectSingleMetadataEntry(parquetTableMetadata, nullsCounts, minVals, maxVals, valComparator, column);
       }
     }
     HashMap<SchemaPath, ColumnStatistic> columnStatistics = new HashMap<>();
     for (SchemaPath column : columns) {
       Map<String, Object> statistics = new HashMap<>();
-      statistics.put("minVal", minVals.get(column));
-      statistics.put("maxVal", maxVals.get(column));
-      statistics.put("nullsCount", nullsCounts.get(column).getValue());
+      statistics.put(ColumnStatisticsKind.MIN_VALUE.getName(), minVals.get(column));
+      statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), maxVals.get(column));
+      statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), nullsCounts.get(column).getValue());
       columnStatistics.put(column, new ColumnStatisticImpl(statistics, valComparator.get(column)));
     }
 
@@ -357,12 +524,16 @@ public class ParquetTableMetadataCreator {
       if (!column.isNumNullsSet() || nulls == null) {
         nulls = GroupScan.NO_COLUMN_STATS;
       }
-      PrimitiveComparator comparator = Statistics.getStatsBasedOnType(parquetTableMetadata.getPrimitiveType(column.getName())).comparator();
+      PrimitiveType.PrimitiveTypeName primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
+      OriginalType originalType = parquetTableMetadata.getOriginalType(column.getName());
+      Comparator comparator = getComparator(primitiveType, originalType);
+
+      Pair<Object, Object> minMaxPair = getMinMax(column, primitiveType, originalType);
 
       Map<String, Object> statistics = new HashMap<>();
-      statistics.put("minVal", column.getMinValue());
-      statistics.put("maxVal", column.getMaxValue());
-      statistics.put("nullsCount", nulls);
+      statistics.put(ColumnStatisticsKind.MIN_VALUE.getName(), minMaxPair.getKey());
+      statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), minMaxPair.getValue());
+      statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), nulls);
       columnStatistics.put(colPath, new ColumnStatisticImpl(statistics, comparator));
     }
 
@@ -394,6 +565,7 @@ public class ParquetTableMetadataCreator {
   private static LinkedHashMap<SchemaPath, TypeProtos.MajorType> getFileFields(
       MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ParquetFileMetadata file) {
 
+    // does not resolve types considering all row groups, just takes type from the first row group.
     return getRowGroupFields(parquetTableMetadata, file.getRowGroups().iterator().next());
   }
 
@@ -436,9 +608,8 @@ public class ParquetTableMetadataCreator {
     return columns;
   }
 
-  protected void init() throws IOException {
-    ParquetFormatConfig formatConfig = formatPlugin.getConfig();
-    boolean usedMetadataCache = false;
+  // parquet group scan methods
+  protected void initInternal() throws IOException {
     FileSystem processUserFileSystem = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), fs.getConf());
     Path metaPath = null;
     if (entries.size() == 1 && parquetTableMetadata == null) {
@@ -449,7 +620,6 @@ public class ParquetTableMetadataCreator {
         metaPath = new Path(p, Metadata.METADATA_FILENAME);
       }
       if (!metaContext.isMetadataCacheCorrupted() && metaPath != null && fs.exists(metaPath)) {
-        // TODO: implement some caching to avoid rereading the same metadata several times
         parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
         if (parquetTableMetadata != null) {
           usedMetadataCache = true;
@@ -491,6 +661,47 @@ public class ParquetTableMetadataCreator {
         parquetTableMetadata = Metadata.getParquetTableMetadata(statusMap, readerConfig);
       }
     }
+  }
+
+  protected void init() throws IOException {
+    initInternal();
+
+    assert parquetTableMetadata != null;
+
+    if (fileSet == null) {
+      fileSet = new HashSet<>();
+      fileSet.addAll(parquetTableMetadata.getFiles().stream()
+        .map((Function<MetadataBase.ParquetFileMetadata, String>) MetadataBase.ParquetFileMetadata::getPath)
+        .collect(Collectors.toSet()));
+    }
+
+//    Map<String, CoordinationProtos.DrillbitEndpoint> hostEndpointMap = new HashMap<>();
+//
+//    for (CoordinationProtos.DrillbitEndpoint endpoint : getDrillbits()) {
+//      hostEndpointMap.put(endpoint.getAddress(), endpoint);
+//    }
+//
+//    rowGroupInfos = new ArrayList<>();
+//    for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
+//      int rgIndex = 0;
+//      for (RowGroupMetadata rg : file.getRowGroups()) {
+//        RowGroupInfo rowGroupInfo =
+//          new RowGroupInfo(file.getPath(), rg.getStart(), rg.getLength(), rgIndex, rg.getRowCount());
+//        EndpointByteMap endpointByteMap = new EndpointByteMapImpl();
+//        rg.getHostAffinity().keySet().stream()
+//          .filter(hostEndpointMap::containsKey)
+//          .forEach(host ->
+//            endpointByteMap.add(hostEndpointMap.get(host), (long) (rg.getHostAffinity().get(host) * rg.getLength())));
+//
+//        rowGroupInfo.setEndpointByteMap(endpointByteMap);
+//        rowGroupInfo.setColumns(rg.getColumns());
+//        rgIndex++;
+//        rowGroupInfos.add(rowGroupInfo);
+//      }
+//    }
+//
+//    this.endpointAffinities = AffinityCreator.getAffinityMap(rowGroupInfos);
+//    this.parquetGroupScanStatistics = new ParquetGroupScanStatistics(rowGroupInfos, parquetTableMetadata);
   }
   // overridden protected methods block end
 
@@ -554,7 +765,6 @@ public class ParquetTableMetadataCreator {
     // we only select the files that are part of selection (by setting fileSet appropriately)
 
     // get (and set internal field) the metadata for the directory by reading the metadata file
-    ParquetFormatConfig formatConfig = formatPlugin.getConfig();
     FileSystem processUserFileSystem = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), fs.getConf());
     parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaFilePath, metaContext, readerConfig);
     if (ignoreExpandingSelection(parquetTableMetadata)) {

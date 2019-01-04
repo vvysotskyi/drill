@@ -292,10 +292,10 @@ public class ParquetMetaStatCollector implements  ColumnStatCollector {
       return new ColumnStatistics(convertedStat, type);
     }
 
-    private long convertToDrillDateValue(int dateValue) {
-      return dateValue * (long) DateTimeConstants.MILLIS_PER_DAY;
-    }
+  }
 
+  public static long convertToDrillDateValue(int dateValue) {
+    return dateValue * (long) DateTimeConstants.MILLIS_PER_DAY;
   }
 
 }

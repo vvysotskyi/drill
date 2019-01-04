@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.dfs.easy;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -25,7 +26,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.EndpointAffinity;
-import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
+import org.apache.drill.exec.physical.base.AbstractFileGroupScan;
 import org.apache.drill.exec.physical.base.FileGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
@@ -52,15 +53,14 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Iterators;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 
-// TODO: either rework this class to incorporate with filtering files represented in BaseMetadataGroupScan
-// or preferred return another implementation (FileMetadataGroupScan) instead of this one if metadata is used
 @JsonTypeName("fs-scan")
-public class EasyGroupScan extends BaseMetadataGroupScan {
+public class EasyGroupScan extends AbstractFileGroupScan {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EasyGroupScan.class);
 
   private FileSelection selection;
   private final EasyFormatPlugin<?> formatPlugin;
   private int maxWidth;
+  private List<SchemaPath> columns;
 
   private ListMultimap<Integer, CompleteFileWork> mappings;
   private List<CompleteFileWork> chunks;
@@ -96,20 +96,26 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
       List<SchemaPath> columns,
       String selectionRoot
       ) throws IOException{
-    super(userName, columns == null ? ALL_COLUMNS : columns, null);
+    super(userName);
     this.selection = Preconditions.checkNotNull(selection);
     this.formatPlugin = Preconditions.checkNotNull(formatPlugin, "Unable to load format plugin for provided format config.");
+    this.columns = columns == null ? ALL_COLUMNS : columns;
     this.selectionRoot = selectionRoot;
     initFromSelection(selection, formatPlugin);
   }
 
   @JsonIgnore
   public Iterable<CompleteFileWork> getWorkIterable() {
-    return () -> Iterators.unmodifiableIterator(chunks.iterator());
+    return new Iterable<CompleteFileWork>() {
+      @Override
+      public Iterator<CompleteFileWork> iterator() {
+        return Iterators.unmodifiableIterator(chunks.iterator());
+      }
+    };
   }
 
   private EasyGroupScan(final EasyGroupScan that) {
-    super(that.getUserName(), that.columns, that.filter);
+    super(that.getUserName());
     selection = that.selection;
     formatPlugin = that.formatPlugin;
     columns = that.columns;
@@ -142,13 +148,7 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
 
   @Override
   public ScanStats getScanStats(final PlannerSettings settings) {
-    ScanStats oldScanStats = formatPlugin.getScanStats(settings, this);
-    // TODO: add adequate check for metadata availability
-    if (tableMetadata == null) {
-      return oldScanStats;
-    }
-    long rowCount = (long) tableMetadata.getStatistic(() -> "rowCount");
-    return new ScanStats(ScanStats.GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, oldScanStats.getDiskCost());
+    return formatPlugin.getScanStats(settings, this);
   }
 
   @Override
@@ -177,21 +177,6 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
   @Override
   public void modifyFileSelection(FileSelection selection) {
     this.selection = selection;
-  }
-
-  @Override
-  protected void initInternal() throws IOException {
-
-  }
-
-//  @Override
-//  protected BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
-//    return null;
-//  }
-
-  @Override
-  protected boolean supportsFileImplicitColumns() {
-    return false;
   }
 
   @Override
@@ -269,11 +254,6 @@ public class EasyGroupScan extends BaseMetadataGroupScan {
   @Override
   public String getDigest() {
     return toString();
-  }
-
-  @Override
-  protected GroupScanBuilder getBuilder() {
-    return null;
   }
 
   @Override

@@ -17,8 +17,6 @@
  */
 package org.apache.drill.metastore;
 
-import org.apache.drill.exec.physical.impl.window.Partition;
-
 import java.util.List;
 
 public interface Metastore {
@@ -34,7 +32,7 @@ public interface Metastore {
 
   boolean addPartition(String tableLocation, String tableName, PartitionMetadata partitionMeta);
 
-  Partition getPartitionMetadata(String location, String tableName, String columnName);
+  PartitionMetadata getPartitionMetadata(String location, String tableName, String columnName);
 
   boolean dropPartitionMetadata(String location, String tableName, String columnName, List<String> partitionValues);
 
