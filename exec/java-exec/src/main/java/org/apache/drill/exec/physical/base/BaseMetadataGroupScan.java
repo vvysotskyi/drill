@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.base;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
@@ -173,7 +174,7 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
       FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
 
     // Builds filter for pruning. If filter cannot be built, null should be returned.
-    FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, false, tableMetadata.getFields());
+    FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, optionManager, true);
     if (filterPredicate == null) {
       logger.debug("FilterPredicate cannot be built.");
       return null;
@@ -344,7 +345,18 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
    */
   public FilterPredicate getFilterPredicate(LogicalExpression filterExpr,
                                             UdfUtilities udfUtilities, FunctionImplementationRegistry functionImplementationRegistry,
-                                            boolean omitUnsupportedExprs, Map<SchemaPath, TypeProtos.MajorType> types) {
+                                            OptionManager optionManager, boolean omitUnsupportedExprs) {
+
+    Map<SchemaPath, TypeProtos.MajorType> types = tableMetadata.getFields();
+
+    Set<SchemaPath> schemaPathsInExpr = filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
+
+    // adds implicit or partition columns.
+    for (SchemaPath schemaPath : schemaPathsInExpr) {
+      if (isImplicitOrPartCol(schemaPath, optionManager)) {
+        types.put(schemaPath, Types.required(TypeProtos.MinorType.VARCHAR));
+      }
+    }
 
     ErrorCollector errorCollector = new ErrorCollectorImpl();
     LogicalExpression materializedFilter = ExpressionTreeMaterializer.materializeFilterExpr(
@@ -361,14 +373,9 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
     return FilterBuilder.buildFilterPredicate(materializedFilter, constantBoundaries, udfUtilities, omitUnsupportedExprs);
   }
 
-  private boolean containsImplicitCol(Set<SchemaPath> schemaPaths, OptionManager optionManager) {
+  private boolean isImplicitOrPartCol(SchemaPath schemaPath, OptionManager optionManager) {
     Set<String> implicitColNames = ColumnExplorer.initImplicitFileColumns(optionManager).keySet();
-    for (SchemaPath schemaPath : schemaPaths) {
-      if (ColumnExplorer.isPartitionColumn(optionManager, schemaPath) || implicitColNames.contains(schemaPath.getRootSegmentPath())) {
-        return true;
-      }
-    }
-    return false;
+    return ColumnExplorer.isPartitionColumn(optionManager, schemaPath) || implicitColNames.contains(schemaPath.getRootSegmentPath());
   }
 
   // limit push down methods start
@@ -379,49 +386,66 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
 
   @Override
   public GroupScan applyLimit(int maxRecords) {
+    maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
     GroupScanBuilder builder = limitFiles(maxRecords);
-    return builder == null ? null : builder.build();
+    if (builder.getTableMetadata() == null) {
+      logger.debug("limit push down does not apply, since table has less rows.");
+      return null;
+    }
+    if ((builder.getPartitions() == null || partitions.size() == builder.getPartitions().size()) && !partitions.isEmpty()) {
+      logger.debug("limit push down does not apply, since number of partitions was not reduced.");
+      return null;
+    }
+    if (builder.getFiles() == null || files.size() == builder.getFiles().size()) {
+      logger.debug("limit push down does not apply, since number of files was not reduced.");
+      return null;
+    }
+    logger.debug("applyLimit() reduce files # from {} to {}.", files.size(), builder.getFiles().size());
+    return builder.build();
   }
 
   protected GroupScanBuilder limitFiles(int maxRecords) {
-    maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
+    GroupScanBuilder builder = getBuilder();
     // further optimization : minimize # of files chosen, or the affinity of files chosen.
 
     long tableRowCount = (long) tableMetadata.getStatistic(TableStatistics.ROW_COUNT);
     if (tableRowCount <= maxRecords) {
       logger.debug("limit push down does not apply, since total number of rows [{}] is less or equal to the required [{}].",
-        tableRowCount, maxRecords);
-      return null;
+          tableRowCount, maxRecords);
+      return builder;
     }
+
+    List<PartitionMetadata> qualifiedPartitions = limitMetadata(partitions, maxRecords);
+
+    List<FileMetadata> partFiles = partitions.size() > 0 ? pruneFilesForPartitions(partitions) : files;
 
     // Calculate number of files to read based on maxRecords and update
     // number of records to read for each of those rowGroups.
-    List<FileMetadata> qualifiedFiles = new ArrayList<>();
+    List<FileMetadata> qualifiedFiles = limitMetadata(partFiles, maxRecords);
+
+    return builder
+      .withTable(Collections.singletonList(tableMetadata))
+      .withPartitions(qualifiedPartitions)
+      .withFiles(qualifiedFiles);
+  }
+
+  protected <T extends BaseMetadata> List<T> limitMetadata(List<T> metadataList, int maxRecords) {
+    List<T> qualifiedMetadata = new ArrayList<>();
     int currentRowCount = 0;
-    for (FileMetadata rowGroupInfo : files) {
-      long rowCount = (long) rowGroupInfo.getStatistic(ColumnStatisticsKind.ROW_COUNT);
+    for (T metadata : metadataList) {
+      long rowCount = (long) metadata.getStatistic(ColumnStatisticsKind.ROW_COUNT);
       if (currentRowCount + rowCount <= maxRecords) {
         currentRowCount += rowCount;
-//        rowGroupInfo.setNumRecordsToRead(rowCount);
-        qualifiedFiles.add(rowGroupInfo);
+//        metadata.setNumRecordsToRead(rowCount);
+        qualifiedMetadata.add(metadata);
         continue;
       } else if (currentRowCount < maxRecords) {
-//        rowGroupInfo.setNumRecordsToRead(maxRecords - currentRowCount);
-        qualifiedFiles.add(rowGroupInfo);
+//        metadata.setNumRecordsToRead(maxRecords - currentRowCount);
+        qualifiedMetadata.add(metadata);
       }
       break;
     }
-
-    if (files.size() == qualifiedFiles.size()) {
-      logger.debug("limit push down does not apply, since number of row groups was not reduced.");
-      return null;
-    }
-
-    logger.debug("applyLimit() reduce files # from {} to {}.", files.size(), qualifiedFiles.size());
-
-    return getBuilder()
-      .withPartitions(partitions)
-      .withFiles(qualifiedFiles);
+    return qualifiedMetadata;
   }
   // limit push down methods end
 

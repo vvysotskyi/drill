@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.metastore.ColumnStatisticsKind;
-import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
@@ -219,7 +218,8 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
   public BaseMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
       FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
     // Builds filter for pruning. If filter cannot be built, null should be returned.
-    FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, true, tableMetadata.getFields());
+    // TODO: pass implicit and partition columns to getFilterPredicate() along with tableMetadata.getFields()
+    FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, optionManager, true);
     if (filterPredicate == null) {
       logger.debug("FilterPredicate cannot be built.");
       return null;
@@ -333,32 +333,21 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
   @Override
   public GroupScan applyLimit(int maxRecords) {
     maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
-    // further optimization : minimize # of files chosen, or the affinity of files chosen.
+    RowGroupScanBuilder builder = (RowGroupScanBuilder) limitFiles(maxRecords);
 
-    long tableRowCount = (long) tableMetadata.getStatistic(TableStatistics.ROW_COUNT);
-    if (tableRowCount <= maxRecords) {
-      logger.debug("limit push down does not apply, since total number of rows [{}] is less or equal to the required [{}].",
-        tableRowCount, maxRecords);
+    if (builder.getTableMetadata() == null) {
+      logger.debug("limit push down does not apply, since table has less rows.");
       return null;
     }
 
-    // Calculate number of files to read based on maxRecords and update
-    // number of records to read for each of those rowGroups.
-    List<RowGroupMetadata> qualifiedRowGroups = new ArrayList<>();
-    int currentRowCount = 0;
-    for (RowGroupMetadata rowGroupInfo : rowGroups) {
-      long rowCount = (long) rowGroupInfo.getStatistic(ColumnStatisticsKind.ROW_COUNT);
-      if (currentRowCount + rowCount <= maxRecords) {
-        currentRowCount += rowCount;
-//        rowGroupInfo.setNumRecordsToRead(rowCount);
-        qualifiedRowGroups.add(rowGroupInfo);
-        continue;
-      } else if (currentRowCount < maxRecords) {
-//        rowGroupInfo.setNumRecordsToRead(maxRecords - currentRowCount);
-        qualifiedRowGroups.add(rowGroupInfo);
-      }
-      break;
-    }
+    List<FileMetadata> qualifiedFiles = builder.getFiles();
+
+    List<RowGroupMetadata> qualifiedRowGroups = pruneRowGroupsForFiles(qualifiedFiles.subList(0, qualifiedFiles.size() - 1));
+
+    // get row groups of the last file to filter them
+    List<RowGroupMetadata> lastFileRowGroups = pruneRowGroupsForFiles(qualifiedFiles.subList(qualifiedFiles.size() - 1, qualifiedFiles.size()));
+
+    qualifiedRowGroups.addAll(limitMetadata(lastFileRowGroups, maxRecords));
 
     if (rowGroups.size() == qualifiedRowGroups.size()) {
       logger.debug("limit push down does not apply, since number of row groups was not reduced.");
@@ -367,11 +356,9 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
 
     logger.debug("applyLimit() reduce files # from {} to {}.", rowGroups.size(), qualifiedRowGroups.size());
 
-//    return getBuilder()
-//      .withRowGroups(qualifiedRowGroups)
-//      .withFiles()
-//      .build();
-    return super.applyLimit(maxRecords);
+    return builder
+        .withRowGroups(qualifiedRowGroups)
+        .build();
   }
   // limit push down methods end
 
@@ -404,8 +391,15 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
     rowGroups = rowGroups.stream()
         .filter(entry -> fileSet.contains(entry.getLocation()))
         .collect(Collectors.toList());
-  }
 
+    this.files = this.files.stream()
+        .filter(entry -> fileSet.contains(entry.getLocation()))
+        .collect(Collectors.toList());
+
+    partitions = partitions.stream()
+        .filter(entry -> fileSet.contains(entry.getLocation()))
+        .collect(Collectors.toList());
+  }
 
   // protected methods block
   protected void init() throws IOException {

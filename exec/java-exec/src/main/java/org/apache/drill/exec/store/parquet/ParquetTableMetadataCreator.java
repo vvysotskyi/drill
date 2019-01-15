@@ -309,7 +309,7 @@ public class ParquetTableMetadataCreator {
     if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
       Long nulls = column.getNulls();
       if (column.isNumNullsSet() && nulls != null) {
-        nullsCount.setValue(nulls);
+        nullsCount.add(nulls);
       } else {
         nullsCount.setValue(GroupScan.NO_COLUMN_STATS);
       }
@@ -592,7 +592,20 @@ public class ParquetTableMetadataCreator {
         primitiveType = column.getPrimitiveType();
         originalType = column.getOriginalType();
       }
-      TypeProtos.MajorType columnType = ParquetReaderUtility.getType(primitiveType, originalType, scale, precision);
+      TypeProtos.DataMode mode;
+      Integer repetitionLevel = parquetTableMetadata.getRepetitionLevel(column.getName());
+      Integer definitionLevel = parquetTableMetadata.getDefinitionLevel(column.getName());
+      if (repetitionLevel >= 1) {
+        mode = TypeProtos.DataMode.REPEATED;
+      } else if (repetitionLevel == 0 && definitionLevel == 0) {
+        mode = TypeProtos.DataMode.REQUIRED;
+      } else {
+        mode = TypeProtos.DataMode.OPTIONAL;
+      }
+      TypeProtos.MajorType columnType =
+          TypeProtos.MajorType.newBuilder(ParquetReaderUtility.getType(primitiveType, originalType, scale, precision))
+              .setMode(mode)
+              .build();
 
       SchemaPath columnPath = SchemaPath.getCompoundPath(column.getName());
       TypeProtos.MajorType majorType = columns.get(columnPath);

@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -196,12 +197,20 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     return newScan;
   }
 
+  private List<ReadEntryWithPath> entries() {
+    return files.stream()
+      .map(file -> new ReadEntryWithPath(file.getLocation()))
+      .collect(Collectors.toList());
+  }
+
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
     builder.append("ParquetGroupScan [");
-    builder.append("entries=").append(entries);
+    builder.append("entries=").append(entries());
     builder.append(", selectionRoot=").append(selectionRoot);
+    // TODO: solve whether print entries when no pruning is done or list of files
+    //  and the actual number instead of root and 1 file...
     builder.append(", numFiles=").append(getEntries().size());
     builder.append(", numRowGroups=").append(rowGroups.size());
     builder.append(", usedMetadataFile=").append(usedMetadataCache);

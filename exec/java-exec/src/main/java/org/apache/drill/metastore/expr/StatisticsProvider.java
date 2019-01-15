@@ -83,7 +83,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
             .scale(0)
             .named("decimal_type")
           .comparator()
-        .compare(b1, b2));
+        .compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
 
   private final Map<SchemaPath, ColumnStatistic> columnStatMap;
   private final long rowCount;
@@ -105,7 +105,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
 
   @Override
   public ColumnStatistic visitTypedFieldExpr(TypedFieldExpr typedFieldExpr, Void value) throws RuntimeException {
-    final ColumnStatistic columnStatistic = columnStatMap.get(typedFieldExpr.getPath());
+    final ColumnStatistic columnStatistic = columnStatMap.get(typedFieldExpr.getPath().getUnIndexed());
     if (columnStatistic != null) {
       return columnStatistic;
     } else if (typedFieldExpr.getMajorType().equals(Types.OPTIONAL_INT)) {

@@ -18,6 +18,7 @@
 package org.apache.drill.metastore.expr;
 
 import org.apache.drill.exec.expr.stat.ParquetFilterPredicate.RowsMatch;
+import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -75,7 +76,8 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
     return stat == null
         || !stat.containsStatistic(ColumnStatisticsKind.MIN_VALUE)
         || !stat.containsStatistic(ColumnStatisticsKind.MAX_VALUE)
-        || !stat.containsStatistic(ColumnStatisticsKind.NULLS_COUNT);
+        || !stat.containsStatistic(ColumnStatisticsKind.NULLS_COUNT)
+        || (long) stat.getStatistic(ColumnStatisticsKind.NULLS_COUNT) == GroupScan.NO_COLUMN_STATS;
   }
 
   /**
@@ -132,7 +134,9 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
   }
 
   static boolean hasNonNullValues(ColumnStatistic stat, long rowCount) {
-    return rowCount > (long) stat.getStatistic(ColumnStatisticsKind.NULLS_COUNT);
+    return rowCount > (long) stat.getStatistic(ColumnStatisticsKind.NULLS_COUNT)
+      && stat.getValueStatistic(ColumnStatisticsKind.MIN_VALUE) != null
+      && stat.getValueStatistic(ColumnStatisticsKind.MAX_VALUE) != null;
   }
 
   /**

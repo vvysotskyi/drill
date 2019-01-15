@@ -149,7 +149,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
         FilterPredicate parquetFilterPredicate =
             groupScan.getFilterPredicate(drillPredicate,
                 optimizerContext,
-                optimizerContext.getFunctionRegistry(), false, groupScan.getColumnsMap());
+                optimizerContext.getFunctionRegistry(), optimizerContext.getPlannerSettings().getOptions(), false);
         // collects predicates that contain unsupported for filter pushdown expressions
         // to build filter with them
         if (parquetFilterPredicate == null) {
