@@ -17,16 +17,13 @@
  */
 package org.apache.drill.exec.planner.logical;
 
-import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Project;
-import org.apache.calcite.rel.logical.LogicalProject;
-import org.apache.calcite.rex.RexUtil;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.tools.RelBuilder;
-import org.apache.calcite.util.Permutation;
+import org.apache.calcite.rel.rules.ProjectMergeRule;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.calcite.rel.core.RelFactories.ProjectFactory;
 import org.apache.calcite.rex.RexCall;
@@ -36,21 +33,10 @@ import org.apache.drill.exec.planner.physical.PrelFactories;
 
 import java.util.List;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Rule for merging two projects provided the projects aren't projecting identical sets of
- * input references.
- *
- * NOTE: This rules does not extend the Calcite ProjectMergeRule
- * because of CALCITE-2223. Once, fixed this rule be changed accordingly. Please see DRILL-6501.
- */
-public class DrillMergeProjectRule extends RelOptRule {
+public class DrillMergeProjectRule extends ProjectMergeRule {
 
   private FunctionImplementationRegistry functionRegistry;
   private static DrillMergeProjectRule INSTANCE = null;
-  private final boolean force;
 
   public static DrillMergeProjectRule getInstance(boolean force, ProjectFactory pFactory,
       FunctionImplementationRegistry functionRegistry) {
@@ -63,11 +49,7 @@ public class DrillMergeProjectRule extends RelOptRule {
   private DrillMergeProjectRule(boolean force, ProjectFactory pFactory,
       FunctionImplementationRegistry functionRegistry) {
 
-    super(operand(LogicalProject.class,
-        operand(LogicalProject.class, any())),
-        DrillRelBuilder.proto(pFactory),
-        "DrillMergeProjectRule" + (force ? ":force_mode" : ""));
-    this.force = force;
+    super(force, DrillRelBuilder.proto(pFactory));
     this.functionRegistry = functionRegistry;
   }
 
@@ -75,6 +57,12 @@ public class DrillMergeProjectRule extends RelOptRule {
   public boolean matches(RelOptRuleCall call) {
     Project topProject = call.rel(0);
     Project bottomProject = call.rel(1);
+
+    // Make sure both projects be LogicalProject.
+    if (topProject.getTraitSet().getTrait(ConventionTraitDef.INSTANCE) != Convention.NONE ||
+        bottomProject.getTraitSet().getTrait(ConventionTraitDef.INSTANCE) != Convention.NONE) {
+      return false;
+    }
 
     // We have a complex output type do not fire the merge project rule
     if (checkComplexOutput(topProject) || checkComplexOutput(bottomProject)) {
@@ -95,88 +83,6 @@ public class DrillMergeProjectRule extends RelOptRule {
     return false;
   }
 
-  @Override
-  public void onMatch(RelOptRuleCall call) {
-    final Project topProject = call.rel(0);
-    final Project bottomProject = call.rel(1);
-    final RelBuilder relBuilder = call.builder();
-
-    // If one or both projects are permutations, short-circuit the complex logic
-    // of building a RexProgram.
-    final Permutation topPermutation = topProject.getPermutation();
-    if (topPermutation != null) {
-      if (topPermutation.isIdentity()) {
-        // Let ProjectRemoveRule handle this.
-        return;
-      }
-      final Permutation bottomPermutation = bottomProject.getPermutation();
-      if (bottomPermutation != null) {
-        if (bottomPermutation.isIdentity()) {
-          // Let ProjectRemoveRule handle this.
-          return;
-        }
-        final Permutation product = topPermutation.product(bottomPermutation);
-        relBuilder.push(bottomProject.getInput());
-        relBuilder.project(relBuilder.fields(product),
-            topProject.getRowType().getFieldNames());
-        call.transformTo(relBuilder.build());
-        return;
-      }
-    }
-
-    // If we're not in force mode and the two projects reference identical
-    // inputs, then return and let ProjectRemoveRule replace the projects.
-    if (!force) {
-      if (RexUtil.isIdentity(topProject.getProjects(),
-          topProject.getInput().getRowType())) {
-        return;
-      }
-    }
-
-    final List<RexNode> pushedProjects =
-        RelOptUtil.pushPastProject(topProject.getProjects(), bottomProject);
-    final List<RexNode> newProjects = simplifyCast(pushedProjects);
-    final RelNode input = bottomProject.getInput();
-    if (RexUtil.isIdentity(newProjects, input.getRowType())) {
-      if (force
-          || input.getRowType().getFieldNames()
-          .equals(topProject.getRowType().getFieldNames())) {
-        call.transformTo(input);
-        return;
-      }
-    }
-
-    // replace the two projects with a combined projection
-    relBuilder.push(bottomProject.getInput());
-    relBuilder.project(newProjects, topProject.getRowType().getFieldNames());
-    call.transformTo(relBuilder.build());
-  }
-
-  public static List<RexNode> simplifyCast(List<RexNode> projectExprs) {
-    final List<RexNode> list = new ArrayList<>();
-    for (RexNode rex: projectExprs) {
-      if (rex.getKind() == SqlKind.CAST) {
-        RexNode operand = ((RexCall) rex).getOperands().get(0);
-        while (operand.getKind() == SqlKind.CAST
-            && operand.getType().equals(rex.getType())) {
-          rex = operand;
-          operand = ((RexCall) rex).getOperands().get(0);
-        }
-
-      }
-      list.add(rex);
-    }
-    return list;
-  }
-
-  /**
-   * The purpose of the replace() method is to allow the caller to replace a 'top' and 'bottom' project with
-   * a single merged project with the assumption that caller knows exactly the semantics/correctness of merging
-   * the two projects. This is not applying the full fledged DrillMergeProjectRule.
-   * @param topProject
-   * @param bottomProject
-   * @return new project after replacement
-   */
   public static Project replace(Project topProject, Project bottomProject) {
     final List<RexNode> newProjects =
         RelOptUtil.pushPastProject(topProject.getProjects(), bottomProject);
@@ -197,5 +103,4 @@ public class DrillMergeProjectRule extends RelOptRule {
       return (Project) newProjectRel;
     }
   }
-
 }
