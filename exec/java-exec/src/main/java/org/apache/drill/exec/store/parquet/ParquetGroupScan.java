@@ -89,6 +89,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.files = metadataCreator.getFilesMetadata();
     this.usedMetadataCache = metadataCreator.isUsedMetadataCache();
     this.entries = metadataCreator.getEntries();
+    this.partitionColumns = metadataCreator.getPartitionColumns();
 
     init();
   }
@@ -124,6 +125,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.partitions = metadataCreator.getPartitionMetadata();
     this.usedMetadataCache = metadataCreator.isUsedMetadataCache();
     this.entries = metadataCreator.getEntries();
+    this.partitionColumns = metadataCreator.getPartitionColumns();
 
     // TODO: initialize TableMetadata, FileMetadata and RowGroupMetadata from
     //  parquetTableMetadata if it wasn't fetched from the metastore using ParquetTableMetadataCreator

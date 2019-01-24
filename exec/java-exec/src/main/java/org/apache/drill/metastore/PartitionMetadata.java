@@ -22,34 +22,36 @@ import org.apache.drill.common.types.TypeProtos;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 // actually this class represents not a partition metadata,
 // but a metadata for table part which corresponds to the concrete partition key.
 // Therefore such fields as Map<String, Object> values should be removed.
 public class PartitionMetadata implements BaseMetadata {
-  private final String columnName;
+  private final SchemaPath column;
   // part location -> part column value
-  private final Map<String, Object> values;
+//  private final Map<String, Object> values;
   // TODO: currently it is impossible to obtain statistics for the concrete partition.
   // Refactor this code to allow that.
   private final LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;
   private final Map<String, Object> partitionStatistics;
   // TODO: decide which of these: fileName or location should be left.
-  private final String location;
+  private final Set<String> location;
   // TODO: decide whether this field is required
   private final String tableName;
   private final long lastModifiedTime;
 
-  public PartitionMetadata(String columnName,
-      Map<String, Object> values,
+  public PartitionMetadata(SchemaPath column,
+//      Map<String, Object> values,
       LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields,
       Map<SchemaPath, ColumnStatistic> columnStatistics,
-      Map<String, Object> partitionStatistics, String location,
+      Map<String, Object> partitionStatistics,
+      Set<String> location,
       String tableName,
       long lastModifiedTime) {
-    this.columnName = columnName;
-    this.values = values;
+    this.column = column;
+//    this.values = values;
     this.fields = fields;
     this.columnStatistics = columnStatistics;
     this.partitionStatistics = partitionStatistics;
@@ -58,15 +60,15 @@ public class PartitionMetadata implements BaseMetadata {
     this.lastModifiedTime = lastModifiedTime;
   }
 
-  public String getColumnName() {
-    return columnName;
+  public SchemaPath getColumn() {
+    return column;
   }
 
-  public Map<String, Object> getValues() {
-    return values;
-  }
+//  public Map<String, Object> getValues() {
+//    return values;
+//  }
 
-  public String getLocation() {
+  public Set<String> getLocation() {
     return location;
   }
 

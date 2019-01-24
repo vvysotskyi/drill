@@ -50,9 +50,6 @@ import org.apache.parquet.schema.DecimalMetadata;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,7 +57,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVisitor<Statistics<T>, Void, RuntimeException> {
-  private static final Logger logger = LoggerFactory.getLogger(RangeExprEvaluator.class);
 
   private final Map<SchemaPath, ColumnStatistics<T>> columnStatMap;
   private final long rowCount;
@@ -334,32 +330,37 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
   public static final Map<TypeProtos.MinorType, Set<TypeProtos.MinorType>> CAST_FUNC = new HashMap<>();
   static {
     // float -> double , int, bigint
-    CAST_FUNC.put(TypeProtos.MinorType.FLOAT4, new HashSet<>());
-    CAST_FUNC.get(TypeProtos.MinorType.FLOAT4).add(TypeProtos.MinorType.FLOAT8);
-    CAST_FUNC.get(TypeProtos.MinorType.FLOAT4).add(TypeProtos.MinorType.INT);
-    CAST_FUNC.get(TypeProtos.MinorType.FLOAT4).add(TypeProtos.MinorType.BIGINT);
+    HashSet<TypeProtos.MinorType> float4Types = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.FLOAT4, float4Types);
+    float4Types.add(TypeProtos.MinorType.FLOAT8);
+    float4Types.add(TypeProtos.MinorType.INT);
+    float4Types.add(TypeProtos.MinorType.BIGINT);
 
     // double -> float, int, bigint
-    CAST_FUNC.put(TypeProtos.MinorType.FLOAT8, new HashSet<>());
-    CAST_FUNC.get(TypeProtos.MinorType.FLOAT8).add(TypeProtos.MinorType.FLOAT4);
-    CAST_FUNC.get(TypeProtos.MinorType.FLOAT8).add(TypeProtos.MinorType.INT);
-    CAST_FUNC.get(TypeProtos.MinorType.FLOAT8).add(TypeProtos.MinorType.BIGINT);
+    HashSet<TypeProtos.MinorType> float8Types = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.FLOAT8, float8Types);
+    float8Types.add(TypeProtos.MinorType.FLOAT4);
+    float8Types.add(TypeProtos.MinorType.INT);
+    float8Types.add(TypeProtos.MinorType.BIGINT);
 
     // int -> float, double, bigint
-    CAST_FUNC.put(TypeProtos.MinorType.INT, new HashSet<>());
-    CAST_FUNC.get(TypeProtos.MinorType.INT).add(TypeProtos.MinorType.FLOAT4);
-    CAST_FUNC.get(TypeProtos.MinorType.INT).add(TypeProtos.MinorType.FLOAT8);
-    CAST_FUNC.get(TypeProtos.MinorType.INT).add(TypeProtos.MinorType.BIGINT);
+    HashSet<TypeProtos.MinorType> intTypes = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.INT, intTypes);
+    intTypes.add(TypeProtos.MinorType.FLOAT4);
+    intTypes.add(TypeProtos.MinorType.FLOAT8);
+    intTypes.add(TypeProtos.MinorType.BIGINT);
 
     // bigint -> int, float, double
-    CAST_FUNC.put(TypeProtos.MinorType.BIGINT, new HashSet<>());
-    CAST_FUNC.get(TypeProtos.MinorType.BIGINT).add(TypeProtos.MinorType.INT);
-    CAST_FUNC.get(TypeProtos.MinorType.BIGINT).add(TypeProtos.MinorType.FLOAT4);
-    CAST_FUNC.get(TypeProtos.MinorType.BIGINT).add(TypeProtos.MinorType.FLOAT8);
+    HashSet<TypeProtos.MinorType> bigIntTypes = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.BIGINT, bigIntTypes);
+    bigIntTypes.add(TypeProtos.MinorType.INT);
+    bigIntTypes.add(TypeProtos.MinorType.FLOAT4);
+    bigIntTypes.add(TypeProtos.MinorType.FLOAT8);
 
     // date -> timestamp
-    CAST_FUNC.put(TypeProtos.MinorType.DATE, new HashSet<>());
-    CAST_FUNC.get(TypeProtos.MinorType.DATE).add(TypeProtos.MinorType.TIMESTAMP);
+    HashSet<TypeProtos.MinorType> dateTypes = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.DATE, dateTypes);
+    dateTypes.add(TypeProtos.MinorType.TIMESTAMP);
   }
 
 }

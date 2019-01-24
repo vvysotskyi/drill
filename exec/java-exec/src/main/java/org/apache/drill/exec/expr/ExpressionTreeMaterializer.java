@@ -307,8 +307,12 @@ public class ExpressionTreeMaterializer {
     public LogicalExpression visitSchemaPath(SchemaPath path, FunctionLookupContext functionLookupContext) {
       MajorType type = null;
 
-      if (types.containsKey(path)) {
-        type = types.get(path);
+      if (types.containsKey(path.getUnIndexed())) {
+        type = types.get(path.getUnIndexed());
+        // for the case when specified path refers to array element, makes its type optional
+        if (path.isArray()) {
+          type = type.toBuilder().setMode(DataMode.OPTIONAL).build();
+        }
       }
 
       if (type != null) {

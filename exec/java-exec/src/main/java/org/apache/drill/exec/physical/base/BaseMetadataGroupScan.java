@@ -66,7 +66,7 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   protected String tableLocation;
   protected String tableName;
 
-  // partition metadata info
+  // partition metadata info: mixed partition values for all partition keys in the same list
   protected List<PartitionMetadata> partitions;
 //  protected List<String> partitionLocations;
 
@@ -140,7 +140,11 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
    */
   @Override
   public long getColumnValueCount(SchemaPath column) {
-    return (long) tableMetadata.getColumnStats(column).getStatistic(TableStatistics.ROW_COUNT);
+    long tableRowCount = (long) TableStatistics.ROW_COUNT.getValue(tableMetadata);
+    long colNulls = (long) tableMetadata.getColumnStats(column).getStatistic(ColumnStatisticsKind.NULLS_COUNT);
+    return GroupScan.NO_COLUMN_STATS == tableRowCount
+        || GroupScan.NO_COLUMN_STATS == colNulls
+      ? GroupScan.NO_COLUMN_STATS : tableRowCount - colNulls;
   }
 
   @Override
@@ -223,10 +227,11 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
 
   protected List<FileMetadata> pruneFilesForPartitions(List<PartitionMetadata> filteredPartitionMetadata) {
     List<FileMetadata> prunedFiles = new ArrayList<>();
-    for (PartitionMetadata filteredPartition : filteredPartitionMetadata) {
-      for (FileMetadata file : files) {
-        if (file.getLocation().startsWith(filteredPartition.getLocation())) {
+    for (FileMetadata file : files) {
+      for (PartitionMetadata filteredPartition : filteredPartitionMetadata) {
+        if (filteredPartition.getLocation().contains(file.getLocation())) {
           prunedFiles.add(file);
+          break;
         }
       }
     }
@@ -463,10 +468,10 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   @JsonIgnore
   public <T> T getPartitionValue(String path, SchemaPath column, Class<T> clazz) {
     // TODO: add path-to-file metadata map to avoid filtering
-    return files.stream()
-        .filter(file -> file.getLocation().equals(path))
+    return partitions.stream()
+        .filter(file -> file.getLocation().contains(path))
         .findAny()
-        .map(metadata -> clazz.cast(metadata.getStatistic(ColumnStatisticsKind.MIN_VALUE)))
+        .map(metadata -> clazz.cast(metadata.getColumnStatistics().get(column).getStatistic(ColumnStatisticsKind.MAX_VALUE)))
         .orElse(null);
 //    parquetGroupScanStatistics.getPartitionValue(path, column));
   }

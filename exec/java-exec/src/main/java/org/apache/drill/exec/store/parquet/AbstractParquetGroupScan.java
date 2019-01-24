@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.metastore.ColumnStatisticsKind;
+import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
@@ -70,7 +71,6 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
 //  protected ParquetTableMetadataBase parquetTableMetadata;
 //  private List<RowGroupInfo> rowGroupInfos;
   protected ListMultimap<Integer, RowGroupInfo> mappings;
-  protected Set<String> fileSet;
   protected ParquetReaderConfig readerConfig;
 
   private List<EndpointAffinity> endpointAffinities;
@@ -89,6 +89,7 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
   // immutable copy constructor
   protected AbstractParquetGroupScan(AbstractParquetGroupScan that) {
     super(that.getUserName(), that.getColumns(), that.getFilter());
+    this.partitionColumns = that.partitionColumns;
     this.rowGroups = that.rowGroups;
     this.files = that.files;
     this.tableMetadata = that.tableMetadata;
@@ -311,21 +312,18 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
     }
   }
 
-  protected List<RowGroupMetadata> pruneRowGroupsForFiles(List<FileMetadata> filteredPartitionMetadata) {
-    List<RowGroupMetadata> prunedFiles = new ArrayList<>();
-//    rowGroups.entries().stream()
-//        .filter(entry -> filteredPartitionMetadata.contains(entry.getKey()))
-//        .forEach(entry -> prunedFiles.put(entry.getKey(), entry.getValue()));
-
-    for (FileMetadata filteredPartition : filteredPartitionMetadata) {
-      for (RowGroupMetadata file : rowGroups) {
+  protected List<RowGroupMetadata> pruneRowGroupsForFiles(List<FileMetadata> filteredFileMetadata) {
+    List<RowGroupMetadata> prunedRowGroups = new ArrayList<>();
+    for (RowGroupMetadata file : rowGroups) {
+      for (FileMetadata filteredPartition : filteredFileMetadata) {
         if (file.getLocation().startsWith(filteredPartition.getLocation())) {
-          prunedFiles.add(file);
+          prunedRowGroups.add(file);
+          break;
         }
       }
     }
 
-    return prunedFiles;
+    return prunedRowGroups;
   }
   // filter push down methods block end
 
@@ -396,9 +394,15 @@ public abstract class AbstractParquetGroupScan extends BaseMetadataGroupScan {
         .filter(entry -> fileSet.contains(entry.getLocation()))
         .collect(Collectors.toList());
 
-    partitions = partitions.stream()
-        .filter(entry -> fileSet.contains(entry.getLocation()))
-        .collect(Collectors.toList());
+    List<PartitionMetadata> list = new ArrayList<>();
+    for (PartitionMetadata entry : partitions) {
+      for (String partLocation : entry.getLocation()) {
+        if (fileSet.contains(partLocation)) {
+          list.add(entry);
+        }
+      }
+    }
+    partitions = list;
   }
 
   // protected methods block

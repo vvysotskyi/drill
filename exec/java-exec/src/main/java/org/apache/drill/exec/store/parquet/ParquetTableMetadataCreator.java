@@ -34,6 +34,7 @@ import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.logical.FormatPluginConfig;
@@ -47,6 +48,7 @@ import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
 import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.drill.shaded.guava.com.google.common.collect.Table;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -59,6 +61,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -79,7 +82,7 @@ public class ParquetTableMetadataCreator {
 
   protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
   private Set<String> fileSet;
-  protected ParquetReaderConfig readerConfig;
+  protected final ParquetReaderConfig readerConfig;
 
   private final ParquetFormatPlugin formatPlugin;
   private final ParquetFormatConfig formatConfig;
@@ -89,6 +92,8 @@ public class ParquetTableMetadataCreator {
   // may change when filter push down / partition pruning is applied
   private String selectionRoot;
   private String cacheFileRoot;
+
+  private List<SchemaPath> partitionColumns;
 
   public ParquetTableMetadataCreator(StoragePluginRegistry engineRegistry,
                           String userName,
@@ -104,14 +109,14 @@ public class ParquetTableMetadataCreator {
     Preconditions.checkNotNull(formatConfig);
     this.formatPlugin = (ParquetFormatPlugin) engineRegistry.getFormatPlugin(storageConfig, formatConfig);
     Preconditions.checkNotNull(formatPlugin);
-    this.fs = ImpersonationUtil.createFileSystem(userName, formatPlugin.getFsConf());
+    this.fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
     this.formatConfig = formatPlugin.getConfig();
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
     this.metaContext = new MetadataContext();
 
     this.fileSet = fileSet;
-    this.readerConfig = readerConfig;
+    this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
 
     init();
   }
@@ -121,11 +126,11 @@ public class ParquetTableMetadataCreator {
                                      ParquetFormatPlugin formatPlugin,
                                      ParquetReaderConfig readerConfig) throws IOException {
     this.entries = new ArrayList<>();
-    this.readerConfig = readerConfig;
+    this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
 
     this.formatPlugin = formatPlugin;
     this.formatConfig = formatPlugin.getConfig();
-    this.fs = ImpersonationUtil.createFileSystem(userName, formatPlugin.getFsConf());
+    this.fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
     this.selectionRoot = selection.getSelectionRoot();
     this.cacheFileRoot = selection.getCacheFileRoot();
 
@@ -183,25 +188,108 @@ public class ParquetTableMetadataCreator {
   }
 
   public List<PartitionMetadata> getPartitionMetadata() {
+    Table<SchemaPath, Object, List<FileMetadata>> colValFile = HashBasedTable.create();
+    ParquetGroupScanStatistics parquetGroupScanStatistics = new ParquetGroupScanStatistics(getFilesMetadata());
+    List<FileMetadata> filesMetadata = getFilesMetadata();
+    partitionColumns = parquetGroupScanStatistics.getPartitionColumns();
+    for (FileMetadata fileMetadata : filesMetadata) {
+      for (SchemaPath partitionColumn : partitionColumns) {
+        Object partitionValue = parquetGroupScanStatistics.getPartitionValue(fileMetadata.getLocation(), partitionColumn);
+        List<FileMetadata> partitionFiles = colValFile.get(partitionColumn, partitionValue);
+        if (partitionFiles == null) {
+          partitionFiles = new ArrayList<>();
+          colValFile.put(partitionColumn, partitionValue, partitionFiles);
+        }
+        partitionFiles.add(fileMetadata);
+      }
+    }
+
     List<PartitionMetadata> result = new ArrayList<>();
-    // TODO: add logic to discover partitions
+
+    for (SchemaPath logicalExpressions : colValFile.rowKeySet()) {
+      for (List<FileMetadata> partValues : colValFile.row(logicalExpressions).values()) {
+        result.add(getPartitionMetadata(logicalExpressions, partValues));
+      }
+    }
 
     return result;
   }
 
-  protected PartitionMetadata getPartitionMetadata(MetadataBase.ParquetFileMetadata file) {
-    LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getFileFields(parquetTableMetadata, file);
+  protected PartitionMetadata getPartitionMetadata(SchemaPath logicalExpressions, List<FileMetadata> files) {
+    Set<SchemaPath> columns = files.iterator().next().getFields().keySet();
+    Map<SchemaPath, MutableLong> nullsCounts = new HashMap<>();
+    Map<SchemaPath, Object> minVals = new HashMap<>();
+    Map<SchemaPath, Object> maxVals = new HashMap<>();
+    Map<SchemaPath, Comparator> valComparator = new HashMap<>();
+    Set<String> locations = new HashSet<>();
+    for (SchemaPath column : columns) {
+      nullsCounts.put(column, new MutableLong());
+    }
 
+    long partRowCount = 0;
 
-    HashMap<String, Object> fileStatistics = new HashMap<>();
-    fileStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getFileRowCount(file));
+    for (FileMetadata file : files) {
+      locations.add(file.getLocation());
+      Long fileRowCount = (Long) file.getStatistic(ColumnStatisticsKind.ROW_COUNT);
+      if (fileRowCount != null && fileRowCount != GroupScan.NO_COLUMN_STATS) {
+        partRowCount += fileRowCount;
+      }
+      for (SchemaPath colPath : file.getFields().keySet()) {
+        ColumnStatistic columnStatistic = file.getColumnStatistics().get(colPath);
 
-    return null;
-//      new PartitionMetadata(file.getPath(), columns,
-//        getFileColumnStatistics(file, columns.keySet()), fileStatistics, file.getPath(), selectionRoot, -1);
+        MutableLong nullsCount = nullsCounts.get(colPath);
+
+        if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
+          Long nulls = (Long) columnStatistic.getStatistic(ColumnStatisticsKind.NULLS_COUNT);
+          if (nulls != null && GroupScan.NO_COLUMN_STATS != nulls) {
+            nullsCount.add(nulls);
+          } else {
+            nullsCount.setValue(GroupScan.NO_COLUMN_STATS);
+          }
+        }
+
+        Comparator comparator = columnStatistic.getValueComparator();
+        valComparator.put(colPath, comparator);
+
+        Object min = columnStatistic.getStatistic(ColumnStatisticsKind.MIN_VALUE);
+        Object max = columnStatistic.getStatistic(ColumnStatisticsKind.MAX_VALUE);
+
+        Object prevMin = minVals.get(colPath);
+        if (min != null && (comparator.compare(prevMin, min) > 0 || prevMin == null)) {
+          minVals.put(colPath, min);
+        }
+        if (max != null && comparator.compare(maxVals.get(colPath), max) < 0) {
+          maxVals.put(colPath, max);
+        }
+      }
+    }
+
+    HashMap<SchemaPath, ColumnStatistic> columnStatistics = new HashMap<>();
+
+    for (SchemaPath column : columns) {
+      Map<String, Object> statistics = new HashMap<>();
+      statistics.put(ColumnStatisticsKind.MIN_VALUE.getName(), minVals.get(column));
+      statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), maxVals.get(column));
+      statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), nullsCounts.get(column).getValue());
+      columnStatistics.put(column, new ColumnStatisticImpl(statistics, valComparator.get(column)));
+    }
+
+    HashMap<String, Object> partStatistics = new HashMap<>();
+    partStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), partRowCount);
+
+    return
+      new PartitionMetadata(logicalExpressions, (LinkedHashMap<SchemaPath, TypeProtos.MajorType>) files.iterator().next().getFields(),
+          columnStatistics, partStatistics, locations, selectionRoot, -1);
+  }
+
+  public List<SchemaPath> getPartitionColumns() {
+    return partitionColumns;
   }
 
   public List<FileMetadata> getFilesMetadata() {
+    if (entries.isEmpty()) {
+      return Collections.emptyList();
+    }
     List<FileMetadata> result = new ArrayList<>();
     for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
       FileMetadata fileMetadata = getFileMetadata(file);
@@ -329,7 +417,8 @@ public class ParquetTableMetadataCreator {
       minVals.put(colPath, min);
       maxVals.put(colPath, max);
     } else {
-      if (min != null && comparator.compare(minVals.get(colPath), min) > 0) {
+      Object prevMin = minVals.get(colPath);
+      if (min != null && (comparator.compare(prevMin, min) > 0 || prevMin == null)) {
         minVals.put(colPath, min);
       }
       if (max != null && comparator.compare(maxVals.get(colPath), max) < 0) {
@@ -462,8 +551,12 @@ public class ParquetTableMetadataCreator {
           return StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR;
         case UTF8:
           return StatisticsProvider.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
+        case INTERVAL:
+          return StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR;
         default:
-          return Comparator.nullsFirst((o1, o2) -> Statistics.getStatsBasedOnType(primitiveType).comparator().compare(o1, o2));
+          return Comparator.nullsFirst((byte[] o1, byte[] o2) ->
+              Statistics.getStatsBasedOnType(primitiveType).comparator()
+                  .compare(Binary.fromReusedByteArray(o1), Binary.fromReusedByteArray(o2)));
       }
     } else {
       switch (primitiveType) {
