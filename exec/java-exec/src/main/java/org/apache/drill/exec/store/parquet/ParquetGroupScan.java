@@ -24,6 +24,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
+import org.apache.drill.exec.physical.base.ScanStats;
+import org.apache.drill.metastore.RowGroupMetadata;
+import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -31,7 +35,6 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
-import org.apache.drill.exec.physical.base.BaseMetadataGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
@@ -184,6 +187,18 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
 
   @Override
+  public ScanStats getScanStats() {
+    int columnCount = columns == null ? 20 : columns.size();
+    // TODO: add check for metadata availability
+    long rowCount = 0;
+    for (RowGroupMetadata file : rowGroups) {
+      rowCount += (long) file.getStatistic(TableStatistics.ROW_COUNT);
+    }
+
+    return new ScanStats(ScanStats.GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, rowCount * columnCount);
+  }
+
+  @Override
   public GroupScan clone(List<SchemaPath> columns) {
     ParquetGroupScan newScan = new ParquetGroupScan(this);
     newScan.columns = columns;
@@ -200,9 +215,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
 
   private List<ReadEntryWithPath> entries() {
-    return files.stream()
-      .map(file -> new ReadEntryWithPath(file.getLocation()))
-      .collect(Collectors.toList());
+    return entries;
   }
 
   @Override
@@ -282,7 +295,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     }
 
     @Override
-    public BaseMetadataGroupScan build() {
+    public AbstractMetadataGroupScan build() {
       ParquetGroupScan groupScan = new ParquetGroupScan(source);
       groupScan.tableMetadata = tableMetadata.get(0);
       groupScan.partitions = partitions != null ? partitions : Collections.emptyList();
@@ -290,6 +303,9 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
       groupScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();
       groupScan.partitionColumns = source.partitionColumns;
       groupScan.usedMetadataCache = source.usedMetadataCache;
+      groupScan.entries = groupScan.files.stream()
+          .map(file -> new ReadEntryWithPath(file.getLocation()))
+          .collect(Collectors.toList());
 
       return groupScan;
     }

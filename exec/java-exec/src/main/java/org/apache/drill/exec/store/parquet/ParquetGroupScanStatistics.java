@@ -36,7 +36,6 @@ import java.util.Objects;
  * including information about total row count, columns counts, partition columns.
  */
 public class ParquetGroupScanStatistics {
-  private static Object NULL_VALUE = new Object();
 
   // map from file names to maps of column name to partition value mappings
   private Map<String, Map<SchemaPath, Object>> partitionValueMap;
@@ -112,7 +111,7 @@ public class ParquetGroupScanStatistics {
             // the value of a column with primitive type can not be null,
             // so checks that there are really null value and puts it to the map
             if (rowCount == column.getStatistic(ColumnStatisticsKind.NULLS_COUNT)) {
-              map.put(schemaPath, NULL_VALUE);
+              map.put(schemaPath, null);
             } else {
               map.put(schemaPath, currentValue);
             }

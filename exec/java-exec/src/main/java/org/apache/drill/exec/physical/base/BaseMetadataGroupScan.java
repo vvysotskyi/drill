@@ -156,7 +156,11 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   public ScanStats getScanStats() {
     int columnCount = columns == null ? 20 : columns.size();
     // TODO: add check for metadata availability
-    long rowCount = (long) tableMetadata.getStatistic(TableStatistics.ROW_COUNT);
+    long rowCount = 0;
+    for (FileMetadata file : files) {
+      rowCount += (long) file.getStatistic(TableStatistics.ROW_COUNT);
+    }
+
     ScanStats scanStats = new ScanStats(ScanStats.GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, rowCount * columnCount);
     logger.trace("Drill parquet scan statistics: {}", scanStats);
     return scanStats;
@@ -469,11 +473,10 @@ public abstract class BaseMetadataGroupScan extends AbstractFileGroupScan {
   public <T> T getPartitionValue(String path, SchemaPath column, Class<T> clazz) {
     // TODO: add path-to-file metadata map to avoid filtering
     return partitions.stream()
-        .filter(file -> file.getLocation().contains(path))
+        .filter(partition -> partition.getColumn().equals(column) && partition.getLocation().contains(path))
         .findAny()
         .map(metadata -> clazz.cast(metadata.getColumnStatistics().get(column).getStatistic(ColumnStatisticsKind.MAX_VALUE)))
         .orElse(null);
-//    parquetGroupScanStatistics.getPartitionValue(path, column));
   }
 
   @JsonIgnore

@@ -78,6 +78,8 @@ import java.util.stream.Collectors;
 public class ParquetTableMetadataCreator {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetTableMetadataCreator.class);
 
+  private static Object NULL_VALUE = new Object();
+
   protected List<ReadEntryWithPath> entries;
 
   protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
@@ -195,6 +197,8 @@ public class ParquetTableMetadataCreator {
     for (FileMetadata fileMetadata : filesMetadata) {
       for (SchemaPath partitionColumn : partitionColumns) {
         Object partitionValue = parquetGroupScanStatistics.getPartitionValue(fileMetadata.getLocation(), partitionColumn);
+        // Table cannot contain nulls
+        partitionValue = partitionValue == null ? NULL_VALUE : partitionValue;
         List<FileMetadata> partitionFiles = colValFile.get(partitionColumn, partitionValue);
         if (partitionFiles == null) {
           partitionFiles = new ArrayList<>();
