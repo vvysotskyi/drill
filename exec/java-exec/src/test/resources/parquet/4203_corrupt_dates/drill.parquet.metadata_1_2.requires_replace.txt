@@ -1,7 +1,7 @@
 {
   "metadata_version" : "v1",
   "files" : [ {
-    "path" : "REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_1.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_1.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -20,7 +20,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_2.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_2.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -39,7 +39,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_3.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_3.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -58,7 +58,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_4.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_4.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -77,7 +77,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_5.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_5.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -96,7 +96,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_6.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/partitioned_with_corruption_4203_1_2/0_0_6.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,

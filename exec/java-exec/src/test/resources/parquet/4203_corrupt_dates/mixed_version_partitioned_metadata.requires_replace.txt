@@ -8,7 +8,7 @@
     }
   },
   "files" : [ {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_1.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_1.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -24,7 +24,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_2.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_2.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -40,7 +40,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_3.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_3.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -56,7 +56,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_4.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_4.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -72,7 +72,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_5.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_5.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -88,7 +88,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_6.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption/0_0_6.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -104,7 +104,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_1.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_1.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -120,7 +120,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_2.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_2.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -136,7 +136,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_3.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_3.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -152,7 +152,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_4.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_4.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -168,7 +168,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_5.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_5.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -184,7 +184,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_6.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203/0_0_6.parquet",
     "length" : 257,
     "rowGroups" : [ {
       "start" : 4,
@@ -200,7 +200,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/0_0_1.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/0_0_1.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -216,7 +216,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/0_0_2.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/0_0_2.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -232,7 +232,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/0_0_3.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/0_0_3.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -248,7 +248,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/0_0_4.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/0_0_4.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -264,7 +264,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/0_0_5.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/0_0_5.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -280,7 +280,7 @@
       } ]
     } ]
   }, {
-    "path" : "REPLACED_IN_TEST/mixed_partitioned/0_0_6.parquet",
+    "path" : "FILE_PATH_REPLACED_IN_TEST/mixed_partitioned/0_0_6.parquet",
     "length" : 160,
     "rowGroups" : [ {
       "start" : 4,
@@ -296,6 +296,6 @@
       } ]
     } ]
   } ],
-  "directories" : [ "file:REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption", "file:REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203" ],
+  "directories" : [ "DIR_PATH_REPLACED_IN_TEST/mixed_partitioned/1_9_0_partitioned_no_corruption", "DIR_PATH_REPLACED_IN_TEST/mixed_partitioned/partitioned_with_corruption_4203" ],
   "drillVersion" : "1.9.0-SNAPSHOT"
 }

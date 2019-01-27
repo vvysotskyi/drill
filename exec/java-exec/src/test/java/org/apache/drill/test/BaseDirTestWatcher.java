@@ -318,10 +318,10 @@ public class BaseDirTestWatcher extends DirTestWatcher {
   /**
    * This is a convenience method that replaces placeholders in test parquet metadata files.
    * @param metaDataFile The parquet metadata file to do string replacement on.
-   * @param replacePath The path to replace <b>REPLACED_IN_TEST</b> with in the parquet metadata file.
+   * @param replacePath The path to replace <b>FILE_PATH_REPLACED_IN_TEST</b> with in the parquet metadata file.
    * @param customStringReplacement If this is provided a <b>CUSTOM_STRING_REPLACEMENT</b> is replaced in the parquet metadata file with this string.
    */
-  public void replaceMetaDataContents(File metaDataFile, String replacePath, String customStringReplacement) {
+  public void replaceMetaDataContents(File metaDataFile, File replacePath, String customStringReplacement) {
     try {
       String metadataFileContents = FileUtils.readFileToString(metaDataFile, Charsets.UTF_8);
 
@@ -329,7 +329,9 @@ public class BaseDirTestWatcher extends DirTestWatcher {
         metadataFileContents = metadataFileContents.replace("CUSTOM_STRING_REPLACEMENT", customStringReplacement);
       }
 
-      metadataFileContents = metadataFileContents.replace("REPLACED_IN_TEST", replacePath);
+      String canonicalPath = replacePath.getCanonicalPath();
+      metadataFileContents = metadataFileContents.replace("FILE_PATH_REPLACED_IN_TEST",  new org.apache.hadoop.fs.Path(canonicalPath).toString())
+          .replace("DIR_PATH_REPLACED_IN_TEST",  new org.apache.hadoop.fs.Path("file://", canonicalPath).toString());
       FileUtils.write(metaDataFile, metadataFileContents, Charsets.UTF_8);
     } catch (IOException e) {
       throw new RuntimeException("This should not happen", e);

@@ -477,23 +477,19 @@ public class TestParquetMetadataCache extends PlanTestBase {
         File metaFile = dirTestWatcher.copyResourceToTestTmp(
           relativePath.resolve("metadata_directories.requires_replace.txt"),
           tablePath.resolve(Metadata.METADATA_DIRECTORIES_FILENAME));
-        dirTestWatcher.replaceMetaDataContents(metaFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(),
-          null);
+        dirTestWatcher.replaceMetaDataContents(metaFile, dirTestWatcher.getDfsTestTmpDir(), null);
         metaFile = dirTestWatcher.copyResourceToTestTmp(
           relativePath.resolve("metadata_table.requires_replace.txt"),
           tablePath.resolve(Metadata.METADATA_FILENAME));
-        dirTestWatcher.replaceMetaDataContents(metaFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(),
-          null);
+        dirTestWatcher.replaceMetaDataContents(metaFile, dirTestWatcher.getDfsTestTmpDir(), null);
         metaFile = dirTestWatcher.copyResourceToTestTmp(
           relativePath.resolve("metadata_table_t1.requires_replace.txt"),
           absolutePathsMetadataT1.resolve(Metadata.METADATA_FILENAME));
-        dirTestWatcher.replaceMetaDataContents(metaFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(),
-          null);
+        dirTestWatcher.replaceMetaDataContents(metaFile, dirTestWatcher.getDfsTestTmpDir(), null);
         metaFile = dirTestWatcher.copyResourceToTestTmp(
           relativePath.resolve("metadata_table_t2.requires_replace.txt"),
           absolutePathsMetadataT2.resolve(Metadata.METADATA_FILENAME));
-        dirTestWatcher.replaceMetaDataContents(metaFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(),
-          null);
+        dirTestWatcher.replaceMetaDataContents(metaFile, dirTestWatcher.getDfsTestTmpDir(), null);
         String query = String.format("select * from %s", tablePath);
         int expectedRowCount = 50;
         int expectedNumFiles = 1; // point to selectionRoot since no pruning is done in this query
@@ -549,7 +545,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
       File metaDataFile = dirTestWatcher.copyResourceToTestTmp(
         Paths.get("parquet", "unsupported_metadata", "unsupported_metadata_version.requires_replace.txt"),
         Paths.get(unsupportedMetadataVersion, Metadata.METADATA_FILENAME));
-      dirTestWatcher.replaceMetaDataContents(metaDataFile, new Path(dirTestWatcher.getDfsTestTmpDir().toURI()).toUri().getPath(), futureVersion);
+      dirTestWatcher.replaceMetaDataContents(metaDataFile, dirTestWatcher.getDfsTestTmpDir(), futureVersion);
       String query = String.format("select * from %s", unsupportedMetadataVersion);
       int expectedRowCount = 25;
       int expectedNumFiles = 1;

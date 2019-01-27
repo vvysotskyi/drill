@@ -112,7 +112,7 @@ public class TestCorruptParquetDateCorrection extends PlanTestBase {
     dirTestWatcher.copyResourceToRoot(CORRUPTED_PARTITIONED_DATES_1_4_0_PATH, MIXED_CORRUPTED_AND_CORRECT_PARTITIONED_FOLDER.resolve(PARTITIONED_1_4_FOLDER));
     File metaData = dirTestWatcher.copyResourceToRoot(PARQUET_4203.resolve("drill.parquet.metadata_1_2.requires_replace.txt"),
       PARTITIONED_1_2_FOLDER.resolve(Metadata.METADATA_FILENAME));
-    dirTestWatcher.replaceMetaDataContents(metaData, new org.apache.hadoop.fs.Path(dirTestWatcher.getRootDir().toURI()).toUri().getPath(), null);
+    dirTestWatcher.replaceMetaDataContents(metaData, dirTestWatcher.getRootDir(), null);
   }
 
   /**
@@ -345,7 +345,7 @@ public class TestCorruptParquetDateCorrection extends PlanTestBase {
     File meta = dirTestWatcher.copyResourceToRoot(
        PARQUET_4203.resolve("mixed_version_partitioned_metadata.requires_replace.txt"),
        MIXED_CORRUPTED_AND_CORRECT_PARTITIONED_FOLDER.resolve(Metadata.METADATA_FILENAME));
-    dirTestWatcher.replaceMetaDataContents(meta, new org.apache.hadoop.fs.Path(dirTestWatcher.getRootDir().toURI()).toUri().getPath(), null);
+    dirTestWatcher.replaceMetaDataContents(meta, dirTestWatcher.getRootDir(), null);
     // for sanity, try reading all partitions without a filter
     TestBuilder builder = testBuilder()
         .sqlQuery("select date_col from dfs.`%s`", MIXED_CORRUPTED_AND_CORRECT_PARTITIONED_FOLDER)
