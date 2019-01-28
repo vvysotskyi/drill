@@ -374,8 +374,17 @@ public class ParquetTableMetadataCreator {
 
     for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
       for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
+        Set<SchemaPath> unhandledColumns = new HashSet<>(columns);
         for (MetadataBase.ColumnMetadata column : rowGroupMetadata.getColumns()) {
           collectSingleMetadataEntry(parquetTableMetadata, nullsCounts, minVals, maxVals, valComparator, column);
+          unhandledColumns.remove(SchemaPath.getCompoundPath(column.getName()));
+        }
+        // handle missed for file columns by collecting nulls count
+        for (SchemaPath unhandledColumn : unhandledColumns) {
+          MutableLong nullsCount = nullsCounts.get(unhandledColumn);
+          if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
+            nullsCount.add(rowGroupMetadata.getRowCount());
+          }
         }
       }
     }
