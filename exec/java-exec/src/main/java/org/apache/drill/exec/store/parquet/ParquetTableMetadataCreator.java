@@ -403,8 +403,8 @@ public class ParquetTableMetadataCreator {
   private static void collectSingleMetadataEntry(MetadataBase.ParquetTableMetadataBase parquetTableMetadata,
       Map<SchemaPath, MutableLong> nullsCounts, Map<SchemaPath, Object> minVals, Map<SchemaPath, Object> maxVals,
       Map<SchemaPath, Comparator> valComparator, MetadataBase.ColumnMetadata column) {
-    PrimitiveType.PrimitiveTypeName primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
-    OriginalType originalType = parquetTableMetadata.getOriginalType(column.getName());
+    PrimitiveType.PrimitiveTypeName primitiveType = getPrimitiveTypeName(parquetTableMetadata, column);
+    OriginalType originalType = getOriginalType(parquetTableMetadata, column);
     SchemaPath colPath = SchemaPath.getCompoundPath(column.getName());
     MutableLong nullsCount = nullsCounts.get(colPath);
     if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
@@ -630,8 +630,8 @@ public class ParquetTableMetadataCreator {
       if (!column.isNumNullsSet() || nulls == null) {
         nulls = GroupScan.NO_COLUMN_STATS;
       }
-      PrimitiveType.PrimitiveTypeName primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
-      OriginalType originalType = parquetTableMetadata.getOriginalType(column.getName());
+      PrimitiveType.PrimitiveTypeName primitiveType = getPrimitiveTypeName(parquetTableMetadata, column);
+      OriginalType originalType = getOriginalType(parquetTableMetadata, column);
       Comparator comparator = getComparator(primitiveType, originalType);
 
       Pair<Object, Object> minMaxPair = getMinMax(column, primitiveType, originalType);
@@ -680,27 +680,22 @@ public class ParquetTableMetadataCreator {
     LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
     for (MetadataBase.ColumnMetadata column : rowGroup.getColumns()) {
 
-      final PrimitiveType.PrimitiveTypeName primitiveType;
-      final OriginalType originalType;
+      PrimitiveType.PrimitiveTypeName primitiveType = getPrimitiveTypeName(parquetTableMetadata, column);
+      OriginalType originalType = getOriginalType(parquetTableMetadata, column);
       int precision = 0;
       int scale = 0;
-      if (parquetTableMetadata.hasColumnMetadata()) {
-        // only ColumnTypeMetadata_v3 stores information about scale and precision
-        if (parquetTableMetadata instanceof Metadata_V3.ParquetTableMetadata_v3) {
-          Metadata_V3.ColumnTypeMetadata_v3 columnTypeInfo =
-            ((Metadata_V3.ParquetTableMetadata_v3) parquetTableMetadata).getColumnTypeInfo(column.getName());
-          scale = columnTypeInfo.scale;
-          precision = columnTypeInfo.precision;
-        }
-        primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
-        originalType = parquetTableMetadata.getOriginalType(column.getName());
-      } else {
-        primitiveType = column.getPrimitiveType();
-        originalType = column.getOriginalType();
+      int definitionLevel = 1;
+      int repetitionLevel = 0;
+      // only ColumnTypeMetadata_v3 stores information about scale, precision, repetition level and definition level
+      if (parquetTableMetadata.hasColumnMetadata() && parquetTableMetadata instanceof Metadata_V3.ParquetTableMetadata_v3) {
+        Metadata_V3.ColumnTypeMetadata_v3 columnTypeInfo =
+          ((Metadata_V3.ParquetTableMetadata_v3) parquetTableMetadata).getColumnTypeInfo(column.getName());
+        scale = columnTypeInfo.scale;
+        precision = columnTypeInfo.precision;
+        repetitionLevel = parquetTableMetadata.getRepetitionLevel(column.getName());
+        definitionLevel = parquetTableMetadata.getDefinitionLevel(column.getName());
       }
       TypeProtos.DataMode mode;
-      Integer repetitionLevel = parquetTableMetadata.getRepetitionLevel(column.getName());
-      Integer definitionLevel = parquetTableMetadata.getDefinitionLevel(column.getName());
       if (repetitionLevel >= 1) {
         mode = TypeProtos.DataMode.REPEATED;
       } else if (repetitionLevel == 0 && definitionLevel == 0) {
@@ -725,6 +720,24 @@ public class ParquetTableMetadataCreator {
       }
     }
     return columns;
+  }
+
+  private static OriginalType getOriginalType(MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ColumnMetadata column) {
+    OriginalType originalType = parquetTableMetadata.getOriginalType(column.getName());
+    // for the case of parquet metadata v1 version, type information isn't stored in parquetTableMetadata, but in ColumnMetadata
+    if (originalType == null) {
+      originalType = column.getOriginalType();
+    }
+    return originalType;
+  }
+
+  private static PrimitiveType.PrimitiveTypeName getPrimitiveTypeName(MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ColumnMetadata column) {
+    PrimitiveType.PrimitiveTypeName primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
+    // for the case of parquet metadata v1 version, type information isn't stored in parquetTableMetadata, but in ColumnMetadata
+    if (primitiveType == null) {
+      primitiveType = column.getPrimitiveType();
+    }
+    return primitiveType;
   }
 
   // parquet group scan methods
