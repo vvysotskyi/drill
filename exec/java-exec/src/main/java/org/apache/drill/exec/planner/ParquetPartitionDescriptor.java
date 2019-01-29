@@ -53,7 +53,6 @@ import org.apache.drill.exec.vector.ValueVector;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.hadoop.fs.Path;
-import org.apache.parquet.io.api.Binary;
 import org.joda.time.DateTimeConstants;
 
 import java.io.IOException;
@@ -402,8 +401,8 @@ public class ParquetPartitionDescriptor extends AbstractPartitionDescriptor {
    */
   private byte[] getBytes(TypeProtos.MinorType type, Object source) {
     byte[] bytes;
-    if (source instanceof Binary) {
-      bytes = ((Binary) source).getBytes();
+    if (source instanceof String) {
+      bytes = ((String) source).getBytes();
     } else if (source instanceof byte[]) {
       bytes = (byte[]) source;
     } else {

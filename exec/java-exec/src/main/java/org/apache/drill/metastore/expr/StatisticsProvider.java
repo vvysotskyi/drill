@@ -42,12 +42,8 @@ import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticImpl;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.StatisticsKind;
-import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.io.api.Binary;
-import org.apache.parquet.schema.OriginalType;
-import org.apache.parquet.schema.PrimitiveComparator;
-import org.apache.parquet.schema.PrimitiveType;
 
+import java.math.BigInteger;
 import java.util.Comparator;
 import java.util.Map;
 
@@ -57,33 +53,6 @@ import static org.apache.drill.metastore.expr.ComparisonPredicate.getMinValue;
 import static org.apache.drill.metastore.expr.IsPredicate.isNullOrEmpty;
 
 public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVisitor<ColumnStatistic, Void, RuntimeException> {
-
-  public static final Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR =
-      Comparator.nullsFirst((b1, b2) -> PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
-
-  private static final PrimitiveType UINT32_TYPE = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.INT32)
-      .as(OriginalType.UINT_32)
-      .named("unsigned_type");
-
-  public static final Comparator<Integer> UINT32_COMPARATOR =
-      Comparator.nullsFirst((i1, i2) -> Statistics.getBuilderForReading(UINT32_TYPE).build().comparator().compare(i1, i2));
-
-  private static final PrimitiveType UINT64_TYPE = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
-      .as(OriginalType.UINT_64)
-      .named("unsigned_type");
-
-  public static final Comparator<Long> UINT64_COMPARATOR =
-      Comparator.nullsFirst((i1, i2) -> Statistics.getBuilderForReading(UINT64_TYPE).build().comparator().compare(i1, i2));
-
-  public static Comparator<byte[]> BINARY_AS_SIGNED_INTEGER_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
-      org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
-            .as(OriginalType.DECIMAL)
-            .length(1)
-            .precision(1)
-            .scale(0)
-            .named("decimal_type")
-          .comparator()
-        .compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
 
   private final Map<SchemaPath, ColumnStatistic> columnStatMap;
   private final long rowCount;
@@ -166,18 +135,18 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
   }
 
   @Override
-  public ColumnStatistic<byte[]> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) throws RuntimeException {
-    byte[] binary = quotedString.getString().getBytes();
-    return new MinMaxStatistics<>(binary, binary, UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR);
+  public ColumnStatistic<String> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) throws RuntimeException {
+    String binary = quotedString.getString();
+    return new MinMaxStatistics<>(binary, binary, Comparator.nullsFirst(Comparator.naturalOrder()));
   }
 
   @Override
-  public ColumnStatistic<byte[]> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) throws RuntimeException {
-    byte[] bytes = decExpr.getBigDecimal().unscaledValue().toByteArray();
+  public ColumnStatistic<BigInteger> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) throws RuntimeException {
+    BigInteger unscaled = decExpr.getBigDecimal().unscaledValue();
     return new MinMaxStatistics<>(
-        bytes,
-        bytes,
-        BINARY_AS_SIGNED_INTEGER_COMPARATOR);
+        unscaled,
+        unscaled,
+        Comparator.nullsFirst(Comparator.naturalOrder()));
   }
 
   @Override

@@ -32,17 +32,17 @@ import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
-import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
 import org.apache.drill.shaded.guava.com.google.common.collect.Table;
-import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveComparator;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,6 +61,9 @@ import java.util.stream.Collectors;
  * Base logic for creating ParquetTableMetadata taken from the ParquetGroupScan.
  */
 public abstract class BaseTableMetadataCreator {
+
+  private static Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
+      PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
 
   private static Object NULL_VALUE = new Object();
 
@@ -87,7 +90,6 @@ public abstract class BaseTableMetadataCreator {
     this.entries = new ArrayList<>();
     this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
   }
-
 
   public List<ReadEntryWithPath> getEntries() {
     return entries;
@@ -365,6 +367,15 @@ public abstract class BaseTableMetadataCreator {
     Object minValue = column.getMinValue();
     Object maxValue = column.getMaxValue();
     switch (primitiveType) {
+      case BOOLEAN:
+        if (minValue != null) {
+          minValue = Boolean.parseBoolean(minValue.toString());
+        }
+        if (maxValue != null) {
+          maxValue = Boolean.parseBoolean(maxValue.toString());
+        }
+        break;
+
       case INT32:
         if (originalType != null) {
           switch (originalType) {
@@ -378,10 +389,10 @@ public abstract class BaseTableMetadataCreator {
               break;
             case DECIMAL:
               if (minValue != null) {
-                minValue = new BigInteger(minValue.toString()).toByteArray();
+                minValue = new BigDecimal(minValue.toString()).unscaledValue();
               }
               if (maxValue != null) {
-                maxValue = new BigInteger(maxValue.toString()).toByteArray();
+                maxValue = new BigDecimal(maxValue.toString()).unscaledValue();
               }
               break;
             default:
@@ -405,10 +416,10 @@ public abstract class BaseTableMetadataCreator {
       case INT64:
         if (originalType == OriginalType.DECIMAL) {
           if (minValue != null) {
-            minValue = new BigInteger(minValue.toString()).toByteArray();
+            minValue = new BigDecimal(minValue.toString()).unscaledValue();
           }
           if (maxValue != null) {
-            maxValue = new BigInteger(maxValue.toString()).toByteArray();
+            maxValue = new BigDecimal(maxValue.toString()).unscaledValue();
           }
         } else {
           if (minValue != null) {
@@ -420,29 +431,6 @@ public abstract class BaseTableMetadataCreator {
         }
         break;
 
-      case BINARY:
-      case FIXED_LEN_BYTE_ARRAY:
-        // wrap up into BigInteger to avoid PARQUET-1417
-        if (originalType == OriginalType.DECIMAL) {
-          if (minValue instanceof Binary) {
-            minValue = new BigInteger(((Binary) minValue).getBytes()).toByteArray();
-          } else if (minValue instanceof byte[]) {
-            minValue = new BigInteger((byte[]) minValue).toByteArray();
-          }
-          if (maxValue instanceof Binary) {
-            maxValue = new BigInteger(((Binary) maxValue).getBytes()).toByteArray();
-          } else if (maxValue instanceof byte[]) {
-            maxValue = new BigInteger((byte[]) maxValue).toByteArray();
-          }
-        } else {
-          if (minValue instanceof Binary) {
-            minValue = ((Binary) minValue).getBytes();
-          }
-          if (maxValue instanceof Binary) {
-            maxValue = ((Binary) maxValue).getBytes();
-          }
-        }
-        break;
       case FLOAT:
         if (minValue != null) {
           minValue = Float.parseFloat(minValue.toString());
@@ -451,12 +439,56 @@ public abstract class BaseTableMetadataCreator {
           maxValue = Float.parseFloat(maxValue.toString());
         }
         break;
+
       case DOUBLE:
         if (minValue != null) {
           minValue = Double.parseDouble(minValue.toString());
         }
         if (maxValue != null) {
           maxValue = Double.parseDouble(maxValue.toString());
+        }
+        break;
+
+      case INT96:
+        if (minValue instanceof Binary) {
+          minValue = ((Binary) minValue).getBytes();
+        }
+        if (maxValue instanceof Binary) {
+          maxValue = ((Binary) maxValue).getBytes();
+        }
+        break;
+
+      case BINARY:
+      case FIXED_LEN_BYTE_ARRAY:
+        if (originalType == OriginalType.DECIMAL) {
+          if (minValue instanceof Binary) {
+            minValue = new BigInteger(((Binary) minValue).getBytes());
+          } else if (minValue instanceof byte[]) {
+            minValue = new BigInteger((byte[]) minValue);
+          }
+          if (maxValue instanceof Binary) {
+            maxValue = new BigInteger(((Binary) maxValue).getBytes());
+          } else if (maxValue instanceof byte[]) {
+            maxValue = new BigInteger((byte[]) maxValue);
+          }
+        } else if (originalType == OriginalType.INTERVAL) {
+          if (minValue instanceof Binary) {
+            minValue = ((Binary) minValue).getBytes();
+          }
+          if (maxValue instanceof Binary) {
+            maxValue = ((Binary) maxValue).getBytes();
+          }
+        } else {
+          if (minValue instanceof Binary) {
+            minValue = new String(((Binary) minValue).getBytes());
+          } else if (minValue instanceof byte[]) {
+            minValue = new String((byte[]) minValue);
+          }
+          if (maxValue instanceof Binary) {
+            maxValue = new String(((Binary) maxValue).getBytes());
+          } else if (maxValue instanceof byte[]) {
+            maxValue = new String((byte[]) maxValue);
+          }
         }
     }
     return Pair.of(minValue, maxValue);
@@ -468,9 +500,9 @@ public abstract class BaseTableMetadataCreator {
         case UINT_8:
         case UINT_16:
         case UINT_32:
-          return StatisticsProvider.UINT32_COMPARATOR;
+          return Comparator.nullsFirst(Integer::compareUnsigned);
         case UINT_64:
-          return StatisticsProvider.UINT64_COMPARATOR;
+          return Comparator.nullsFirst(Long::compareUnsigned);
         case DATE:
         case INT_8:
         case INT_16:
@@ -480,17 +512,13 @@ public abstract class BaseTableMetadataCreator {
         case TIME_MILLIS:
         case TIMESTAMP_MICROS:
         case TIMESTAMP_MILLIS:
-          return Comparator.nullsFirst(Comparator.naturalOrder());
         case DECIMAL:
-          return StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR;
         case UTF8:
-          return StatisticsProvider.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
+          return Comparator.nullsFirst(Comparator.naturalOrder());
         case INTERVAL:
-          return StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR;
+          return UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
         default:
-          return Comparator.nullsFirst((byte[] o1, byte[] o2) ->
-              Statistics.getStatsBasedOnType(primitiveType).comparator()
-                  .compare(Binary.fromReusedByteArray(o1), Binary.fromReusedByteArray(o2)));
+          return Comparator.nullsFirst(Comparator.naturalOrder());
       }
     } else {
       switch (primitiveType) {
@@ -499,12 +527,11 @@ public abstract class BaseTableMetadataCreator {
         case FLOAT:
         case DOUBLE:
         case BOOLEAN:
-          return Comparator.nullsFirst(Comparator.naturalOrder());
         case BINARY:
         case FIXED_LEN_BYTE_ARRAY:
-          return StatisticsProvider.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
+          return Comparator.nullsFirst(Comparator.naturalOrder());
         case INT96:
-          return StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR;
+          return UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
         default:
           throw new UnsupportedOperationException("Unsupported type: " + primitiveType);
       }

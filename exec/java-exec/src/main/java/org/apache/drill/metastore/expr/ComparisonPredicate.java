@@ -136,12 +136,12 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    */
   @SuppressWarnings("unchecked")
   private ColumnStatistic<C> adjustDecimalStatistics(ColumnStatistic<C> statistics, int scale) {
-    byte[] minBytes = new BigDecimal(new BigInteger((byte[]) statistics.getStatistic(ColumnStatisticsKind.MIN_VALUE)))
-        .setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
-    byte[] maxBytes = new BigDecimal(new BigInteger((byte[]) statistics.getStatistic(ColumnStatisticsKind.MAX_VALUE)))
-        .setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray();
+    BigInteger min = new BigDecimal((BigInteger) statistics.getStatistic(ColumnStatisticsKind.MIN_VALUE))
+        .setScale(scale, RoundingMode.HALF_UP).unscaledValue();
+    BigInteger max = new BigDecimal((BigInteger) statistics.getStatistic(ColumnStatisticsKind.MAX_VALUE))
+        .setScale(scale, RoundingMode.HALF_UP).unscaledValue();
 
-    return new StatisticsProvider.MinMaxStatistics(minBytes, maxBytes, StatisticsProvider.BINARY_AS_SIGNED_INTEGER_COMPARATOR);
+    return new StatisticsProvider.MinMaxStatistics(min, max, Comparator.nullsFirst(Comparator.naturalOrder()));
   }
 
   /**
