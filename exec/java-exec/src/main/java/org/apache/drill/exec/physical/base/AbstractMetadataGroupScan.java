@@ -97,10 +97,6 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     this.filter = filter;
   }
 
-//  public BaseMetadataGroupScan(String userName) {
-//    super(userName);
-//  }
-
   @JsonProperty("columns")
   public List<SchemaPath> getColumns() {
     return columns;
@@ -494,7 +490,6 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
   // protected methods block
   protected void init() throws IOException {
-    initInternal();
 
     if (fileSet == null) {
       fileSet = files.stream()
@@ -508,37 +503,10 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
       "" : ExpressionStringBuilder.toString(this.filter);
   }
 
-  // abstract methods block start
-  protected abstract void initInternal() throws IOException;
-
-  //  protected abstract BaseMetadataGroupScan cloneWithFileSelection(Collection<String> filePaths) throws IOException;
-//  protected abstract BaseMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException;
-
-//  protected abstract BaseMetadataGroupScan cloneWith(List<PartitionMetadata> partitions, Multimap<PartitionMetadata, FileMetadata> files) throws IOException;
-
   protected abstract boolean supportsFileImplicitColumns();
   // abstract methods block end
 
   // private methods block start
-
-//  /**
-//   * Clones current group scan with set of file paths from given row groups,
-//   * updates new scan with list of given row groups,
-//   * re-calculates statistics and endpoint affinities.
-//   *
-//   * @param rowGroupInfos list of row group infos
-//   * @return new parquet group scan
-//   */
-//  private BaseMetadataGroupScan cloneWithRowGroupInfos(List<RowGroupInfo> rowGroupInfos) throws IOException {
-//    Set<String> filePaths = rowGroupInfos.stream()
-//      .map(ReadEntryWithPath::getPath)
-//      .collect(Collectors.toSet()); // set keeps file names unique
-//    AbstractParquetGroupScan scan = cloneWithFileSelection(filePaths);
-//    scan.rowGroupInfos = rowGroupInfos;
-//    scan.parquetGroupScanStatistics.collect(scan.rowGroupInfos, scan.parquetTableMetadata);
-//    scan.endpointAffinities = AffinityCreator.getAffinityMap(scan.rowGroupInfos);
-//    return scan;
-//  }
 
   protected abstract static class GroupScanBuilder {
     protected boolean matchAllRowGroups = false;

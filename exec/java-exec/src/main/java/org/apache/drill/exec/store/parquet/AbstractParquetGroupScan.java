@@ -26,7 +26,6 @@ import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
-import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.drill.common.expression.ExpressionStringBuilder;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
@@ -43,7 +42,6 @@ import org.apache.drill.exec.store.schedule.AffinityCreator;
 import org.apache.drill.exec.store.schedule.AssignmentCreator;
 import org.apache.drill.exec.store.schedule.EndpointByteMap;
 import org.apache.drill.exec.store.schedule.EndpointByteMapImpl;
-import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.expr.FilterPredicate;
@@ -413,10 +411,8 @@ public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan
   }
 
   // abstract methods block start
-  protected abstract void initInternal() throws IOException;
   protected abstract Collection<CoordinationProtos.DrillbitEndpoint> getDrillbits();
   protected abstract AbstractParquetGroupScan cloneWithFileSelection(Collection<String> filePaths) throws IOException;
-  protected abstract AbstractParquetGroupScan cloneWithRowGroups(Multimap<FileMetadata, ? extends BaseMetadata> rowGroups) throws IOException;
   protected abstract List<String> getPartitionValues(RowGroupInfo rowGroupInfo);
   // abstract methods block end
 

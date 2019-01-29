@@ -146,16 +146,6 @@ public class FileMetadataGroupScan extends AbstractMetadataGroupScan {
   }
 
   @Override
-  protected void initInternal() throws IOException {
-
-  }
-
-//  @Override
-//  protected AbstractMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
-//    return null;
-//  }
-
-  @Override
   protected boolean supportsFileImplicitColumns() {
     return false;
   }

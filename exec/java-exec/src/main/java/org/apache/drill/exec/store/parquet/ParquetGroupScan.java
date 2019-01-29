@@ -28,7 +28,6 @@ import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableStatistics;
-import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
@@ -258,24 +257,9 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected AbstractParquetGroupScan cloneWithRowGroups(Multimap rowGroups) throws IOException {
-    return null;
-  }
-
-  @Override
   protected RowGroupScanBuilder getBuilder() {
     return new ParquetGroupScanBuilder(this);
   }
-
-  @Override
-  protected void initInternal() throws IOException {
-    // noop
-  }
-
-//  @Override
-//  protected AbstractMetadataGroupScan cloneWithFileSet(Collection<FileMetadata> files) throws IOException {
-//    return null;
-//  }
 
   @Override
   protected Collection<DrillbitEndpoint> getDrillbits() {
@@ -291,6 +275,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   protected List<String> getPartitionValues(RowGroupInfo rowGroupInfo) {
     return ColumnExplorer.listPartitionValues(rowGroupInfo.getPath(), selectionRoot);
   }
+  // overridden protected methods block end
 
   private static class ParquetGroupScanBuilder extends RowGroupScanBuilder {
     private final ParquetGroupScan source;
@@ -307,13 +292,11 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
       groupScan.files = files != null ? files : Collections.emptyList();
       groupScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();
       groupScan.partitionColumns = source.partitionColumns;
-      groupScan.usedMetadataCache = source.usedMetadataCache;
       groupScan.entries = groupScan.files.stream()
-          .map(file -> new ReadEntryWithPath(file.getLocation()))
-          .collect(Collectors.toList());
+        .map(file -> new ReadEntryWithPath(file.getLocation()))
+        .collect(Collectors.toList());
 
       return groupScan;
     }
   }
-  // overridden protected methods block end
 }
