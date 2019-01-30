@@ -20,7 +20,6 @@ package org.apache.drill.exec.physical.base;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.ExpressionStringBuilder;
@@ -68,22 +67,12 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
   // partition metadata info: mixed partition values for all partition keys in the same list
   protected List<PartitionMetadata> partitions;
-//  protected List<String> partitionLocations;
 
-  protected List<SchemaPath> partitionColumns = new ArrayList<>();
+  protected List<SchemaPath> partitionColumns;
   protected LogicalExpression filter;
   protected List<SchemaPath> columns;
 
-  // TODO: what if there is no partitions? add default? use table as partition?
   protected List<FileMetadata> files;
-  protected List<ReadEntryWithPath> filePaths;
-
-//  protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
-//  private List<RowGroupInfo> rowGroupInfos;
-//  protected List<ReadEntryWithPath> entries;
-  // TODO: move to the child class
-//  private List<CompleteFileWork> chunks;
-//  private ListMultimap<Integer, CompleteFileWork> mappings;
 
   // set of the files to be handled
   protected Set<String> fileSet;
@@ -110,10 +99,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   @JsonIgnore
   @Override
   public Collection<String> getFiles() {
-    // TODO: initialize files list once and replace this code
-    return files.stream()
-      .map(FileMetadata::getLocation)
-      .collect(Collectors.toList());
+    return fileSet;
   }
 
   @Override
@@ -136,6 +122,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
    */
   @Override
   public long getColumnValueCount(SchemaPath column) {
+    // TODO: may return wrong results for the case when the same table metadata is used after partitions/files/row groups pruning
     long tableRowCount = (long) TableStatistics.ROW_COUNT.getValue(tableMetadata);
     long colNulls = (long) tableMetadata.getColumnStats(column).getStatistic(ColumnStatisticsKind.NULLS_COUNT);
     return GroupScan.NO_COLUMN_STATS == tableRowCount
@@ -151,7 +138,6 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   @Override
   public ScanStats getScanStats() {
     int columnCount = columns == null ? 20 : columns.size();
-    // TODO: add check for metadata availability
     long rowCount = 0;
     for (FileMetadata file : files) {
       rowCount += (long) file.getStatistic(TableStatistics.ROW_COUNT);
@@ -325,7 +311,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
           metadata.getColumnStatistics(), (long) metadata.getStatistic(TableStatistics.ROW_COUNT),
           metadata.getFields(), schemaPathsInExpr);
       if (match == ParquetFilterPredicate.RowsMatch.NONE) {
-        continue; // No file comply to the filter => drop the row group
+        continue; // No file comply to the filter => drop the file
       }
       if (matchAllRowGroups) {
         matchAllRowGroups = match == ParquetFilterPredicate.RowsMatch.ALL;
@@ -357,9 +343,11 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     Set<SchemaPath> schemaPathsInExpr = filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
 
     // adds implicit or partition columns.
-    for (SchemaPath schemaPath : schemaPathsInExpr) {
-      if (isImplicitOrPartCol(schemaPath, optionManager)) {
-        types.put(schemaPath, Types.required(TypeProtos.MinorType.VARCHAR));
+    if (supportsFileImplicitColumns()) {
+      for (SchemaPath schemaPath : schemaPathsInExpr) {
+        if (isImplicitOrPartCol(schemaPath, optionManager)) {
+          types.put(schemaPath, Types.required(TypeProtos.MinorType.VARCHAR));
+        }
       }
     }
 
@@ -376,11 +364,6 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
     Set<LogicalExpression> constantBoundaries = ConstantExpressionIdentifier.getConstantExpressionSet(materializedFilter);
     return FilterBuilder.buildFilterPredicate(materializedFilter, constantBoundaries, udfUtilities, omitUnsupportedExprs);
-  }
-
-  private boolean isImplicitOrPartCol(SchemaPath schemaPath, OptionManager optionManager) {
-    Set<String> implicitColNames = ColumnExplorer.initImplicitFileColumns(optionManager).keySet();
-    return ColumnExplorer.isPartitionColumn(optionManager, schemaPath) || implicitColNames.contains(schemaPath.getRootSegmentPath());
   }
 
   // limit push down methods start
@@ -441,11 +424,9 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
       long rowCount = (long) metadata.getStatistic(ColumnStatisticsKind.ROW_COUNT);
       if (currentRowCount + rowCount <= maxRecords) {
         currentRowCount += rowCount;
-//        metadata.setNumRecordsToRead(rowCount);
         qualifiedMetadata.add(metadata);
         continue;
       } else if (currentRowCount < maxRecords) {
-//        metadata.setNumRecordsToRead(maxRecords - currentRowCount);
         qualifiedMetadata.add(metadata);
       }
       break;
@@ -504,9 +485,11 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   protected abstract boolean supportsFileImplicitColumns();
-  // abstract methods block end
 
-  // private methods block start
+  private boolean isImplicitOrPartCol(SchemaPath schemaPath, OptionManager optionManager) {
+    Set<String> implicitColNames = ColumnExplorer.initImplicitFileColumns(optionManager).keySet();
+    return ColumnExplorer.isPartitionColumn(optionManager, schemaPath) || implicitColNames.contains(schemaPath.getRootSegmentPath());
+  }
 
   protected abstract static class GroupScanBuilder {
     protected boolean matchAllRowGroups = false;

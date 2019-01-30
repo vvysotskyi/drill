@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.exec.physical.base.ScanStats;
+import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -295,6 +296,10 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
       groupScan.entries = groupScan.files.stream()
         .map(file -> new ReadEntryWithPath(file.getLocation()))
         .collect(Collectors.toList());
+
+      groupScan.fileSet = groupScan.files.stream()
+        .map(FileMetadata::getLocation)
+        .collect(Collectors.toSet());
 
       return groupScan;
     }

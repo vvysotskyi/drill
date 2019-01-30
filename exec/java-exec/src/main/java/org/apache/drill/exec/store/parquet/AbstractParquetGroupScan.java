@@ -358,18 +358,6 @@ public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan
   }
   // limit push down methods end
 
-  // partition pruning methods start
-//  @Override
-//  public List<SchemaPath> getPartitionColumns() {
-//    return parquetGroupScanStatistics.getPartitionColumns();
-//  }
-//
-//  @JsonIgnore
-//  public <T> T getPartitionValue(String path, SchemaPath column, Class<T> clazz) {
-//    return clazz.cast(parquetGroupScanStatistics.getPartitionValue(path, column));
-//  }
-  // partition pruning methods end
-
   // helper method used for partition pruning and filter push down
   @Override
   public void modifyFileSelection(FileSelection selection) {

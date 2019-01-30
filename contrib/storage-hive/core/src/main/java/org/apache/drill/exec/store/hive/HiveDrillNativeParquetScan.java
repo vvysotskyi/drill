@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
+import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -235,6 +236,10 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
       groupScan.entries = groupScan.files.stream()
         .map(file -> new ReadEntryWithPath(file.getLocation()))
         .collect(Collectors.toList());
+
+      groupScan.fileSet = groupScan.files.stream()
+        .map(FileMetadata::getLocation)
+        .collect(Collectors.toSet());
 
       return groupScan;
     }
