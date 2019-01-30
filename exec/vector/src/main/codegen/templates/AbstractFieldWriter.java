@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,6 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import org.apache.drill.exec.vector.complex.writer.AnyWriter;
+import org.apache.drill.exec.vector.complex.writer.FieldWriter;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/drill/exec/vector/complex/impl/AbstractFieldWriter.java" />
@@ -104,6 +107,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   @Override
   public ListWriter list(String name) {
     fail("List");
+    return null;
+  }
+
+  @Override
+  public AnyWriter writeAny(String name) {
+    fail("Bit");
     return null;
   }
 

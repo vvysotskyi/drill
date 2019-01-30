@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -50,18 +50,21 @@ public class ${mode}ListWriter extends AbstractFieldWriter {
   private Mode mode = Mode.INIT;
   private FieldWriter writer;
   protected RepeatedValueVector innerVector;
+  <#if mode == "Single">private final AnyVector nullableVector;</#if>
 
   <#if mode == "Repeated">private int currentChildIndex = 0;</#if>
   public ${mode}ListWriter(String name, ${containerClass} container, FieldWriter parent){
     super(parent);
     this.name = name;
     this.container = container;
+    <#if mode == "Single">nullableVector = container.addOrGet(name, AnyVector.TYPE, AnyVector.class);</#if>
   }
 
   public ${mode}ListWriter(${containerClass} container, FieldWriter parent){
     super(parent);
     this.name = null;
     this.container = container;
+    <#if mode == "Single">nullableVector = container.addOrGet(name, AnyVector.TYPE, AnyVector.class);</#if>
   }
 
   @Override
@@ -79,6 +82,7 @@ public class ${mode}ListWriter extends AbstractFieldWriter {
   public void clear() {
     if (writer != null) {
       writer.clear();
+      <#if mode == "Single">nullableVector.clear();</#if>
     }
   }
 
@@ -89,6 +93,7 @@ public class ${mode}ListWriter extends AbstractFieldWriter {
     if (innerVector != null) {
       innerVector.close();
     }
+    <#if mode == "Single">nullableVector.close();</#if>
   }
 
   @Override
@@ -108,9 +113,16 @@ public class ${mode}ListWriter extends AbstractFieldWriter {
       final RepeatedMapVector vector = container.addOrGet(name, RepeatedMapVector.TYPE, RepeatedMapVector.class);
       innerVector = vector;
       writer = new RepeatedMapWriter(vector, this);
+      <#if mode == "Single">
+      writer.allocate();
+      vector.getMutator().setNulls(nullableVector);
+      nullableVector.clear();
+      nullableVector.close();
+      <#else>
       if(vectorCount != container.size()) {
         writer.allocate();
       }
+      </#if>
       writer.setPosition(${index});
       mode = Mode.IN_MAP;
       return writer;
@@ -130,9 +142,16 @@ public class ${mode}ListWriter extends AbstractFieldWriter {
       final RepeatedListVector vector = container.addOrGet(name, RepeatedListVector.TYPE, RepeatedListVector.class);
       innerVector = vector;
       writer = new RepeatedListWriter(null, vector, this);
+      <#if mode == "Single">
+      writer.allocate();
+      vector.getMutator().setNulls(nullableVector);
+      nullableVector.clear();
+      nullableVector.close();
+      <#else>
       if(vectorCount != container.size()) {
         writer.allocate();
       }
+      </#if>
       writer.setPosition(${index});
       mode = Mode.IN_LIST;
       return writer;
@@ -160,9 +179,19 @@ public class ${mode}ListWriter extends AbstractFieldWriter {
       final Repeated${capName}Vector vector = container.addOrGet(name, ${upperName}_TYPE, Repeated${capName}Vector.class);
       innerVector = vector;
       writer = new Repeated${capName}WriterImpl(vector, this);
+      <#if mode == "Single">
+      writer.allocate();
+      vector.getMutator().setNulls(nullableVector);
+      nullableVector.clear();
+      nullableVector.close();
+      <#else>
       if(vectorCount != container.size()) {
         writer.allocate();
       }
+      for (int i = 0; i < currentChildIndex; i++) {
+        vector.initialize(i);
+      }
+      </#if>
       writer.setPosition(${index});
       mode = Mode.IN_${upperName};
       return writer;
@@ -215,11 +244,37 @@ public class ${mode}ListWriter extends AbstractFieldWriter {
   }
 
   public void startList() {
-    // noop
+    initialize(idx());
   }
 
   public void endList() {
     // noop
+  }
+
+  @Override
+  public void writeNull() {
+    switch(mode) {
+      case INIT: {
+        nullableVector.getMutator().setValue(idx());
+        break;
+      }
+      default: {
+        innerVector.getMutator().writeNull(idx());
+      }
+    }
+  }
+
+  public void initialize(int index) {
+    switch(mode) {
+      case INIT: {
+        nullableVector.getMutator().setValueCount(index + 1);
+        nullableVector.getMutator().setInitializedList(index);
+        break;
+      }
+      default: {
+        innerVector.initialize(index);
+      }
+    }
   }
   </#if>
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -121,7 +121,8 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   public <T extends ValueVector> T addOrGet(String name, TypeProtos.MajorType type, Class<T> clazz) {
     final ValueVector existing = getChild(name);
     boolean create = false;
-    if (existing == null) {
+    if (existing == null || (existing.getField().getType().getMinorType().equals(TypeProtos.MinorType.LATE) &&
+          !type.getMinorType().equals(TypeProtos.MinorType.LATE))) {
       create = true;
     } else if (clazz.isAssignableFrom(existing.getClass())) {
       return (T) existing;

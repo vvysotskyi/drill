@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -370,7 +370,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
     @Override
     public boolean isNull(int index) {
-      return isSet(index) == 0;
+      return bAccessor.get(index) == 2;
     }
 
     public int isSet(int index){
@@ -400,16 +400,16 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
     @Override
     public ${friendlyType} getObject(int index) {
-      if (isNull(index)) {
-          return null;
-      }else{
+      if (isSet(index) == 1) {
         return vAccessor.getObject(index);
+      } else {
+        return null;
       }
     }
 
     <#if minor.class == "Interval" || minor.class == "IntervalDay" || minor.class == "IntervalYear">
     public StringBuilder getAsStringBuilder(int index) {
-      if (isNull(index)) {
+      if (isSet(index) != 1) {
           return null;
       }else{
         return vAccessor.getAsStringBuilder(index);
@@ -507,8 +507,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       </#if>
     }
 
-    public void setNull(int index){
-      bits.getMutator().setSafe(index, 0);
+    public void setNull(int index) {
+      bits.getMutator().setSafe(index, 2);
     }
 
     public void setSkipNull(int index, ${minor.class}Holder holder){
@@ -615,6 +615,12 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       </#if>
       values.getMutator().setValueCount(valueCount);
       bits.getMutator().setValueCount(valueCount);
+    }
+
+    public void setNulls(AnyVector nullsVector) {
+      nullsVector.getBits().transferTo(bits);
+      setValueCount(nullsVector.getAccessor().getValueCount() + 1);
+      nullsVector.clear();
     }
 
     @Override

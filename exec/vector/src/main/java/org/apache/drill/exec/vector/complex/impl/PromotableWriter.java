@@ -19,17 +19,20 @@ package org.apache.drill.exec.vector.complex.impl;
 
 import java.lang.reflect.Constructor;
 
+import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
+import org.apache.drill.exec.vector.AnyVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorDescriptor;
 import org.apache.drill.exec.vector.ZeroVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
+import org.apache.drill.exec.vector.complex.writer.AnyWriter;
 import org.apache.drill.exec.vector.complex.writer.FieldWriter;
 
 /**
@@ -128,13 +131,39 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       if (type == null) {
         return null;
       }
-      ValueVector v = listVector.addOrGetVector(new VectorDescriptor(Types.optional(type))).getVector();
+      ValueVector v = listVector.addOrGetVector(new VectorDescriptor(Types.required(type))).getVector();
       v.allocateNew();
       setWriter(v);
       writer.setPosition(position);
     }
     if (type != this.type) {
-      return promoteToUnion();
+      if (this.type == MinorType.LATE) {
+        String name = vector.getField().getLastName();
+        if (parentContainer != null) {
+//          writer.clear();
+          ValueVector newVector = parentContainer.addOrGet(name, Types.required(type),
+            BasicTypeHelper.getValueVectorClass(type, TypeProtos.DataMode.OPTIONAL));
+//          newVector.getMutator().
+          AnyVector oldVector = (AnyVector) vector;
+          setWriter(newVector);
+          writer.allocate();
+          for (int i = 0; i < idx(); i++) {
+            if (oldVector.getAccessor().isNull(i)) {
+              writer.setPosition(i);
+              writer.writeNull();
+            }
+          }
+          oldVector.clear();
+          oldVector.close();
+          writer.setPosition(idx());
+          return writer;
+        }
+        writer = new UnionWriter(unionVector);
+        writer.setPosition(idx());
+
+      } else {
+        return promoteToUnion();
+      }
     }
     return writer;
   }
@@ -191,5 +220,14 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   @Override
   public void close() throws Exception {
     getWriter().close();
+  }
+
+  @Override
+  public AnyWriter writeAny(String name) {
+    return writer.writeAny(name);
+  }
+
+  public void writeNull() {
+    writer.writeNull();
   }
 }

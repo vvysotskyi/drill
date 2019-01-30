@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,6 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import org.apache.drill.exec.vector.complex.writer.AnyWriter;
+import org.apache.drill.exec.vector.complex.writer.FieldWriter;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/drill/exec/vector/complex/writer/BaseWriter.java" />
@@ -59,6 +62,7 @@ package org.apache.drill.exec.vector.complex.writer;
     </#if>
     ${capName}Writer ${lowerName}(String name);
     </#list></#list>
+    AnyWriter writeAny(String name);
 
     void copyReaderToField(String name, FieldReader reader);
     MapWriter map(String name);
@@ -84,7 +88,7 @@ package org.apache.drill.exec.vector.complex.writer;
   }
 
   public interface ScalarWriter extends
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first /> ${name}Writer, </#list></#list> BaseWriter {}
+  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first /> ${name}Writer, </#list></#list> BaseWriter, AnyWriter {}
 
   public interface ComplexWriter {
     void allocate();

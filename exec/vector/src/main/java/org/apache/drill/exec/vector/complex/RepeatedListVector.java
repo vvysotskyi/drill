@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,11 +19,13 @@ package org.apache.drill.exec.vector.complex;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.collect.ObjectArrays;
 import io.netty.buffer.DrillBuf;
 
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
@@ -31,12 +33,15 @@ import org.apache.drill.exec.expr.holders.ComplexHolder;
 import org.apache.drill.exec.expr.holders.RepeatedListHolder;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.util.JsonStringArrayList;
 import org.apache.drill.exec.vector.AddOrGetResult;
 import org.apache.drill.exec.util.CallBack;
+import org.apache.drill.exec.vector.AnyVector;
+import org.apache.drill.exec.vector.UInt1Vector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorDescriptor;
@@ -57,18 +62,33 @@ public class RepeatedListVector extends AbstractContainerVector
     private final RepeatedListMutator mutator = new RepeatedListMutator();
     private final EmptyValuePopulator emptyPopulator;
     private transient DelegateTransferPair ephPair;
+    private final MaterializedField bitsField = MaterializedField.create("$bits$", Types.required(TypeProtos.MinorType.UINT1));
+    private final UInt1Vector bits = new UInt1Vector(bitsField, allocator);
 
     public class RepeatedListAccessor extends BaseRepeatedValueVector.BaseRepeatedAccessor {
 
       @Override
       public Object getObject(int index) {
-        final List<Object> list = new JsonStringArrayList<>();
-        final int start = offsets.getAccessor().get(index);
-        final int until = offsets.getAccessor().get(index+1);
-        for (int i = start; i < until; i++) {
-          list.add(vector.getAccessor().getObject(i));
+        if (isSet(index)) {
+          final List<Object> list = new JsonStringArrayList<>();
+          final int start = offsets.getAccessor().get(index);
+          final int until = offsets.getAccessor().get(index + 1);
+          for (int i = start; i < until; i++) {
+            Object value = vector.getAccessor().getObject(i);
+            if (value == null && !vector.getAccessor().isNull(i)) {
+              list.add(new JsonStringArrayList<>());
+            } else {
+              list.add(value);
+            }
+          }
+          return list;
+        } else {
+          return null;
         }
-        return list;
+      }
+
+      public boolean isSet(int index) {
+        return bits.getAccessor().get(index) == 1 || bits.getAccessor().get(index) == 3;
       }
 
       public void get(int index, RepeatedListHolder holder) {
@@ -95,11 +115,17 @@ public class RepeatedListVector extends AbstractContainerVector
           holder.reader = r;
         }
       }
+
+      @Override
+      public boolean isNull(int index) {
+        return bits.getAccessor().get(index) == 2;
+      }
     }
 
     public class RepeatedListMutator extends BaseRepeatedValueVector.BaseRepeatedMutator {
 
       public int add(int index) {
+        bits.getMutator().set(index, 1);
         final int curEnd = getOffsetVector().getAccessor().get(index+1);
         getOffsetVector().getMutator().setSafe(index + 1, curEnd + 1);
         return curEnd;
@@ -107,14 +133,32 @@ public class RepeatedListVector extends AbstractContainerVector
 
       @Override
       public void startNewValue(int index) {
+        bits.getMutator().set(index, 1);
         emptyPopulator.populate(index+1);
         super.startNewValue(index);
       }
 
       @Override
       public void setValueCount(int valueCount) {
+        bits.getMutator().setValueCount(valueCount);
         emptyPopulator.populate(valueCount);
         super.setValueCount(valueCount);
+      }
+
+      @Override
+      public void writeNull(int index) {
+        bits.getMutator().set(index, 2);
+      }
+
+      public void setNulls(AnyVector nullsVector) {
+        nullsVector.getBits().transferTo(bits);
+        setValueCount(nullsVector.getAccessor().getValueCount() + 1);
+//        for (int i = 0; i < nullsVector.getAccessor().getValueCount(); i++) {
+//          if (nullsVector.getAccessor().isSet(i)) {
+//            startNewValue(i);
+//          }
+//        }
+        nullsVector.clear();
       }
     }
 
@@ -140,6 +184,8 @@ public class RepeatedListVector extends AbstractContainerVector
         for (TransferPair child:children) {
           child.transfer();
         }
+        bits.transferTo(target.bits);
+        bits.clear();
       }
 
       @Override
@@ -153,6 +199,7 @@ public class RepeatedListVector extends AbstractContainerVector
         for (int i = 0; i < length; i++) {
           copyValueSafe(startIndex + i, i);
         }
+//        bits.splitAndTransferTo(startIndex, length, target.bits);
       }
 
       @Override
@@ -167,6 +214,8 @@ public class RepeatedListVector extends AbstractContainerVector
           vectorTransfer.copyValueSafe(i, newIndex);
         }
         target.getOffsetVector().getMutator().setSafe(destIndex + 1, newIndex);
+//        bits.splitAndTransferTo(srcIndex, destIndex, target.bits);
+        target.bits.copyFromSafe(srcIndex, destIndex, bits);
       }
     }
 
@@ -184,6 +233,29 @@ public class RepeatedListVector extends AbstractContainerVector
       if (!allocateNewSafe()) {
         throw new OutOfMemoryException();
       }
+    }
+
+    @Override
+    public boolean allocateNewSafe() {
+    /* boolean to keep track if all the memory allocation were successful
+     * Used in the case of composite vectors when we need to allocate multiple
+     * buffers for multiple vectors. If one of the allocations failed we need to
+     * clear all the memory that we allocated
+     */
+      boolean success = false;
+      try {
+        if (!offsets.allocateNewSafe() || !bits.allocateNewSafe()) {
+          return false;
+        }
+        success = vector.allocateNewSafe();
+      } finally {
+        if (!success) {
+          clear();
+        }
+      }
+      offsets.zeroVector();
+      bits.zeroVector();
+      return success;
     }
 
     @Override
@@ -216,8 +288,83 @@ public class RepeatedListVector extends AbstractContainerVector
         ephPair = DelegateTransferPair.class.cast(from.makeTransferPair(this));
       }
       ephPair.copyValueSafe(fromIndex, thisIndex);
+      bits.copyFromSafe(fromIndex, thisIndex, from.bits);
     }
 
+    @Override
+    public int getBufferSize() {
+      if (getAccessor().getValueCount() == 0) {
+        return 0;
+      }
+      return bits.getBufferSize() + offsets.getBufferSize() + vector.getBufferSize();
+    }
+
+    @Override
+    public int getBufferSizeFor(int valueCount) {
+      if (valueCount == 0) {
+        return 0;
+      }
+
+      return bits.getBufferSizeFor(valueCount)
+              + offsets.getBufferSizeFor(valueCount + 1)
+              + vector.getBufferSizeFor(valueCount);
+    }
+
+    @Override
+    public DrillBuf[] getBuffers(boolean clear) {
+      final DrillBuf[] buffers = ObjectArrays.concat(bits.getBuffers(false),
+          ObjectArrays.concat(offsets.getBuffers(false), vector.getBuffers(false), DrillBuf.class), DrillBuf.class);
+      if (clear) {
+        for (DrillBuf buffer:buffers) {
+          buffer.retain();
+        }
+        clear();
+      }
+      return buffers;
+    }
+
+    @Override
+    public void load(UserBitShared.SerializedField metadata, DrillBuf buffer) {
+      final UserBitShared.SerializedField bitsMetadata = metadata.getChild(0);
+      bits.load(bitsMetadata, buffer);
+
+      final int bitsLength = bitsMetadata.getBufferLength();
+      final UserBitShared.SerializedField offsetMetadata = metadata.getChild(1);
+      final int offsetLength = offsetMetadata.getBufferLength();
+      offsets.load(offsetMetadata, buffer.slice(bitsLength, offsetLength));
+
+      final UserBitShared.SerializedField vectorMetadata = metadata.getChild(2);
+      if (getDataVector() == DEFAULT_DATA_VECTOR) {
+        addOrGetVector(VectorDescriptor.create(vectorMetadata.getMajorType()));
+      }
+
+      final int vectorLength = vectorMetadata.getBufferLength();
+      vector.load(vectorMetadata, buffer.slice(bitsLength + offsetLength, vectorLength));
+    }
+
+    @Override
+    protected UserBitShared.SerializedField.Builder getMetadataBuilder() {
+      return getField().getAsBuilder()
+        .setValueCount(getAccessor().getValueCount())
+        .setBufferLength(getBufferSize())
+        .addChild(bits.getMetadata())
+        .addChild(offsets.getMetadata())
+        .addChild(vector.getMetadata());
+    }
+
+    @Override
+    public void clear() {
+      offsets.clear();
+      bits.clear();
+      vector.clear();
+      super.clear();
+    }
+
+    @Override
+    public void close() {
+      bits.close();
+      super.close();
+    }
   }
 
   protected class RepeatedListTransferPair implements TransferPair {
@@ -263,7 +410,7 @@ public class RepeatedListVector extends AbstractContainerVector
 
     final List<MaterializedField> children = Lists.newArrayList(field.getChildren());
     final int childSize = children.size();
-    assert childSize < 3;
+    assert childSize < 4;
     final boolean hasChild = childSize > 0;
     if (hasChild) {
       // the last field is data field
@@ -286,6 +433,11 @@ public class RepeatedListVector extends AbstractContainerVector
   @Override
   public DelegateRepeatedVector.RepeatedListMutator getMutator() {
     return delegate.getMutator();
+  }
+
+  @Override
+  public void initialize(int index) {
+    delegate.bits.getMutator().set(index, 1);
   }
 
   @Override

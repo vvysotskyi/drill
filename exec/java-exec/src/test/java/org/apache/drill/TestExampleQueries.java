@@ -21,14 +21,18 @@ import static org.apache.drill.TestBuilder.listOf;
 import static org.junit.Assert.assertEquals;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.common.util.TestTools;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.ClassTransformer;
+import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 
 public class TestExampleQueries extends BaseTestQuery {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestExampleQueries.class);
@@ -1195,4 +1199,49 @@ public class TestExampleQueries extends BaseTestQuery {
         .run();
   }
 
+  @Rule
+  public final TestRule TIMEOUT = TestTools.getTimeoutRule(150000);
+
+  @Test
+  public void testLocal() throws Exception {
+    test("use dfs.tmp");
+    List<QueryDataBatch> queryDataBatches = testSqlWithResults(
+      "explain plan for SELECT s_store_name, \n" +
+        "               i_item_desc, \n" +
+        "               sc.revenue, \n" +
+        "               i_current_price, \n" +
+        "               i_wholesale_cost, \n" +
+        "               i_brand \n" +
+        "FROM   store, \n" +
+        "       item, \n" +
+        "       (SELECT ss_store_sk, \n" +
+        "               Avg(revenue) AS ave \n" +
+        "        FROM   (SELECT ss_store_sk, \n" +
+        "                       ss_item_sk, \n" +
+        "                       Sum(ss_sales_price) AS revenue \n" +
+        "                FROM   store_sales, \n" +
+        "                       date_dim \n" +
+        "                WHERE  ss_sold_date_sk = d_date_sk \n" +
+        "                       AND d_month_seq BETWEEN 1199 AND 1199 + 11 \n" +
+        "                GROUP  BY ss_store_sk, \n" +
+        "                          ss_item_sk) sa \n" +
+        "        GROUP  BY ss_store_sk) sb, \n" +
+        "       (SELECT ss_store_sk, \n" +
+        "               ss_item_sk, \n" +
+        "               Sum(ss_sales_price) AS revenue \n" +
+        "        FROM   store_sales, \n" +
+        "               date_dim \n" +
+        "        WHERE  ss_sold_date_sk = d_date_sk \n" +
+        "               AND d_month_seq BETWEEN 1199 AND 1199 + 11 \n" +
+        "        GROUP  BY ss_store_sk, \n" +
+        "                  ss_item_sk) sc \n" +
+        "WHERE  sb.ss_store_sk = sc.ss_store_sk \n" +
+        "       AND sc.revenue <= 0.1 * sb.ave \n" +
+        "       AND s_store_sk = sc.ss_store_sk \n" +
+        "       AND i_item_sk = sc.ss_item_sk \n" +
+        "ORDER  BY s_store_name, \n" +
+        "          i_item_desc\n" +
+        "LIMIT 100");
+    printResult(queryDataBatches);
+  }
 }

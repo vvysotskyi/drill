@@ -16,30 +16,28 @@
 */
 package org.apache.drill.exec.vector.complex.impl;
 
-import com.google.common.collect.Maps;
 import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.complex.NullableMapVector;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter;
 
-import java.util.Map;
-
 public class NullableMapReaderImpl extends AbstractFieldReader {
   private final NullableMapVector vector;
-  private final Map<String, FieldReader> fields = Maps.newHashMap();
 
   public NullableMapReaderImpl(NullableMapVector vector) {
+    super();
     this.vector = vector;
   }
 
   @Override
-  public FieldReader reader(String name){
+  public FieldReader reader(String name) {
     return vector.getValuesVector().getReader().reader(name);
   }
 
   @Override
-  public void setPosition(int index){
-    vector.getValuesVector().getReader().setPosition(index);
+  public MaterializedField getField() {
+    return vector.getField();
   }
 
   @Override
@@ -49,27 +47,27 @@ public class NullableMapReaderImpl extends AbstractFieldReader {
 
   @Override
   public boolean isSet() {
-    return true;
+    return vector.getAccessor().isSet(idx());
   }
 
   @Override
-  public TypeProtos.MajorType getType(){
+  public TypeProtos.MajorType getType() {
     return vector.getField().getType();
   }
 
   @Override
-  public java.util.Iterator<String> iterator(){
+  public java.util.Iterator<String> iterator() {
     return vector.fieldNameIterator();
   }
 
   @Override
-  public void copyAsValue(BaseWriter.MapWriter writer){
+  public void copyAsValue(BaseWriter.MapWriter writer) {
     NullableMapWriter impl = (NullableMapWriter) writer;
     impl.container.copyFromSafe(idx(), impl.idx(), vector);
   }
 
   @Override
-  public void copyAsField(String name, BaseWriter.MapWriter writer){
+  public void copyAsField(String name, BaseWriter.MapWriter writer) {
     NullableMapWriter impl = (NullableMapWriter) writer.map(name);
     impl.container.copyFromSafe(idx(), impl.idx(), vector);
   }

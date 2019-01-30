@@ -1,4 +1,4 @@
-/*******************************************************************************
+/*
 
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -15,7 +15,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 package org.apache.drill.exec.vector.complex;
 
 import com.google.common.collect.ObjectArrays;
@@ -71,6 +71,7 @@ public class ListVector extends BaseRepeatedValueVector {
   public void allocateNew() throws OutOfMemoryException {
     super.allocateNewSafe();
     bits.allocateNewSafe();
+    bits.zeroVector();
   }
 
   public void transferTo(ListVector target) {
@@ -80,6 +81,7 @@ public class ListVector extends BaseRepeatedValueVector {
       target.addOrGetVector(new VectorDescriptor(vector.getField().getType()));
     }
     getDataVector().makeTransferPair(target.getDataVector()).transfer();
+    clear();
   }
 
   public void copyFromSafe(int inIndex, int outIndex, ListVector from) {
@@ -235,6 +237,7 @@ public class ListVector extends BaseRepeatedValueVector {
 
   @Override
   public void load(UserBitShared.SerializedField metadata, DrillBuf buffer) {
+    clear();
     final UserBitShared.SerializedField offsetMetadata = metadata.getChild(0);
     offsets.load(offsetMetadata, buffer);
 
@@ -266,23 +269,28 @@ public class ListVector extends BaseRepeatedValueVector {
 
     @Override
     public Object getObject(int index) {
-      if (isNull(index)) {
+      if (isSet(index)) {
+        final List<Object> vals = new JsonStringArrayList<>();
+        final UInt4Vector.Accessor offsetsAccessor = offsets.getAccessor();
+        final int start = offsetsAccessor.get(index);
+        final int end = offsetsAccessor.get(index + 1);
+        final ValueVector.Accessor valuesAccessor = getDataVector().getAccessor();
+        for (int i = start; i < end; i++) {
+          vals.add(valuesAccessor.getObject(i));
+        }
+        return vals;
+      } else {
         return null;
       }
-      final List<Object> vals = new JsonStringArrayList<>();
-      final UInt4Vector.Accessor offsetsAccessor = offsets.getAccessor();
-      final int start = offsetsAccessor.get(index);
-      final int end = offsetsAccessor.get(index + 1);
-      final ValueVector.Accessor valuesAccessor = getDataVector().getAccessor();
-      for(int i = start; i < end; i++) {
-        vals.add(valuesAccessor.getObject(i));
-      }
-      return vals;
+    }
+
+    public boolean isSet(int index) {
+      return bits.getAccessor().get(index) == 1 || bits.getAccessor().get(index) == 3;
     }
 
     @Override
     public boolean isNull(int index) {
-      return bits.getAccessor().get(index) == 0;
+      return bits.getAccessor().get(index) == 2;
     }
   }
 
@@ -294,8 +302,12 @@ public class ListVector extends BaseRepeatedValueVector {
 
     @Override
     public void startNewValue(int index) {
+      while (offsets.getValueCapacity() <= index) {
+        offsets.reAlloc();
+      }
       for (int i = lastSet; i <= index; i++) {
         offsets.getMutator().setSafe(i + 1, offsets.getAccessor().get(i));
+//        offsets.getMutator().setSafe(index + 1, offsets.getAccessor().get(index));
       }
       setNotNull(index);
       lastSet = index + 1;
@@ -310,11 +322,18 @@ public class ListVector extends BaseRepeatedValueVector {
         for (int i = lastSet; i < valueCount; i++) {
           offsets.getMutator().setSafe(i + 1, offsets.getAccessor().get(i));
         }
+//        offsets.getMutator().setSafe(valueCount, offsets.getAccessor().get(valueCount - 1));
         offsets.getMutator().setValueCount(valueCount + 1);
       }
       final int childValueCount = valueCount == 0 ? 0 : offsets.getAccessor().get(valueCount);
       vector.getMutator().setValueCount(childValueCount);
       bits.getMutator().setValueCount(valueCount);
+    }
+
+    @Override
+    public void writeNull(int index) {
+      bits.getMutator().set(index, 2);
+      setValueCount(index + 1);
     }
   }
 }

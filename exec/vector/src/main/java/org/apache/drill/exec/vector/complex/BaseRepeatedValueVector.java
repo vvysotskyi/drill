@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -209,6 +209,11 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     vector = v;
   }
 
+  @Override
+  public void initialize(int index) {
+    throw new UnsupportedOperationException();
+  }
+
   public abstract class BaseRepeatedAccessor extends BaseValueVector.BaseAccessor implements RepeatedAccessor {
 
     @Override
@@ -254,6 +259,11 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       offsets.getMutator().setValueCount(valueCount == 0 ? 0 : valueCount+1);
       final int childValueCount = valueCount == 0 ? 0 : offsets.getAccessor().get(valueCount);
       vector.getMutator().setValueCount(childValueCount);
+    }
+
+    @Override
+    public void writeNull(int index) {
+      throw new UnsupportedOperationException();
     }
   }
 

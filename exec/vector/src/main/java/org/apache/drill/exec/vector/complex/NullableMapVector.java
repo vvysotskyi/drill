@@ -20,13 +20,13 @@ import com.google.common.collect.ObjectArrays;
 import io.netty.buffer.DrillBuf;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.expr.holders.ComplexHolder;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.util.CallBack;
+import org.apache.drill.exec.vector.AnyVector;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
@@ -43,13 +43,13 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
 
   public final static TypeProtos.MajorType TYPE = Types.optional(TypeProtos.MinorType.MAP);
 
-  private final MaterializedField bitsField = MaterializedField.create("$bits$", Types.required(TypeProtos.MinorType.MAP));
+  private final MaterializedField bitsField = MaterializedField.create("$bits$", Types.required(TypeProtos.MinorType.UINT1));
   private final UInt1Vector bits = new UInt1Vector(bitsField, allocator);
   private final MapVector values = new MapVector(field, allocator, callBack);
 
-  private final NullableMapReaderImpl reader = new NullableMapReaderImpl(NullableMapVector.this);
-  private final NullableMapVector.Accessor accessor = new NullableMapVector.Accessor();
-  private final NullableMapVector.Mutator mutator = new NullableMapVector.Mutator();
+  private final FieldReader reader = new NullableMapReaderImpl(NullableMapVector.this);
+  private final Accessor accessor = new NullableMapVector.Accessor();
+  private final Mutator mutator = new NullableMapVector.Mutator();
 
   public NullableMapVector(String path, BufferAllocator allocator, CallBack callBack) {
     this(MaterializedField.create(path, TYPE), allocator, callBack);
@@ -57,15 +57,6 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
 
   public NullableMapVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
     super(field, allocator, callBack);
-    MaterializedField clonedField = field.clone();
-    // create the hierarchy of the child vectors based on the materialized field
-    for (MaterializedField child : clonedField.getChildren()) {
-      if (!child.equals(BaseRepeatedValueVector.OFFSETS_FIELD)) {
-        final String fieldName = child.getLastName();
-        final ValueVector v = BasicTypeHelper.getNewVector(child, allocator, callBack);
-        values.putVector(fieldName, v);
-      }
-    }
   }
 
   @Override
@@ -74,8 +65,13 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
   }
 
   public void copyFromSafe(int fromIndex, int thisIndex, NullableMapVector from) {
-    values.copyFromSafe(fromIndex, thisIndex, (MapVector) from.getValuesVector());
+    bits.copyFromSafe(fromIndex, thisIndex, from.bits);
+    values.copyFromSafe(fromIndex, thisIndex, from.getValuesVector());
+  }
+
+  public void copyFromSafe(int fromIndex, int thisIndex, MapVector from) {
     bits.getMutator().setSafe(thisIndex, 1);
+    values.copyFromSafe(fromIndex, thisIndex, from);
   }
 
   @Override
@@ -135,13 +131,13 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
   }
 
   @Override
-  public ValueVector getValuesVector() {
+  public MapVector getValuesVector() {
     return values;
   }
 
   @Override
   public int getValueCapacity() {
-    return values.getValueCapacity();
+    return Math.min(bits.getValueCapacity(), values.getValueCapacity());
   }
 
   @Override
@@ -177,7 +173,7 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
   }
 
   @Override
-  public NullableMapVector.Mutator getMutator() {
+  public Mutator getMutator() {
     return mutator;
   }
 
@@ -292,15 +288,12 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
    */
   @Override
   public <T extends ValueVector> T addOrGet(String name, TypeProtos.MajorType type, Class<T> clazz) {
-//    if (values.size() == 0) {
-      bits.getMutator().set(0, 1);
-//    }
     return values.addOrGet(name, type, clazz);
   }
 
   @Override
   public MaterializedField getField() {
-    return values.getField();
+    return field;
   }
 
   @Override
@@ -365,24 +358,23 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
 
   public class Accessor extends BaseValueVector.BaseAccessor {
     final UInt1Vector.Accessor bAccessor = bits.getAccessor();
-
     final MapVector.Accessor vAccessor = values.getAccessor();
 
     @Override
     public boolean isNull(int index) {
-      return isSet(index) == 0;
+      return bAccessor.get(index) == 2;
     }
 
-    public int isSet(int index) {
-      return bAccessor.get(index);
+    public boolean isSet(int index) {
+      return bAccessor.get(index) == 1;
     }
 
     @Override
     public Object getObject(int index) {
-      if (isNull(index)) {
-        return null;
-      } else {
+      if (isSet(index)) {
         return vAccessor.getObject(index);
+      } else {
+        return null;
       }
     }
 
@@ -393,7 +385,7 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
 
     @Override
     public int getValueCount() {
-      return values.getAccessor().getValueCount();
+      return bits.getAccessor().getValueCount();
     }
 
     public void reset(){}
@@ -401,29 +393,30 @@ public class NullableMapVector extends AbstractMapVector implements NullableVect
 
   public class Mutator extends BaseValueVector.BaseMutator {
 
-
     @Override
     public void setValueCount(int valueCount) {
       assert valueCount >= 0;
       values.getMutator().setValueCount(valueCount);
       bits.getMutator().setValueCount(valueCount);
-      if (values.size() >= 0) {
-        for (int i = 0; i <= valueCount; i++) {
-          bits.getMutator().set(i, 1);
-        }
-      }
+    }
+
+    public void setNull(int index) {
+      bits.getMutator().set(index, 2);
+      setValueCount(index + 1);
     }
 
     @Override
-    public void generateTestData(int valueCount) {
-      bits.getMutator().generateTestDataAlt(valueCount);
-      values.getMutator().generateTestData(valueCount);
+    public void generateTestData(int valueCount) { }
 
-      setValueCount(valueCount);
+    public void setNulls(AnyVector nullsVector) {
+      nullsVector.getBits().transferTo(bits);
+      setValueCount(nullsVector.getAccessor().getValueCount() + 1);
+      nullsVector.clear();
     }
   }
 
-  public void initialize() {
-    bits.getMutator().set(0, 1);
+  public void initialize(int index) {
+    bits.getMutator().set(index, 1);
+    mutator.setValueCount(index + 1);
   }
 }

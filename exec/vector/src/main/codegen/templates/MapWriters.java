@@ -84,19 +84,71 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public MapWriter map(String name) {
-      FieldWriter writer = fields.get(name.toLowerCase());
+    FieldWriter writer = fields.get(name.toLowerCase());
     if(writer == null) {
-      int vectorCount=container.size();
-
+      int vectorCount = container.size();
       NullableMapVector vector = container.addOrGet(name, NullableMapVector.TYPE, NullableMapVector.class);
       if(!unionEnabled) {
         writer = new NullableMapWriter(vector, this);
       } else {
-
         writer = new PromotableWriter(vector, container);
       }
       if(vectorCount != container.size()) {
         writer.allocate();
+      }
+      writer.setPosition(${index});
+      fields.put(name.toLowerCase(), writer);
+    } else if (writer instanceof AnyWriterImpl) {
+      AnyVector anyVector = container.addOrGet(name, AnyVector.TYPE, AnyVector.class);
+      AnyVector transferAnyVector = new AnyVector(anyVector.getField(), anyVector.getAllocator());
+      anyVector.transferTo(transferAnyVector);
+      NullableMapVector vector = container.addOrGet(name, NullableMapVector.TYPE, NullableMapVector.class);
+
+      if(!unionEnabled) {
+        writer = new NullableMapWriter(vector, this);
+      } else {
+        writer = new PromotableWriter(vector, container);
+      }
+      writer.allocate();
+      vector.getMutator().setNulls(transferAnyVector);
+
+      transferAnyVector.clear();
+      transferAnyVector.close();
+      writer.setPosition(${index});
+      fields.put(name.toLowerCase(), writer);
+    }
+    return writer;
+  }
+
+  <#if mode == "Nullable">
+  public void initialize(int index) {
+    container.initialize(index);
+  }
+
+  @Override
+  public void writeNull() {
+    container.getMutator().setNull(${index});
+  }
+  </#if>
+
+  private static final MajorType LATE_TYPE = Types.optional(MinorType.LATE);
+  @Override
+  public AnyWriter writeAny(String name) {
+    FieldWriter writer = (AbstractFieldWriter) fields.get(name.toLowerCase());
+    if(writer == null) {
+      ValueVector vector;
+      ValueVector currentVector = container.getChild(name);
+      if (unionEnabled) {
+        AnyVector v = container.addOrGet(name, LATE_TYPE, AnyVector.class);
+        writer = new PromotableWriter(v, container);
+        vector = v;
+      } else {
+        AnyVector v = container.addOrGet(name, LATE_TYPE, AnyVector.class);
+        writer = new AnyWriterImpl(v, this);
+        vector = v;
+      }
+      if (currentVector == null || currentVector != vector) {
+        vector.allocateNewSafe();
       }
       writer.setPosition(${index});
       fields.put(name.toLowerCase(), writer);
@@ -139,6 +191,15 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       if (container.size() > vectorCount) {
         writer.allocate();
       }
+      writer.setPosition(${index});
+      fields.put(name.toLowerCase(), writer);
+    } else if (writer instanceof AnyWriterImpl) {
+      if (!unionEnabled) {
+        writer = new SingleListWriter(name, container, this);
+      } else {
+        writer = new PromotableWriter(container.addOrGet(name, Types.optional(MinorType.LIST), ListVector.class), container);
+      }
+      writer.allocate();
       writer.setPosition(${index});
       fields.put(name.toLowerCase(), writer);
     }
@@ -187,6 +248,9 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
 
   @Override
   public void start() {
+    <#if mode == "Nullable">
+    initialize(${index});
+    </#if>
   }
 
   @Override
@@ -234,6 +298,24 @@ public class ${mode}MapWriter extends AbstractFieldWriter {
       if (currentVector == null || currentVector != vector) {
         vector.allocateNewSafe();
       } 
+      writer.setPosition(${index});
+      fields.put(name.toLowerCase(), writer);
+    } else if (writer instanceof AnyWriterImpl) {
+      AnyVector anyVector = container.addOrGet(name, AnyVector.TYPE, AnyVector.class);
+      AnyVector transferAnyVector = new AnyVector(anyVector.getField(), anyVector.getAllocator());
+      anyVector.transferTo(transferAnyVector);
+      ${vectName}Vector vector = container.addOrGet(name, ${upperName}_TYPE, ${vectName}Vector.class);
+
+      if(!unionEnabled) {
+        writer = new ${vectName}WriterImpl(vector, this);
+      } else {
+        writer = new PromotableWriter(vector, container);
+      }
+      writer.allocate();
+      vector.getMutator().setNulls(transferAnyVector);
+
+      transferAnyVector.clear();
+      transferAnyVector.close();
       writer.setPosition(${index});
       fields.put(name.toLowerCase(), writer);
     }

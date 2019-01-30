@@ -158,16 +158,16 @@ public class JsonReader extends BaseJsonProcessor {
       }
     }
 
-    for (ListWriter field : emptyArrayWriters) {
-      // checks that array has not been initialized
-      if (field.getValueCapacity() == 0) {
-        if (allTextMode) {
-          field.varChar();
-        } else {
-          field.integer();
-        }
-      }
-    }
+//    for (ListWriter field : emptyArrayWriters) {
+//      // checks that array has not been initialized
+//      if (field.getValueCapacity() == 0) {
+//        if (allTextMode) {
+//          field.varChar();
+//        } else {
+//          field.integer();
+//        }
+//      }
+//    }
   }
 
   public void setSource(int start, int end, DrillBuf buf) throws IOException {
@@ -402,9 +402,10 @@ public class JsonReader extends BaseJsonProcessor {
           map.bit(fieldName).writeBit(1);
           break;
         }
-        case VALUE_NULL:
-          // do nothing as we don't have a type.
+        case VALUE_NULL: {
+          map.writeAny(fieldName).writeNull();
           break;
+        }
         case VALUE_NUMBER_FLOAT:
           map.float8(fieldName).writeFloat8(parser.getDoubleValue());
           break;
@@ -481,9 +482,10 @@ public class JsonReader extends BaseJsonProcessor {
       case VALUE_STRING:
         handleString(parser, map, fieldName);
         break;
-      case VALUE_NULL:
-        // do nothing as we don't have a type.
+      case VALUE_NULL: {
+        map.writeAny(fieldName).writeNull();
         break;
+      }
 
       default:
         throw getExceptionWithContext(UserException.dataReadError(),

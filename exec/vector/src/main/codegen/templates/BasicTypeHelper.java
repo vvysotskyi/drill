@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,6 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import org.apache.drill.exec.vector.AnyVector;
+import org.apache.drill.exec.vector.complex.impl.AnyWriterImpl;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/drill/exec/expr/BasicTypeHelper.java" />
@@ -88,6 +91,9 @@ public class BasicTypeHelper {
       case REPEATED:
         return RepeatedMapVector.class;
       }
+
+    case LATE:
+      return AnyVector.class;
       
     case LIST:
       switch (mode) {
@@ -179,6 +185,8 @@ public class BasicTypeHelper {
     switch (type) {
     case UNION:
       return UnionWriter.class;
+    case LATE:
+      return AnyWriterImpl.class;
     case MAP:
       switch (mode) {
       case REQUIRED:
@@ -247,6 +255,9 @@ public class BasicTypeHelper {
     
     case UNION:
       return new UnionVector(field, allocator, callBack);
+
+    case LATE:
+      return new AnyVector(field, allocator);
 
     case MAP:
       switch (type.getMode()) {

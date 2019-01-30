@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,6 +19,7 @@
 import java.lang.Override;
 
 import org.apache.drill.exec.record.TransferPair;
+import org.apache.drill.exec.vector.AnyVector;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.mortbay.jetty.servlet.Holder;
 
@@ -52,6 +53,8 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
   private final FieldReader reader = new Repeated${minor.class}ReaderImpl(Repeated${minor.class}Vector.this);
   private final Mutator mutator = new Mutator();
   private final Accessor accessor = new Accessor();
+  private final MaterializedField bitsField = MaterializedField.create("$bits$", Types.required(TypeProtos.MinorType.UINT1));
+  private final UInt1Vector bits = new UInt1Vector(bitsField, allocator);
 
   public Repeated${minor.class}Vector(MaterializedField field, BufferAllocator allocator) {
     super(field, allocator);
@@ -105,6 +108,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
   public void transferTo(Repeated${minor.class}Vector target) {
     target.clear();
     offsets.transferTo(target.offsets);
+    bits.transferTo(target.bits);
     values.transferTo(target.values);
     clear();
   }
@@ -118,6 +122,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
     final int valuesToCopy = endPos - startPos;
 
     values.splitAndTransferTo(startPos, valuesToCopy, to.values);
+    bits.splitAndTransferTo(startPos, groups, to.bits);
     to.offsets.clear();
     to.offsets.allocateNew(groups + 1);
     int normalizedPos = 0;
@@ -188,6 +193,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
     try {
       if(!offsets.allocateNewSafe()) return false;
       if(!values.allocateNewSafe()) return false;
+      if(!bits.allocateNewSafe()) return false;
       success = true;
     } finally {
       if (!success) {
@@ -195,6 +201,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       }
     }
     offsets.zeroVector();
+    bits.zeroVector();
     mutator.reset();
     return true;
   }
@@ -204,30 +211,86 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
     try {
       offsets.allocateNew();
       values.allocateNew();
+      bits.allocateNew();
     } catch (OutOfMemoryException e) {
       clear();
       throw e;
     }
+    bits.zeroVector();
     offsets.zeroVector();
     mutator.reset();
+  }
+
+  @Override
+  public DrillBuf[] getBuffers(boolean clear) {
+    final DrillBuf[] buffers = ObjectArrays.concat(bits.getBuffers(false),
+    ObjectArrays.concat(offsets.getBuffers(false), vector.getBuffers(false), DrillBuf.class), DrillBuf.class);
+    if (clear) {
+      for (DrillBuf buffer:buffers) {
+        buffer.retain();
+      }
+      clear();
+    }
+    return buffers;
+  }
+
+  @Override
+  public int getBufferSize() {
+    if (getAccessor().getValueCount() == 0) {
+      return 0;
+    }
+    return offsets.getBufferSize() + bits.getBufferSize() + vector.getBufferSize();
+  }
+
+  @Override
+  public void clear() {
+    bits.clear();
+    super.clear();
+  }
+
+  @Override
+  public void load(UserBitShared.SerializedField metadata, DrillBuf buffer) {
+    clear();
+    final UserBitShared.SerializedField bitsMetadata = metadata.getChild(0);
+    bits.load(bitsMetadata, buffer);
+
+    final int bitsLength = bitsMetadata.getBufferLength();
+    final UserBitShared.SerializedField offsetMetadata = metadata.getChild(1);
+    final int offsetLength = offsetMetadata.getBufferLength();
+    offsets.load(offsetMetadata, buffer.slice(bitsLength, offsetLength));
+
+    final UserBitShared.SerializedField vectorMetadata = metadata.getChild(2);
+    if (getDataVector() == DEFAULT_DATA_VECTOR) {
+      addOrGetVector(VectorDescriptor.create(vectorMetadata.getMajorType()));
+    }
+
+    final int vectorLength = vectorMetadata.getBufferLength();
+    vector.load(vectorMetadata, buffer.slice(bitsLength + offsetLength, vectorLength));
   }
 
   <#if type.major == "VarLen">
   @Override
   protected SerializedField.Builder getMetadataBuilder() {
-    return super.getMetadataBuilder()
-            .setVarByteLength(values.getVarByteLength());
+    return getField().getAsBuilder()
+      .setValueCount(getAccessor().getValueCount())
+      .setBufferLength(getBufferSize())
+      .addChild(bits.getMetadata())
+      .addChild(offsets.getMetadata())
+      .addChild(values.getMetadata())
+      .setVarByteLength(values.getVarByteLength());
   }
 
   public void allocateNew(int totalBytes, int valueCount, int innerValueCount) {
     try {
       offsets.allocateNew(valueCount + 1);
+      bits.allocateNew(valueCount + 1);
       values.allocateNew(totalBytes, innerValueCount);
     } catch (OutOfMemoryException e) {
       clear();
       throw e;
     }
     offsets.zeroVector();
+    bits.zeroVector();
     mutator.reset();
   }
 
@@ -236,6 +299,16 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
   }
 
   <#else>
+
+  @Override
+  protected UserBitShared.SerializedField.Builder getMetadataBuilder() {
+    return getField().getAsBuilder()
+      .setValueCount(getAccessor().getValueCount())
+      .setBufferLength(getBufferSize())
+      .addChild(bits.getMetadata())
+      .addChild(offsets.getMetadata())
+      .addChild(vector.getMetadata());
+  }
 
   @Override
   public void allocateNew(int valueCount, int innerValueCount) {
@@ -249,10 +322,12 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
     try {
       offsets.allocateNew(valueCount + 1);
       values.allocateNew(innerValueCount);
+      bits.allocateNew(valueCount + 1);
     } catch(OutOfMemoryException e){
       clear();
       throw e;
     }
+    bits.zeroVector();
     offsets.zeroVector();
     mutator.reset();
   }
@@ -266,15 +341,28 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
   public final class Accessor extends BaseRepeatedValueVector.BaseRepeatedAccessor {
     @Override
     public List<${friendlyType}> getObject(int index) {
-      final List<${friendlyType}> vals = new JsonStringArrayList<>();
-      final UInt4Vector.Accessor offsetsAccessor = offsets.getAccessor();
-      final int start = offsetsAccessor.get(index);
-      final int end = offsetsAccessor.get(index + 1);
-      final ${minor.class}Vector.Accessor valuesAccessor = values.getAccessor();
-      for(int i = start; i < end; i++) {
-        vals.add(valuesAccessor.getObject(i));
+      if (isSet(index)) {
+        final List<${friendlyType}> vals = new JsonStringArrayList<>();
+        final UInt4Vector.Accessor offsetsAccessor = offsets.getAccessor();
+        final int start = offsetsAccessor.get(index);
+        final int end = offsetsAccessor.get(index + 1);
+        final ${minor.class}Vector.Accessor valuesAccessor = values.getAccessor();
+        for(int i = start; i < end; i++) {
+          vals.add(valuesAccessor.getObject(i));
+        }
+        return vals;
+      } else {
+        return null;
       }
-      return vals;
+    }
+
+    public boolean isSet(int index) {
+      return bits.getAccessor().get(index) == 1 || bits.getAccessor().get(index) == 3;
+    }
+
+    @Override
+    public boolean isNull(int index) {
+      return bits.getAccessor().get(index) == 2;
     }
 
     public ${friendlyType} getSingleObject(int index, int arrayIndex) {
@@ -334,6 +422,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().set(nextOffset, value);
       offsets.getMutator().set(index+1, nextOffset+1);
+      bits.getMutator().set(index, 1);
     }
 
     <#if type.major == "VarLen">
@@ -345,6 +434,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       final int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().setSafe(nextOffset, bytes, start, length);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
+      bits.getMutator().setSafe(index, 1);
     }
 
     <#else>
@@ -353,6 +443,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       final int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().setSafe(nextOffset, srcValue);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
+      bits.getMutator().setSafe(index, 1);
     }
 
     </#if>
@@ -365,18 +456,21 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
         hVectorAccessor.get(i, ih);
         mutator.addSafe(index, ih);
       }
+      bits.getMutator().setSafe(index, 1);
     }
 
     public void addSafe(int index, ${minor.class}Holder holder) {
       int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().setSafe(nextOffset, holder);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
+      bits.getMutator().setSafe(index, 1);
     }
 
     public void addSafe(int index, Nullable${minor.class}Holder holder) {
       final int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().setSafe(nextOffset, holder);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
+      bits.getMutator().setSafe(index, 1);
     }
 
     <#if (fields?size > 1) && !(minor.class == "Decimal9" || minor.class == "Decimal18" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense")>
@@ -391,6 +485,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().set(nextOffset, holder);
       offsets.getMutator().set(index+1, nextOffset+1);
+      bits.getMutator().setSafe(index, 1);
     }
 
     public void add(int index, Repeated${minor.class}Holder holder) {
@@ -402,6 +497,7 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
         accessor.get(i, innerHolder);
         add(index, innerHolder);
       }
+      bits.getMutator().setSafe(index, 1);
     }
 
     @Override
@@ -421,6 +517,38 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
     @Override
     public void reset() {
     }
+
+    @Override
+    public void setValueCount(int valueCount) {
+      super.setValueCount(valueCount);
+      bits.getMutator().setValueCount(valueCount);
+    }
+
+    @Override
+    public void writeNull(int index) {
+      bits.getMutator().set(index, 2);
+    }
+
+    public void setNotNull(int index) {
+      bits.getMutator().setSafe(index, 1);
+    }
+
+    public void setNulls(AnyVector nullsVector) {
+      nullsVector.getBits().transferTo(bits);
+      setValueCount(nullsVector.getAccessor().getValueCount() + 1);
+//      for (int i = 0; i < nullsVector.getAccessor().getValueCount(); i++) {
+//        if (nullsVector.getAccessor().isSet(i)) {
+//          startNewValue(i);
+//        }
+//      }
+      nullsVector.clear();
+    }
+  }
+
+  @Override
+  public void initialize(int index) {
+    bits.getMutator().set(index, 1);
+    mutator.setValueCount(index + 1);
   }
 }
 </#list>

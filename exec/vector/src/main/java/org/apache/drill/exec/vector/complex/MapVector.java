@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -315,7 +315,7 @@ public class MapVector extends AbstractMapVector {
         // previous batches that aren't in the current batch.
         if (v != null && index < v.getAccessor().getValueCount()) {
           Object value = v.getAccessor().getObject(index);
-          if (value != null) {
+            if (value != null || v.getAccessor().isNull(index)) {
             vv.put(child, value);
           }
         }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,7 +19,6 @@ package org.apache.drill.exec.vector.complex;
 
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.complex.ContainerVectorLike;
 
 /**
  * An abstraction representing repeated value vectors.
@@ -51,6 +50,8 @@ public interface RepeatedValueVector extends ValueVector, ContainerVectorLike {
   @Override
   RepeatedMutator getMutator();
 
+  void initialize(int index);
+
   interface RepeatedAccessor extends ValueVector.Accessor {
     /**
      * Returns total number of cells that vector contains.
@@ -81,6 +82,6 @@ public interface RepeatedValueVector extends ValueVector, ContainerVectorLike {
      */
     void startNewValue(int index);
 
-
+    void writeNull(int index);
   }
 }

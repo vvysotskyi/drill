@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -33,6 +34,7 @@ import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.expr.holders.ComplexHolder;
 import org.apache.drill.exec.expr.holders.RepeatedMapHolder;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
@@ -40,6 +42,8 @@ import org.apache.drill.exec.util.CallBack;
 import org.apache.drill.exec.util.JsonStringArrayList;
 import org.apache.drill.exec.vector.AddOrGetResult;
 import org.apache.drill.exec.vector.AllocationHelper;
+import org.apache.drill.exec.vector.AnyVector;
+import org.apache.drill.exec.vector.UInt1Vector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorDescriptor;
@@ -48,7 +52,6 @@ import org.apache.drill.exec.vector.complex.impl.NullReader;
 import org.apache.drill.exec.vector.complex.impl.RepeatedMapReaderImpl;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 
 public class RepeatedMapVector extends AbstractMapVector
@@ -62,6 +65,8 @@ public class RepeatedMapVector extends AbstractMapVector
   private final RepeatedMapAccessor accessor = new RepeatedMapAccessor();
   private final Mutator mutator = new Mutator();
   private final EmptyValuePopulator emptyPopulator;
+  private final MaterializedField bitsField = MaterializedField.create("$bits$", Types.required(TypeProtos.MinorType.UINT1));
+  private final UInt1Vector bits = new UInt1Vector(bitsField, allocator);
 
   public RepeatedMapVector(MaterializedField field, BufferAllocator allocator, CallBack callBack){
     super(field, allocator, callBack);
@@ -102,6 +107,7 @@ public class RepeatedMapVector extends AbstractMapVector
     clear();
     try {
       offsets.allocateNew(groupCount + 1);
+      bits.allocateNew(groupCount + 1);
       for (ValueVector v : getChildren()) {
         AllocationHelper.allocatePrecomputedChildCount(v, groupCount, 50, innerValueCount);
       }
@@ -109,6 +115,7 @@ public class RepeatedMapVector extends AbstractMapVector
       clear();
       throw e;
     }
+    bits.zeroVector();
     offsets.zeroVector();
     mutator.reset();
   }
@@ -130,7 +137,8 @@ public class RepeatedMapVector extends AbstractMapVector
       return 0;
     }
     long bufferSize = offsets.getBufferSize();
-    for (final ValueVector v : (Iterable<ValueVector>) this) {
+    bufferSize += bits.getBufferSize();
+    for (final ValueVector v : this) {
       bufferSize += v.getBufferSize();
     }
     return (int) bufferSize;
@@ -143,7 +151,7 @@ public class RepeatedMapVector extends AbstractMapVector
     }
 
     long bufferSize = 0;
-    for (final ValueVector v : (Iterable<ValueVector>) this) {
+    for (final ValueVector v : this) {
       bufferSize += v.getBufferSizeFor(valueCount);
     }
 
@@ -153,6 +161,7 @@ public class RepeatedMapVector extends AbstractMapVector
   @Override
   public void close() {
     offsets.close();
+    bits.close();
     super.close();
   }
 
@@ -219,7 +228,7 @@ public class RepeatedMapVector extends AbstractMapVector
      */
     boolean success = false;
     try {
-      if (!offsets.allocateNewSafe()) {
+      if (!offsets.allocateNewSafe() || !bits.allocateNewSafe()) {
         return false;
       }
       success =  super.allocateNewSafe();
@@ -229,6 +238,7 @@ public class RepeatedMapVector extends AbstractMapVector
       }
     }
     offsets.zeroVector();
+    bits.zeroVector();
     return success;
   }
 
@@ -272,6 +282,7 @@ public class RepeatedMapVector extends AbstractMapVector
       for (TransferPair p : pairs) {
         p.transfer();
       }
+//      from.bits.getMutator().set();
       to.getMutator().setValueCount(from.getAccessor().getValueCount());
       from.clear();
     }
@@ -341,6 +352,7 @@ public class RepeatedMapVector extends AbstractMapVector
       for (TransferPair p : pairs) {
         p.transfer();
       }
+      from.bits.transferTo(to.bits);
       from.clear();
     }
 
@@ -375,6 +387,7 @@ public class RepeatedMapVector extends AbstractMapVector
 
       to.offsets.clear();
       to.offsets.allocateNew(groups + 1);
+      from.bits.splitAndTransferTo(groupStart, groups, to.bits);
 
       int normalizedPos;
       for (int i = 0; i < groups + 1; i++) {
@@ -416,7 +429,7 @@ public class RepeatedMapVector extends AbstractMapVector
     //final int expectedBufferSize = getBufferSize();
     //final int actualBufferSize = super.getBufferSize();
     //Preconditions.checkArgument(expectedBufferSize == actualBufferSize + offsets.getBufferSize());
-    return ArrayUtils.addAll(offsets.getBuffers(clear), super.getBuffers(clear));
+    return ArrayUtils.addAll(bits.getBuffers(clear), ArrayUtils.addAll(offsets.getBuffers(clear), super.getBuffers(clear)));
   }
 
 
@@ -424,11 +437,16 @@ public class RepeatedMapVector extends AbstractMapVector
   public void load(SerializedField metadata, DrillBuf buffer) {
     final List<SerializedField> children = metadata.getChildList();
 
-    final SerializedField offsetField = children.get(0);
-    offsets.load(offsetField, buffer);
-    int bufOffset = offsetField.getBufferLength();
+    final UserBitShared.SerializedField bitsMetadata = children.get(0);
+    bits.load(bitsMetadata, buffer);
 
-    for (int i = 1; i < children.size(); i++) {
+    final int bitsLength = bitsMetadata.getBufferLength();
+    final SerializedField offsetField = children.get(1);
+    final int offsetLength = offsetField.getBufferLength();
+    offsets.load(offsetField, buffer.slice(bitsLength, offsetLength));
+    int bufOffset = bitsLength + offsetLength;
+
+    for (int i = 2; i < children.size(); i++) {
       final SerializedField child = children.get(i);
       final MaterializedField fieldDef = MaterializedField.create(child);
       ValueVector vector = getChild(fieldDef.getLastName());
@@ -453,6 +471,7 @@ public class RepeatedMapVector extends AbstractMapVector
         .setBufferLength(getBufferSize()) //
         // while we don't need to actually read this on load, we need it to make sure we don't skip deserialization of this vector
         .setValueCount(accessor.getValueCount());
+    builder.addChild(bits.getMetadata());
     builder.addChild(offsets.getMetadata());
     for (final ValueVector child : getChildren()) {
       builder.addChild(child.getMetadata());
@@ -465,26 +484,37 @@ public class RepeatedMapVector extends AbstractMapVector
     return mutator;
   }
 
+  @Override
+  public void initialize(int index) {
+    bits.getMutator().set(index, 1);
+    mutator.setValueCount(index + 1);
+  }
+
   public class RepeatedMapAccessor implements RepeatedAccessor {
     @Override
     public Object getObject(int index) {
-      final List<Object> list = new JsonStringArrayList<>();
-      final int end = offsets.getAccessor().get(index+1);
-      String fieldName;
-      for (int i =  offsets.getAccessor().get(index); i < end; i++) {
-        final Map<String, Object> vv = Maps.newLinkedHashMap();
-        for (final MaterializedField field : getField().getChildren()) {
-          if (!field.equals(BaseRepeatedValueVector.OFFSETS_FIELD)) {
-            fieldName = field.getLastName();
-            final Object value = getChild(fieldName).getAccessor().getObject(i);
-            if (value != null) {
-              vv.put(fieldName, value);
+      if (bits.getAccessor().get(index) == 1 || bits.getAccessor().get(index) == 3) {
+        final List<Object> list = new JsonStringArrayList<>();
+        final int end = offsets.getAccessor().get(index+1);
+        String fieldName;
+        for (int i =  offsets.getAccessor().get(index); i < end; i++) {
+          final Map<String, Object> vv = Maps.newLinkedHashMap();
+          for (final MaterializedField field : getField().getChildren()) {
+            if (!field.equals(BaseRepeatedValueVector.OFFSETS_FIELD) && !field.equals(bitsField)) {
+              fieldName = field.getLastName();
+              Accessor childAccessor = getChild(fieldName).getAccessor();
+              final Object value = childAccessor.getObject(i);
+              if (value != null || childAccessor.isNull(i)) {
+                vv.put(fieldName, value);
+              }
             }
           }
+          list.add(vv);
         }
-        list.add(vv);
+        return list;
+      } else {
+        return null;
       }
-      return list;
     }
 
     @Override
@@ -513,7 +543,7 @@ public class RepeatedMapVector extends AbstractMapVector
 
     @Override
     public boolean isNull(int index) {
-      return false;
+      return bits.getAccessor().get(index) == 2;
     }
 
     public void get(int index, RepeatedMapHolder holder) {
@@ -550,12 +580,14 @@ public class RepeatedMapVector extends AbstractMapVector
     public void startNewValue(int index) {
       emptyPopulator.populate(index + 1);
       offsets.getMutator().setSafe(index + 1, offsets.getAccessor().get(index));
+      bits.getMutator().setSafe(index, 1);
     }
 
     @Override
     public void setValueCount(int topLevelValueCount) {
       emptyPopulator.populate(topLevelValueCount);
       offsets.getMutator().setValueCount(topLevelValueCount == 0 ? 0 : topLevelValueCount + 1);
+      bits.getMutator().setValueCount(topLevelValueCount);
       int childValueCount = offsets.getAccessor().get(topLevelValueCount);
       for (final ValueVector v : getChildren()) {
         v.getMutator().setValueCount(childValueCount);
@@ -571,7 +603,28 @@ public class RepeatedMapVector extends AbstractMapVector
     public int add(int index) {
       final int prevEnd = offsets.getAccessor().get(index + 1);
       offsets.getMutator().setSafe(index + 1, prevEnd + 1);
+      bits.getMutator().setSafe(index, 1);
       return prevEnd;
+    }
+
+    @Override
+    public void writeNull(int index) {
+      bits.getMutator().set(index, 2);
+    }
+
+    public void setNotNull(int index) {
+      bits.getMutator().setSafe(index, 1);
+    }
+
+    public void setNulls(AnyVector nullsVector) {
+      nullsVector.getBits().transferTo(bits);
+      setValueCount(nullsVector.getAccessor().getValueCount() + 1);
+//      for (int i = 0; i < nullsVector.getAccessor().getValueCount(); i++) {
+//        if (nullsVector.getAccessor().isSet(i)) {
+//          startNewValue(i);
+//        }
+//      }
+      nullsVector.clear();
     }
   }
 
@@ -580,6 +633,7 @@ public class RepeatedMapVector extends AbstractMapVector
     getMutator().reset();
 
     offsets.clear();
+    bits.clear();
     for(final ValueVector vector : getChildren()) {
       vector.clear();
     }

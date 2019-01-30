@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -182,4 +182,8 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   </#list></#list>
 
+  @Override
+  public void writeNull() {
+    vector.getMutator().writeNull(idx());
+  }
 }
