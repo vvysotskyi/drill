@@ -55,7 +55,7 @@ public class ParquetRGFilterEvaluator {
 
   public static RowsMatch evalFilter(LogicalExpression expr, ParquetMetadata footer, int rowGroupIndex,
       OptionManager options, FragmentContext fragmentContext) {
-    final HashMap<String, String> emptyMap = new HashMap<String, String>();
+    final HashMap<String, String> emptyMap = new HashMap<>();
     return evalFilter(expr, footer, rowGroupIndex, options, fragmentContext, emptyMap);
   }
 
@@ -70,8 +70,8 @@ public class ParquetRGFilterEvaluator {
     return matches(expr, columnStatisticsMap, footer.getBlocks().get(rowGroupIndex).getRowCount(), fragmentContext, fragmentContext.getFunctionRegistry());
   }
 
-  public static RowsMatch matches(ParquetFilterPredicate parquetPredicate, Map<SchemaPath,
-      ColumnStatistics> columnStatisticsMap, long rowCount) {
+  public static RowsMatch matches(ParquetFilterPredicate parquetPredicate,
+      Map<SchemaPath, ColumnStatistics> columnStatisticsMap, long rowCount) {
     if (parquetPredicate != null) {
       RangeExprEvaluator rangeExprEvaluator = new RangeExprEvaluator(columnStatisticsMap, rowCount);
       return parquetPredicate.matches(rangeExprEvaluator);

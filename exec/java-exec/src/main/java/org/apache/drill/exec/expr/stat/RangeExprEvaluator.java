@@ -39,7 +39,6 @@ import org.apache.drill.exec.expr.holders.TimeStampHolder;
 import org.apache.drill.exec.expr.holders.ValueHolder;
 import org.apache.drill.exec.store.parquet.stat.ColumnStatistics;
 import org.apache.drill.exec.vector.ValueHolderHelper;
-import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.column.statistics.BooleanStatistics;
 import org.apache.parquet.column.statistics.DoubleStatistics;
 import org.apache.parquet.column.statistics.FloatStatistics;
@@ -84,9 +83,13 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
       return columnStatistics.getStatistics();
     } else if (typedFieldExpr.getMajorType().equals(Types.OPTIONAL_INT)) {
       // field does not exist.
-      Statistics<T> statistics = Statistics.getStatsBasedOnType(PrimitiveType.PrimitiveTypeName.INT32);
-      statistics.setNumNulls(rowCount); // all values are nulls
-      return statistics;
+      PrimitiveType columnPrimitiveType = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.INT32)
+          .as(OriginalType.INT_32)
+          .named(typedFieldExpr.getPath().toString());
+
+      return (Statistics<T>) Statistics.getBuilderForReading(columnPrimitiveType)
+          .withNumNulls(rowCount) // all values are nulls
+          .build();
     }
     return null;
   }
@@ -172,7 +175,11 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
 
   @SuppressWarnings("unchecked")
   private Statistics<T> getStatistics(int min, int max) {
-    final Statistics<T> statistics = Statistics.getStatsBasedOnType(PrimitiveType.PrimitiveTypeName.INT32);
+    PrimitiveType int32Type = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.INT32)
+        .as(OriginalType.INT_32)
+        .named("int32_type");
+    Statistics<T> statistics = (Statistics<T>) Statistics.createStats(int32Type);
+    Statistics.createStats(int32Type);
     ((IntStatistics) statistics).setMinMax(min, max);
     return statistics;
   }
@@ -183,7 +190,9 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
 
   @SuppressWarnings("unchecked")
   private Statistics<T> getStatistics(boolean min, boolean max) {
-    Statistics<T> statistics = Statistics.getStatsBasedOnType(PrimitiveType.PrimitiveTypeName.BOOLEAN);
+    PrimitiveType booleanType = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.BOOLEAN)
+        .named("boolean_type");
+    Statistics<T> statistics = (Statistics<T>) Statistics.createStats(booleanType);
     ((BooleanStatistics) statistics).setMinMax(min, max);
     return statistics;
   }
@@ -194,7 +203,9 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
 
   @SuppressWarnings("unchecked")
   private Statistics<T> getStatistics(long min, long max) {
-    final Statistics statistics = Statistics.getStatsBasedOnType(PrimitiveType.PrimitiveTypeName.INT64);
+    PrimitiveType int64Type = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
+        .named("int64_type");
+    Statistics<T> statistics = (Statistics<T>) Statistics.createStats(int64Type);
     ((LongStatistics) statistics).setMinMax(min, max);
     return statistics;
   }
@@ -205,7 +216,9 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
 
   @SuppressWarnings("unchecked")
   private Statistics<T> getStatistics(double min, double max) {
-    final Statistics<T> statistics = Statistics.getStatsBasedOnType(PrimitiveType.PrimitiveTypeName.DOUBLE);
+    PrimitiveType doubleType = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.DOUBLE)
+        .named("double_type");
+    Statistics<T> statistics = (Statistics<T>) Statistics.createStats(doubleType);
     ((DoubleStatistics) statistics).setMinMax(min, max);
     return statistics;
   }
@@ -216,7 +229,9 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
 
   @SuppressWarnings("unchecked")
   private Statistics<T> getStatistics(float min, float max) {
-    final Statistics<T> statistics = Statistics.getStatsBasedOnType(PrimitiveType.PrimitiveTypeName.FLOAT);
+    PrimitiveType floatType = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.FLOAT)
+        .named("float_type");
+    Statistics<T> statistics = (Statistics<T>) Statistics.createStats(floatType);
     ((FloatStatistics) statistics).setMinMax(min, max);
     return statistics;
   }
@@ -227,9 +242,13 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
 
   @SuppressWarnings("unchecked")
   private Statistics<T> getStatistics(String min, String max) {
-    final Statistics<T> statistics = Statistics.getStatsBasedOnType(PrimitiveType.PrimitiveTypeName.BINARY);
-    ((BinaryStatistics) statistics).setMinMaxFromBytes(min.getBytes(), max.getBytes());
-    return statistics;
+    PrimitiveType binaryType = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.BINARY)
+        .named("binary_type");
+    return (Statistics<T>) Statistics.getBuilderForReading(binaryType)
+        .withMin(min.getBytes())
+        .withMax(max.getBytes())
+        .withNumNulls(0)
+        .build();
   }
 
   private Statistics<T> getStatistics(BigDecimal value, DecimalMetadata decimalMetadata) {
@@ -251,7 +270,7 @@ public class RangeExprEvaluator<T extends Comparable<T>> extends AbstractExprVis
         .build();
   }
 
-  private Statistics<T> evalCastFunc(FunctionHolderExpression holderExpr, Statistics input) {
+  private Statistics<T> evalCastFunc(FunctionHolderExpression holderExpr, Statistics<T> input) {
     try {
       DrillSimpleFuncHolder funcHolder = (DrillSimpleFuncHolder) holderExpr.getHolder();
 

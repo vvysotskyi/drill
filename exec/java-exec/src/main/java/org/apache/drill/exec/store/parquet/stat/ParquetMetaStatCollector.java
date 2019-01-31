@@ -192,11 +192,16 @@ public class ParquetMetaStatCollector implements  ColumnStatCollector {
      * @return column statistics
      */
     ColumnStatistics build() {
-      Statistics stat = Statistics.getStatsBasedOnType(primitiveType);
-      Statistics convertedStat = stat;
 
       TypeProtos.MajorType type = ParquetReaderUtility.getType(primitiveType, originalType, scale, precision);
-      stat.setNumNulls(numNulls);
+
+      PrimitiveType columnPrimitiveType = org.apache.parquet.schema.Types.optional(primitiveType)
+          .as(originalType)
+          .named(originalType.name());
+
+      Statistics stat = Statistics.getBuilderForReading(columnPrimitiveType)
+          .withNumNulls(numNulls)
+          .build();
 
       if (min != null && max != null) {
         switch (type.getMinorType()) {
@@ -215,11 +220,16 @@ public class ParquetMetaStatCollector implements  ColumnStatCollector {
             ((DoubleStatistics) stat).setMinMax(Double.parseDouble(min.toString()), Double.parseDouble(max.toString()));
             break;
           case DATE:
-            convertedStat = new LongStatistics();
-            convertedStat.setNumNulls(stat.getNumNulls());
+            PrimitiveType int64PrimitiveType = org.apache.parquet.schema.Types.optional(PrimitiveType.PrimitiveTypeName.INT64)
+                .as(OriginalType.DATE)
+                .named("int64_type");
             long minMS = convertToDrillDateValue(Integer.parseInt(min.toString()));
             long maxMS = convertToDrillDateValue(Integer.parseInt(max.toString()));
-            ((LongStatistics) convertedStat ).setMinMax(minMS, maxMS);
+
+            stat = Statistics.getBuilderForReading(int64PrimitiveType)
+                .withNumNulls(stat.getNumNulls())
+                .build();
+            ((LongStatistics) stat).setMinMax(minMS, maxMS);
             break;
           case BIT:
             ((BooleanStatistics) stat).setMinMax(Boolean.parseBoolean(min.toString()), Boolean.parseBoolean(max.toString()));
@@ -278,7 +288,7 @@ public class ParquetMetaStatCollector implements  ColumnStatCollector {
               .scale(scale)
               .named("decimal_type");
 
-            convertedStat = Statistics.getBuilderForReading(decimalType)
+            stat = Statistics.getBuilderForReading(decimalType)
               .withMin(minBytes)
               .withMax(maxBytes)
               .withNumNulls(numNulls)
@@ -289,7 +299,7 @@ public class ParquetMetaStatCollector implements  ColumnStatCollector {
             logger.trace("Unsupported minor type [{}] for parquet statistics.", type.getMinorType());
         }
       }
-      return new ColumnStatistics(convertedStat, type);
+      return new ColumnStatistics(stat, type);
     }
 
   }

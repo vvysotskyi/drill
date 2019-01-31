@@ -20,6 +20,12 @@ package org.apache.drill.exec.store.parquet.stat;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.parquet.column.statistics.Statistics;
 
+/**
+ * Wrapper for the Parquet column statistics. Additionally involves Drill's MajorType
+ * TODO: get rid from this wrapper. Use the common one for the all table formats
+ *
+ * @param <T> the Java type described by this Statistics instance
+ */
 public class ColumnStatistics<T extends Comparable<T>> {
   private final Statistics<T> statistics;
   private final TypeProtos.MajorType majorType;
