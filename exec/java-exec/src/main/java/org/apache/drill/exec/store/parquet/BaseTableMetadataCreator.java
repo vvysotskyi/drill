@@ -142,17 +142,21 @@ public abstract class BaseTableMetadataCreator {
   protected abstract void initInternal() throws IOException;
 
   protected PartitionMetadata getPartitionMetadata(SchemaPath logicalExpressions, List<FileMetadata> files) {
-    Set<SchemaPath> columns = files.iterator().next().getFields().keySet();
     Map<SchemaPath, MutableLong> nullsCounts = new HashMap<>();
     Map<SchemaPath, Object> minVals = new HashMap<>();
     Map<SchemaPath, Object> maxVals = new HashMap<>();
     Map<SchemaPath, Comparator> valComparator = new HashMap<>();
     Set<String> locations = new HashSet<>();
-    for (SchemaPath column : columns) {
-      nullsCounts.put(column, new MutableLong());
-    }
-
     long partRowCount = 0;
+    Set<SchemaPath> columns = null;
+
+    for (FileMetadata file : files) {
+      columns = file.getFields().keySet();
+
+      for (SchemaPath column : columns) {
+        nullsCounts.put(column, new MutableLong());
+      }
+    }
 
     for (FileMetadata file : files) {
       locations.add(file.getLocation());
