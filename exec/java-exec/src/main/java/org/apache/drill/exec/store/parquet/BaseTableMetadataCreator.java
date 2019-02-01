@@ -155,13 +155,13 @@ public abstract class BaseTableMetadataCreator {
     Map<SchemaPath, Comparator> valComparator = new HashMap<>();
     Set<String> locations = new HashSet<>();
     long partRowCount = 0;
-    Set<SchemaPath> columns = null;
+    Set<SchemaPath> columns = new HashSet<>();
 
     for (FileMetadata file : files) {
-      columns = file.getColumnStatistics().keySet();
+      columns.addAll(file.getColumnStatistics().keySet());
 
       for (SchemaPath column : columns) {
-        nullsCounts.put(column, new MutableLong());
+        nullsCounts.computeIfAbsent(column, c -> new MutableLong());
       }
     }
 
@@ -170,9 +170,13 @@ public abstract class BaseTableMetadataCreator {
       Long fileRowCount = (Long) file.getStatistic(ColumnStatisticsKind.ROW_COUNT);
       if (fileRowCount != null && fileRowCount != GroupScan.NO_COLUMN_STATS) {
         partRowCount += fileRowCount;
+      } else {
+        fileRowCount = GroupScan.NO_COLUMN_STATS;
       }
+      Set<SchemaPath> unhandledColumns = new HashSet<>(columns);
       for (SchemaPath colPath : file.getColumnStatistics().keySet()) {
         ColumnStatistic columnStatistic = file.getColumnStatistics().get(colPath);
+        unhandledColumns.remove(colPath);
 
         MutableLong nullsCount = nullsCounts.get(colPath);
 
@@ -197,6 +201,13 @@ public abstract class BaseTableMetadataCreator {
         }
         if (max != null && comparator.compare(maxVals.get(colPath), max) < 0) {
           maxVals.put(colPath, max);
+        }
+      }
+      // handle missed for file columns by collecting nulls count
+      for (SchemaPath unhandledColumn : unhandledColumns) {
+        MutableLong nullsCount = nullsCounts.get(unhandledColumn);
+        if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
+          nullsCount.add(fileRowCount);
         }
       }
     }
