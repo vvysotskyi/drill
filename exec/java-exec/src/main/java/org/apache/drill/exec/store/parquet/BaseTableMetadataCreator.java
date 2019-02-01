@@ -22,6 +22,8 @@ import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.base.GroupScan;
+import org.apache.drill.exec.record.metadata.SchemaPathUtils;
+import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.resolver.TypeCastRules;
 import org.apache.drill.exec.store.parquet.metadata.Metadata_V3;
 import org.apache.drill.exec.store.parquet.stat.ParquetMetaStatCollector;
@@ -103,10 +105,15 @@ public abstract class BaseTableMetadataCreator {
 
     LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields = resolveFields(parquetTableMetadata);
 
+    TupleSchema schema = new TupleSchema();
+    for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : fields.entrySet()) {
+      SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+    }
+
     HashMap<SchemaPath, ColumnStatistic> columnStatistics = getColumnStatistics(parquetTableMetadata, fields.keySet());
 
     return new TableMetadata(tableName, tableLocation,
-        fields, columnStatistics, tableStatistics, -1, "root", partitionKeys);
+        schema, columnStatistics, tableStatistics, -1, "root", partitionKeys);
   }
 
   public List<PartitionMetadata> getPartitionMetadata() {
@@ -151,7 +158,7 @@ public abstract class BaseTableMetadataCreator {
     Set<SchemaPath> columns = null;
 
     for (FileMetadata file : files) {
-      columns = file.getFields().keySet();
+      columns = file.getColumnStatistics().keySet();
 
       for (SchemaPath column : columns) {
         nullsCounts.put(column, new MutableLong());
@@ -164,7 +171,7 @@ public abstract class BaseTableMetadataCreator {
       if (fileRowCount != null && fileRowCount != GroupScan.NO_COLUMN_STATS) {
         partRowCount += fileRowCount;
       }
-      for (SchemaPath colPath : file.getFields().keySet()) {
+      for (SchemaPath colPath : file.getColumnStatistics().keySet()) {
         ColumnStatistic columnStatistic = file.getColumnStatistics().get(colPath);
 
         MutableLong nullsCount = nullsCounts.get(colPath);
@@ -208,7 +215,7 @@ public abstract class BaseTableMetadataCreator {
     partStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), partRowCount);
 
     return
-      new PartitionMetadata(logicalExpressions, (LinkedHashMap<SchemaPath, TypeProtos.MajorType>) files.iterator().next().getFields(),
+      new PartitionMetadata(logicalExpressions, files.iterator().next().getSchema(),
           columnStatistics, partStatistics, locations, tableName, -1);
   }
 
@@ -235,7 +242,12 @@ public abstract class BaseTableMetadataCreator {
     HashMap<String, Object> fileStatistics = new HashMap<>();
     fileStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getFileRowCount(file));
 
-    return new FileMetadata(file.getPath(), columns,
+    TupleSchema schema = new TupleSchema();
+    for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : columns.entrySet()) {
+      SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+    }
+
+    return new FileMetadata(file.getPath(), schema,
         getFileColumnStatistics(file, columns.keySet()), fileStatistics, file.getPath(), tableName, -1);
   }
 
@@ -253,9 +265,15 @@ public abstract class BaseTableMetadataCreator {
         rowGroupStatistics.put("start", rowGroupMetadata.getStart());
         rowGroupStatistics.put("length", rowGroupMetadata.getLength());
 
+        LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getRowGroupFields(parquetTableMetadata, rowGroupMetadata);
+
+        TupleSchema schema = new TupleSchema();
+        for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : columns.entrySet()) {
+          SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+        }
+
         RowGroupMetadata groupMetadata = new RowGroupMetadata(
-            getRowGroupFields(parquetTableMetadata, rowGroupMetadata), columnStatistics,
-            rowGroupStatistics, rowGroupMetadata.getHostAffinity(), index++, fileMetadata.getLocation());
+            schema, columnStatistics, rowGroupStatistics, rowGroupMetadata.getHostAffinity(), index++, fileMetadata.getLocation());
         result.add(groupMetadata);
       }
     }

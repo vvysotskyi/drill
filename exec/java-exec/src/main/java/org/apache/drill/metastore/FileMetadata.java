@@ -18,15 +18,15 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.SchemaPathUtils;
+import org.apache.drill.exec.record.metadata.TupleSchema;
 
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 public class FileMetadata implements BaseMetadata {
   private final String fileName;
-  private final LinkedHashMap<SchemaPath, MajorType> fields;
+  private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;
   private final Map<String, Object> fileStatistics;
   // TODO: decide which of these: fileName or location should be left.
@@ -34,14 +34,12 @@ public class FileMetadata implements BaseMetadata {
   // TODO: decide whether this field is required
   private final String tableName;
   private final long lastModifiedTime;
-  // TODO: move common for file and row group info to the base class and create a separate class for row group
-  private List<FileMetadata> rowGroups;
 
-  public FileMetadata(String fileName, LinkedHashMap<SchemaPath, MajorType> fields,
+  public FileMetadata(String fileName, TupleSchema schema,
                       Map<SchemaPath, ColumnStatistic> columnStatistics,
                       Map<String, Object> fileStatistics, String location, String tableName, long lastModifiedTime) {
     this.fileName = fileName;
-    this.fields = fields;
+    this.schema = schema;
     this.columnStatistics = columnStatistics;
     this.fileStatistics = fileStatistics;
     this.location = location;
@@ -73,12 +71,12 @@ public class FileMetadata implements BaseMetadata {
     return lastModifiedTime;
   }
 
-  public MajorType getField(SchemaPath name) {
-    return fields.get(name);
+  public ColumnMetadata getColumn(SchemaPath name) {
+    return SchemaPathUtils.getColumnMetadata(name, schema);
   }
 
-  public Map<SchemaPath, MajorType> getFields() {
-    return fields;
+  public TupleSchema getSchema() {
+    return schema;
   }
 
   public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {

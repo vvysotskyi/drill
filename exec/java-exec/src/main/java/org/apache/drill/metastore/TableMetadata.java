@@ -18,10 +18,11 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.SchemaPathUtils;
+import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,23 +30,23 @@ import java.util.Set;
 public class TableMetadata implements BaseMetadata {
   private final String tableName;
   private final String location;
-  private final /*LinkedHash*/Map<SchemaPath, MajorType> fields;
+  private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;
   private final Map<String, Object> tableStatistics;
   private final long lastModifiedTime;
   private final String owner;
   private final Set<String> partitionKeys;
   private List<FileMetadata> files;
-  private List<FileMetadata> partitions;
-  private boolean supportsGroupScan;
+//  private List<FileMetadata> partitions;
+//  private boolean supportsGroupScan;
 
   public static final TableMetadata EMPTY = new TableMetadata();
 
-  public TableMetadata(String tableName, String location, LinkedHashMap<SchemaPath, MajorType> fields,
+  public TableMetadata(String tableName, String location, TupleSchema schema,
                        Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> tableStatistics, long lastModifiedTime, String owner, Set<String> partitionKeys) {
     this.tableName = tableName;
     this.location = location;
-    this.fields = fields;
+    this.schema = schema;
     this.columnStatistics = columnStatistics;
     this.tableStatistics = tableStatistics;
     this.lastModifiedTime = lastModifiedTime;
@@ -56,7 +57,7 @@ public class TableMetadata implements BaseMetadata {
   private TableMetadata() {
     tableName = null;
     location = null;
-    fields = Collections.emptyMap();
+    schema = new TupleSchema();
     columnStatistics = Collections.emptyMap();
     tableStatistics = Collections.emptyMap();
     lastModifiedTime = -1;
@@ -76,12 +77,12 @@ public class TableMetadata implements BaseMetadata {
     return tableStatistics.get(statisticsKind.getName());
   }
 
-  public MajorType getField(SchemaPath name) {
-    return fields.get(name);
+  public ColumnMetadata getColumn(SchemaPath name) {
+    return SchemaPathUtils.getColumnMetadata(name, schema);
   }
 
-  public Map<SchemaPath, MajorType> getFields() {
-    return fields;
+  public TupleSchema getSchema() {
+    return schema;
   }
 
   public boolean isPartitionColumn(String fieldName) {

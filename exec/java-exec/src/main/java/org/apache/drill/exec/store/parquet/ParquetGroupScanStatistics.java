@@ -21,6 +21,8 @@ import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.base.GroupScan;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.FileMetadata;
@@ -98,7 +100,9 @@ public class ParquetGroupScanStatistics {
         } else {
           previousCount.setValue(GroupScan.NO_COLUMN_STATS);
         }
-        boolean partitionColumn = checkForPartitionColumn(column, first, rowCount, file.getFields().get(schemaPath), schemaPath);
+        ColumnMetadata columnMetadata = SchemaPathUtils.getColumnMetadata(schemaPath, file.getSchema());
+        TypeProtos.MajorType majorType = columnMetadata != null ? columnMetadata.majorType() : null;
+        boolean partitionColumn = checkForPartitionColumn(column, first, rowCount, majorType, schemaPath);
         if (partitionColumn) {
           Map<SchemaPath, Object> map = partitionValueMap.computeIfAbsent(file.getLocation(), key -> new HashMap<>());
           Object value = map.get(schemaPath);

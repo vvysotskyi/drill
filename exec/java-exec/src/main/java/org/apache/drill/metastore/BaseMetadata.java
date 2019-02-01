@@ -18,7 +18,7 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.Map;
 
@@ -27,6 +27,6 @@ import java.util.Map;
  */
 public interface BaseMetadata {
   Map<SchemaPath, ColumnStatistic> getColumnStatistics();
-  Map<SchemaPath, TypeProtos.MajorType> getFields();
+  TupleSchema getSchema();
   Object getStatistic(StatisticsKind statisticsKind);
 }

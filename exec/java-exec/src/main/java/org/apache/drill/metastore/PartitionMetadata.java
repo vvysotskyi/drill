@@ -18,22 +18,23 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.SchemaPathUtils;
+import org.apache.drill.exec.record.metadata.TupleSchema;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 // actually this class represents not a partition metadata,
 // but a metadata for table part which corresponds to the concrete partition key.
-// Therefore such fields as Map<String, Object> values should be removed.
+// Therefore such schema as Map<String, Object> values should be removed.
 public class PartitionMetadata implements BaseMetadata {
   private final SchemaPath column;
   // part location -> part column value
 //  private final Map<String, Object> values;
   // TODO: currently it is impossible to obtain statistics for the concrete partition.
   // Refactor this code to allow that.
-  private final LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields;
+  private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;
   private final Map<String, Object> partitionStatistics;
   // TODO: decide which of these: fileName or location should be left.
@@ -44,7 +45,7 @@ public class PartitionMetadata implements BaseMetadata {
 
   public PartitionMetadata(SchemaPath column,
 //      Map<String, Object> values,
-      LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields,
+                           TupleSchema schema,
       Map<SchemaPath, ColumnStatistic> columnStatistics,
       Map<String, Object> partitionStatistics,
       Set<String> location,
@@ -52,7 +53,7 @@ public class PartitionMetadata implements BaseMetadata {
       long lastModifiedTime) {
     this.column = column;
 //    this.values = values;
-    this.fields = fields;
+    this.schema = schema;
     this.columnStatistics = columnStatistics;
     this.partitionStatistics = partitionStatistics;
     this.location = location;
@@ -80,12 +81,12 @@ public class PartitionMetadata implements BaseMetadata {
     return lastModifiedTime;
   }
 
-  public TypeProtos.MajorType getField(SchemaPath name) {
-    return fields.get(name);
+  public ColumnMetadata getColumn(SchemaPath name) {
+    return SchemaPathUtils.getColumnMetadata(name, schema);
   }
 
-  public Map<SchemaPath, TypeProtos.MajorType> getFields() {
-    return fields;
+  public TupleSchema getSchema() {
+    return schema;
   }
 
   public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {

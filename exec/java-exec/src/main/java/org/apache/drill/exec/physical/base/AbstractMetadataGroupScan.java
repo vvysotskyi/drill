@@ -33,6 +33,10 @@ import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.expr.stat.ParquetFilterPredicate;
 import org.apache.drill.exec.ops.UdfUtilities;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.SchemaPathUtils;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.dfs.FileSelection;
@@ -52,7 +56,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -89,11 +92,6 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   @JsonProperty("columns")
   public List<SchemaPath> getColumns() {
     return columns;
-  }
-
-  @JsonIgnore
-  public Map<SchemaPath, TypeProtos.MajorType> getColumnsMap() {
-    return tableMetadata.getFields();
   }
 
   @JsonIgnore
@@ -309,7 +307,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
       ParquetFilterPredicate.RowsMatch match = ParquetRGFilterEvaluator.matches(filterPredicate,
           metadata.getColumnStatistics(), (long) metadata.getStatistic(TableStatistics.ROW_COUNT),
-          metadata.getFields(), schemaPathsInExpr);
+          metadata.getSchema(), schemaPathsInExpr);
       if (match == ParquetFilterPredicate.RowsMatch.NONE) {
         continue; // No file comply to the filter => drop the file
       }
@@ -338,15 +336,15 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
                                             UdfUtilities udfUtilities, FunctionImplementationRegistry functionImplementationRegistry,
                                             OptionManager optionManager, boolean omitUnsupportedExprs) {
 
-    Map<SchemaPath, TypeProtos.MajorType> types = tableMetadata.getFields();
+    TupleMetadata types = tableMetadata.getSchema().copy();
 
     Set<SchemaPath> schemaPathsInExpr = filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
 
-    // adds implicit or partition columns.
+    // adds implicit or partition columns if they weren't added before.
     if (supportsFileImplicitColumns()) {
       for (SchemaPath schemaPath : schemaPathsInExpr) {
-        if (isImplicitOrPartCol(schemaPath, optionManager)) {
-          types.put(schemaPath, Types.required(TypeProtos.MinorType.VARCHAR));
+        if (isImplicitOrPartCol(schemaPath, optionManager) && SchemaPathUtils.getColumnMetadata(schemaPath, types) == null) {
+          types.add(MaterializedField.create(schemaPath.getRootSegmentPath(), Types.required(TypeProtos.MinorType.VARCHAR)));
         }
       }
     }
@@ -443,7 +441,8 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
   @JsonIgnore
   public TypeProtos.MajorType getTypeForColumn(SchemaPath schemaPath) {
-    return tableMetadata.getField(schemaPath);
+    ColumnMetadata columnMetadata = SchemaPathUtils.getColumnMetadata(schemaPath, tableMetadata.getSchema());
+    return columnMetadata != null ? columnMetadata.majorType() : null;
   }
 
   @JsonIgnore

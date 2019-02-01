@@ -17,6 +17,10 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.SchemaPathUtils;
+import org.apache.drill.exec.record.metadata.TupleSchema;
+import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
@@ -45,9 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ColumnMetadata;
 import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetTableMetadataBase;
 
 public class ParquetRGFilterEvaluator {
@@ -82,10 +84,14 @@ public class ParquetRGFilterEvaluator {
   public static RowsMatch matches(LogicalExpression expr, Map<SchemaPath, ColumnStatistics> columnStatisticsMap,
       long rowCount, UdfUtilities udfUtilities, FunctionLookupContext functionImplementationRegistry) {
     ErrorCollector errorCollector = new ErrorCollectorImpl();
+    TupleSchema schema = new TupleSchema();
+    for (Map.Entry<SchemaPath, ColumnStatistics> pathStat : columnStatisticsMap.entrySet()) {
+      SchemaPathUtils.addColumnMetadata(pathStat.getKey(), schema, pathStat.getValue().getMajorType());
+    }
+
     LogicalExpression materializedFilter = ExpressionTreeMaterializer.materializeFilterExpr(
         expr,
-        columnStatisticsMap.entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getMajorType())),
+        schema,
         errorCollector, functionImplementationRegistry);
 
     if (errorCollector.hasErrors()) {
@@ -101,14 +107,14 @@ public class ParquetRGFilterEvaluator {
     return matches(parquetPredicate, columnStatisticsMap, rowCount);
   }
 
-  public static RowsMatch matches(ParquetFilterPredicate parquetPredicate, Map<SchemaPath, ColumnStatistics> columnStatisticsMap, long rowCount, ParquetTableMetadataBase parquetTableMetadata, List<? extends ColumnMetadata> columnMetadataList, Set<SchemaPath> schemaPathsInExpr) {
+  public static RowsMatch matches(ParquetFilterPredicate parquetPredicate, Map<SchemaPath, ColumnStatistics> columnStatisticsMap, long rowCount, ParquetTableMetadataBase parquetTableMetadata, List<? extends MetadataBase.ColumnMetadata> columnMetadataList, Set<SchemaPath> schemaPathsInExpr) {
     RowsMatch temp = matches(parquetPredicate, columnStatisticsMap, rowCount);
     return temp == RowsMatch.ALL && isRepeated(schemaPathsInExpr, parquetTableMetadata, columnMetadataList) ? RowsMatch.SOME : temp;
   }
 
   public static RowsMatch matches(FilterPredicate parquetPredicate,
                                   Map<SchemaPath, ColumnStatistic> columnStatisticsMap,
-                                  long rowCount, Map<SchemaPath, TypeProtos.MajorType> fileMetadata, Set<SchemaPath> schemaPathsInExpr) {
+                                  long rowCount, TupleSchema fileMetadata, Set<SchemaPath> schemaPathsInExpr) {
     RowsMatch temp = matches(parquetPredicate, columnStatisticsMap, rowCount);
     return temp == RowsMatch.ALL && isRepeated(schemaPathsInExpr, fileMetadata) ? RowsMatch.SOME : temp;
   }
@@ -122,9 +128,10 @@ public class ParquetRGFilterEvaluator {
     return RowsMatch.SOME;
   }
 
-  private static boolean isRepeated(Set<SchemaPath> fields, Map<SchemaPath, TypeProtos.MajorType> fileMetadata) {
+  private static boolean isRepeated(Set<SchemaPath> fields, TupleSchema fileMetadata) {
     for (SchemaPath field : fields) {
-      TypeProtos.MajorType fieldType = fileMetadata.get(field);
+      ColumnMetadata columnMetadata = SchemaPathUtils.getColumnMetadata(field, fileMetadata);
+      TypeProtos.MajorType fieldType = columnMetadata != null ? columnMetadata.majorType() : null;
       if (fieldType != null && fieldType.getMode() == TypeProtos.DataMode.REPEATED) {
         return true;
       }
@@ -137,14 +144,14 @@ public class ParquetRGFilterEvaluator {
    *
    * @return true if one at least is an array, false otherwise.
    */
-  private static boolean isRepeated(Set<SchemaPath> fields, ParquetTableMetadataBase parquetTableMetadata, List<? extends ColumnMetadata> columnMetadataList) {
-    final Map<SchemaPath, ColumnMetadata> columnMetadataMap = new HashMap<>();
-    for (final ColumnMetadata columnMetadata : columnMetadataList) {
+  private static boolean isRepeated(Set<SchemaPath> fields, ParquetTableMetadataBase parquetTableMetadata, List<? extends MetadataBase.ColumnMetadata> columnMetadataList) {
+    final Map<SchemaPath, MetadataBase.ColumnMetadata> columnMetadataMap = new HashMap<>();
+    for (final MetadataBase.ColumnMetadata columnMetadata : columnMetadataList) {
       SchemaPath schemaPath = SchemaPath.getCompoundPath(columnMetadata.getName());
       columnMetadataMap.put(schemaPath, columnMetadata);
     }
     for (final SchemaPath field : fields) {
-      ColumnMetadata columnMetadata = columnMetadataMap.get(field.getUnIndexed());
+      MetadataBase.ColumnMetadata columnMetadata = columnMetadataMap.get(field.getUnIndexed());
       if (columnMetadata != null && parquetTableMetadata.getRepetitionLevel(columnMetadata.getName()) >= 1) {
         return true;
       }

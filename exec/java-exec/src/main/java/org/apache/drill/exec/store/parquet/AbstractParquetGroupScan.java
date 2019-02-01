@@ -217,7 +217,7 @@ public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan
   public AbstractMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
       FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
     // Builds filter for pruning. If filter cannot be built, null should be returned.
-    // TODO: pass implicit and partition columns to getFilterPredicate() along with tableMetadata.getFields()
+    // TODO: pass implicit and partition columns to getFilterPredicate() along with tableMetadata.getSchema()
     FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, optionManager, true);
     if (filterPredicate == null) {
       logger.debug("FilterPredicate cannot be built.");

@@ -18,22 +18,23 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.SchemaPathUtils;
+import org.apache.drill.exec.record.metadata.TupleSchema;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class RowGroupMetadata implements BaseMetadata {
-  private final LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields;
+  private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;
   private final Map<String, Object> rowGroupStatistics;
   private Map<String, Float> hostAffinity;
   private int rowGroupIndex;
   private String location;
 
-  public RowGroupMetadata(LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields,
+  public RowGroupMetadata(TupleSchema schema,
                           Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> rowGroupStatistics, Map<String, Float> hostAffinity, int rowGroupIndex, String location) {
-    this.fields = fields;
+    this.schema = schema;
     this.columnStatistics = columnStatistics;
     this.rowGroupStatistics = rowGroupStatistics;
     this.hostAffinity = hostAffinity;
@@ -47,8 +48,12 @@ public class RowGroupMetadata implements BaseMetadata {
   }
 
   @Override
-  public Map<SchemaPath, TypeProtos.MajorType> getFields() {
-    return fields;
+  public TupleSchema getSchema() {
+    return schema;
+  }
+
+  public ColumnMetadata getColumn(SchemaPath name) {
+    return SchemaPathUtils.getColumnMetadata(name, schema);
   }
 
   @Override
