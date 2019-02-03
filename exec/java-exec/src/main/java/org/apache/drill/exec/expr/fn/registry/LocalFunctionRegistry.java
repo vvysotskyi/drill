@@ -53,7 +53,7 @@ import org.apache.drill.exec.planner.sql.DrillSqlOperatorWithoutInference;
 /**
  * Registry of Drill functions.
  */
-public class LocalFunctionRegistry {
+public class LocalFunctionRegistry implements AutoCloseable {
 
   public static final String BUILT_IN = "built-in";
 
@@ -354,6 +354,14 @@ public class LocalFunctionRegistry {
           operatorTable.addOperatorWithoutInference(function.getKey(), op);
         }
       }
+    }
+  }
+
+  @Override
+  public void close() {
+    for (String jarName : getAllJarNames()) {
+      // unregisters jars to close ClassLoader used for jar uploading
+      unregister(jarName);
     }
   }
 }

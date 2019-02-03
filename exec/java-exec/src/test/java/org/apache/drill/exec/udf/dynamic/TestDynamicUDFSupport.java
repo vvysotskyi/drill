@@ -36,8 +36,10 @@ import org.apache.drill.exec.proto.UserBitShared.Registry;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.sys.store.DataChangeVersion;
 import org.apache.drill.exec.util.JarUtil;
+import org.apache.drill.test.BaseDirTestWatcher;
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.test.TestBuilder;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.junit.After;
 import org.junit.Before;
@@ -104,8 +106,12 @@ public class TestDynamicUDFSupport extends BaseTestQuery {
   @Before
   public void setupNewDrillbit() throws Exception {
     udfDir = dirTestWatcher.makeSubDir(Paths.get("udf"));
-    Properties overrideProps = new Properties();
-    overrideProps.setProperty(ExecConstants.UDF_DIRECTORY_ROOT, udfDir.getAbsolutePath());
+    if (System.getProperty("os.name").toLowerCase().startsWith("windows")) {
+      // sets write permissions for udf dir for windows since default perms are empty
+      BaseDirTestWatcher.setWritePermissions(new Configuration(), udfDir);
+    }
+    Properties overrideProps = cloneDefaultTestConfigProperties();
+    overrideProps.setProperty(ExecConstants.UDF_DIRECTORY_ROOT, new org.apache.hadoop.fs.Path(udfDir.toURI()).toUri().getPath());
     overrideProps.setProperty(ExecConstants.UDF_DIRECTORY_FS, FileSystem.DEFAULT_FS);
     updateTestCluster(1, DrillConfig.create(overrideProps));
 
