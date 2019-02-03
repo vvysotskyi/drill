@@ -113,12 +113,6 @@ public class ClusterFixture extends BaseFixture implements AutoCloseable {
       // behavior. Production default is DEFAULT_SCAN_THREADS
 
       put(ExecConstants.SCAN_THREADPOOL_SIZE, 4);
-
-      // Define a useful root location for the ZK persistent
-      // storage. Profiles will go here when running in distributed
-      // mode.
-
-      put(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT, "/tmp/drill/tests");
     }
   };
 
@@ -532,6 +526,7 @@ public class ClusterFixture extends BaseFixture implements AutoCloseable {
          .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, MAX_WIDTH_PER_NODE);
     Properties props = new Properties();
     props.putAll(ClusterFixture.TEST_CONFIGURATIONS);
+    props.setProperty(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT, dirTestWatcher.getStoreDir().getAbsolutePath());
     props.setProperty(ExecConstants.DRILL_TMP_DIR, dirTestWatcher.getTmpDir().getAbsolutePath());
     props.setProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH, dirTestWatcher.getStoreDir().getAbsolutePath());
 
