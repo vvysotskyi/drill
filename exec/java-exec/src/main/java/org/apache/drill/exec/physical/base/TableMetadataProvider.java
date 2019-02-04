@@ -32,4 +32,5 @@ public interface TableMetadataProvider {
   PartitionMetadata getPartitionMetadata(String location, String tableName, String columnName);
   FileMetadata getFileMetadata(String location, String tableName);
   List<FileMetadata> getFilesForPartition(PartitionMetadata partition);
+  List<FileMetadata> getFiles(String location, String tableName);
 }

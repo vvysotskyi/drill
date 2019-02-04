@@ -78,6 +78,11 @@ public abstract class BaseTableMetadataCreator {
   protected String tableName;
   protected String tableLocation;
 
+  private List<RowGroupMetadata> rowGroups;
+  private TableMetadata tableMetadata;
+  private List<PartitionMetadata> partitions;
+  private List<FileMetadata> files;
+
   public BaseTableMetadataCreator(List<ReadEntryWithPath> entries,
                           ParquetReaderConfig readerConfig,
                           Set<String> fileSet) {
@@ -97,53 +102,57 @@ public abstract class BaseTableMetadataCreator {
   }
 
   public TableMetadata getTableMetadata() {
+    if (tableMetadata == null) {
 
-    HashMap<String, Object> tableStatistics = new HashMap<>();
-    tableStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getRowCount(parquetTableMetadata));
+      HashMap<String, Object> tableStatistics = new HashMap<>();
+      tableStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getRowCount(parquetTableMetadata));
 
-    HashSet<String> partitionKeys = new HashSet<>();
+      HashSet<String> partitionKeys = new HashSet<>();
 
-    LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields = resolveFields(parquetTableMetadata);
+      LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields = resolveFields(parquetTableMetadata);
 
-    TupleSchema schema = new TupleSchema();
-    for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : fields.entrySet()) {
-      SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+      TupleSchema schema = new TupleSchema();
+      for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : fields.entrySet()) {
+        SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+      }
+
+      HashMap<SchemaPath, ColumnStatistic> columnStatistics = getColumnStatistics(parquetTableMetadata, fields.keySet());
+
+      tableMetadata = new TableMetadata(tableName, tableLocation,
+          schema, columnStatistics, tableStatistics, -1, "root", partitionKeys);
     }
-
-    HashMap<SchemaPath, ColumnStatistic> columnStatistics = getColumnStatistics(parquetTableMetadata, fields.keySet());
-
-    return new TableMetadata(tableName, tableLocation,
-        schema, columnStatistics, tableStatistics, -1, "root", partitionKeys);
+    return tableMetadata;
   }
 
   public List<PartitionMetadata> getPartitionMetadata() {
-    Table<SchemaPath, Object, List<FileMetadata>> colValFile = HashBasedTable.create();
-    ParquetGroupScanStatistics parquetGroupScanStatistics = new ParquetGroupScanStatistics(getFilesMetadata());
-    List<FileMetadata> filesMetadata = getFilesMetadata();
-    partitionColumns = parquetGroupScanStatistics.getPartitionColumns();
-    for (FileMetadata fileMetadata : filesMetadata) {
-      for (SchemaPath partitionColumn : partitionColumns) {
-        Object partitionValue = parquetGroupScanStatistics.getPartitionValue(fileMetadata.getLocation(), partitionColumn);
-        // Table cannot contain nulls
-        partitionValue = partitionValue == null ? NULL_VALUE : partitionValue;
-        List<FileMetadata> partitionFiles = colValFile.get(partitionColumn, partitionValue);
-        if (partitionFiles == null) {
-          partitionFiles = new ArrayList<>();
-          colValFile.put(partitionColumn, partitionValue, partitionFiles);
+    if (partitions == null) {
+      Table<SchemaPath, Object, List<FileMetadata>> colValFile = HashBasedTable.create();
+      ParquetGroupScanStatistics parquetGroupScanStatistics = new ParquetGroupScanStatistics(getFilesMetadata());
+      List<FileMetadata> filesMetadata = getFilesMetadata();
+      partitionColumns = parquetGroupScanStatistics.getPartitionColumns();
+      for (FileMetadata fileMetadata : filesMetadata) {
+        for (SchemaPath partitionColumn : partitionColumns) {
+          Object partitionValue = parquetGroupScanStatistics.getPartitionValue(fileMetadata.getLocation(), partitionColumn);
+          // Table cannot contain nulls
+          partitionValue = partitionValue == null ? NULL_VALUE : partitionValue;
+          List<FileMetadata> partitionFiles = colValFile.get(partitionColumn, partitionValue);
+          if (partitionFiles == null) {
+            partitionFiles = new ArrayList<>();
+            colValFile.put(partitionColumn, partitionValue, partitionFiles);
+          }
+          partitionFiles.add(fileMetadata);
         }
-        partitionFiles.add(fileMetadata);
+      }
+
+      partitions = new ArrayList<>();
+
+      for (SchemaPath logicalExpressions : colValFile.rowKeySet()) {
+        for (List<FileMetadata> partValues : colValFile.row(logicalExpressions).values()) {
+          partitions.add(getPartitionMetadata(logicalExpressions, partValues));
+        }
       }
     }
-
-    List<PartitionMetadata> result = new ArrayList<>();
-
-    for (SchemaPath logicalExpressions : colValFile.rowKeySet()) {
-      for (List<FileMetadata> partValues : colValFile.row(logicalExpressions).values()) {
-        result.add(getPartitionMetadata(logicalExpressions, partValues));
-      }
-    }
-
-    return result;
+    return partitions;
   }
 
   protected abstract void initInternal() throws IOException;
@@ -235,16 +244,17 @@ public abstract class BaseTableMetadataCreator {
   }
 
   public List<FileMetadata> getFilesMetadata() {
-    if (entries.isEmpty()) {
-      return Collections.emptyList();
+    if (files == null) {
+      if (entries.isEmpty()) {
+        return Collections.emptyList();
+      }
+      files = new ArrayList<>();
+      for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
+        FileMetadata fileMetadata = getFileMetadata(file);
+        files.add(fileMetadata);
+      }
     }
-    List<FileMetadata> result = new ArrayList<>();
-    for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
-      FileMetadata fileMetadata = getFileMetadata(file);
-      result.add(fileMetadata);
-    }
-
-    return result;
+    return files;
   }
 
   protected FileMetadata getFileMetadata(MetadataBase.ParquetFileMetadata file) {
@@ -263,33 +273,35 @@ public abstract class BaseTableMetadataCreator {
   }
 
   public List<RowGroupMetadata> getRowGroupsMeta() {
-    List<RowGroupMetadata> result = new ArrayList<>();
+    if (rowGroups == null) {
+      rowGroups = new ArrayList<>();
 
-    for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
-      int index = 0;
-      FileMetadata fileMetadata = getFileMetadata(file);
-      for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
+      for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
+        int index = 0;
+        FileMetadata fileMetadata = getFileMetadata(file);
+        for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
 
-        HashMap<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(rowGroupMetadata);
-        HashMap<String, Object> rowGroupStatistics = new HashMap<>();
-        rowGroupStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
-        rowGroupStatistics.put("start", rowGroupMetadata.getStart());
-        rowGroupStatistics.put("length", rowGroupMetadata.getLength());
+          HashMap<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(rowGroupMetadata);
+          HashMap<String, Object> rowGroupStatistics = new HashMap<>();
+          rowGroupStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
+          rowGroupStatistics.put("start", rowGroupMetadata.getStart());
+          rowGroupStatistics.put("length", rowGroupMetadata.getLength());
 
-        LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getRowGroupFields(parquetTableMetadata, rowGroupMetadata);
+          LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getRowGroupFields(parquetTableMetadata, rowGroupMetadata);
 
-        TupleSchema schema = new TupleSchema();
-        for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : columns.entrySet()) {
-          SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
-        }
+          TupleSchema schema = new TupleSchema();
+          for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : columns.entrySet()) {
+            SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+          }
 
-        RowGroupMetadata groupMetadata = new RowGroupMetadata(
+          RowGroupMetadata groupMetadata = new RowGroupMetadata(
             schema, columnStatistics, rowGroupStatistics, rowGroupMetadata.getHostAffinity(), index++, fileMetadata.getLocation());
-        result.add(groupMetadata);
+          rowGroups.add(groupMetadata);
+        }
       }
-    }
 
-    return result;
+    }
+    return rowGroups;
   }
 
   private long getRowCount(MetadataBase.ParquetTableMetadataBase parquetTableMetadata) {
