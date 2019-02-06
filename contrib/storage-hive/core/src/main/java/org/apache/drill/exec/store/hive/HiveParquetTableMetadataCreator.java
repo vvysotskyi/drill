@@ -101,4 +101,9 @@ public class HiveParquetTableMetadataCreator extends BaseTableMetadataCreator {
     }
     parquetTableMetadata = Metadata.getParquetTableMetadata(fileStatusConfMap, readerConfig);
   }
+
+  @Override
+  public String getSelectionRoot() {
+    return null; // TODO: get the path from HMS if neeeded
+  }
 }

@@ -92,7 +92,7 @@ public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan
     this.files = that.files;
     this.tableMetadata = that.tableMetadata;
     this.partitions = that.partitions;
-//    this.parquetTableMetadata = that.parquetTableMetadata;
+//    this.tableMetadata = that.parquetTableMetadata;
 //    this.rowGroupInfos = that.rowGroupInfos == null ? null : new ArrayList<>(that.rowGroupInfos);
     this.endpointAffinities = that.endpointAffinities == null ? null : new ArrayList<>(that.endpointAffinities);
     this.mappings = that.mappings == null ? null : ArrayListMultimap.create(that.mappings);

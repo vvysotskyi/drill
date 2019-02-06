@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.exec.physical.base.ScanStats;
+import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableStatistics;
@@ -79,20 +80,30 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
     this.cacheFileRoot = cacheFileRoot;
 
-    ParquetTableMetadataCreator metadataCreator = new ParquetTableMetadataCreator(engineRegistry, userName, entries, storageConfig,
-        formatConfig, selectionRoot, cacheFileRoot, readerConfig, null);
+//    ParquetTableMetadataCreator metadataCreator = new ParquetTableMetadataCreator(engineRegistry, userName, entries, storageConfig,
+//        formatConfig, selectionRoot, cacheFileRoot, readerConfig, null);
 
-    this.formatPlugin = Preconditions.checkNotNull(metadataCreator.getFormatPlugin());
-    this.formatConfig = formatPlugin.getConfig();
 
-    this.selectionRoot = metadataCreator.getSelectionRoot();
-    this.tableMetadata = metadataCreator.getTableMetadata();
-    this.partitions = metadataCreator.getPartitionMetadata();
-    this.rowGroups = metadataCreator.getRowGroupsMeta();
-    this.files = metadataCreator.getFilesMetadata();
-    this.usedMetadataCache = metadataCreator.isUsedMetadataCache();
-    this.entries = metadataCreator.getEntries();
-    this.partitionColumns = metadataCreator.getPartitionColumns();
+    this.formatPlugin = Preconditions.checkNotNull(
+        (ParquetFormatPlugin) engineRegistry.getFormatPlugin(storageConfig, formatConfig));
+    this.formatConfig = this.formatPlugin.getConfig();
+    DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
+    boolean corruptDatesAutoCorrected = this.formatConfig.areCorruptDatesAutoCorrected();
+    metadataProvider = new ParquetTableMetadataProvider(
+        new ParquetTableMetadataCreator(entries, selectionRoot, cacheFileRoot, readerConfig,
+            null, fs, corruptDatesAutoCorrected));
+
+
+    this.selectionRoot = metadataProvider.getSelectionRoot();
+    String tableLocation = selectionRoot; // the same now in ParquetTableMetadataCreator constructors
+    String tableName = selectionRoot; // the same now in ParquetTableMetadataCreator constructors
+    this.tableMetadata = metadataProvider.getTableMetadata(tableLocation, tableName);
+    this.partitions = metadataProvider.getPartitionsMetadata(tableLocation, tableName);
+    this.rowGroups = ((ParquetTableMetadataProvider) metadataProvider).getRowGroupsMeta();
+    this.files = metadataProvider.getFiles(tableLocation, tableName);
+    this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
+    this.entries = metadataProvider.getEntries();
+    this.partitionColumns = metadataProvider.getPartitionColumns();
 
     init();
   }
@@ -119,7 +130,9 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.formatConfig = formatPlugin.getConfig();
     this.cacheFileRoot = selection.getCacheFileRoot();
 
-    ParquetTableMetadataCreator metadataCreator = new ParquetTableMetadataCreator(userName, selection, formatPlugin, readerConfig);
+    DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
+    ParquetTableMetadataCreator metadataCreator = new ParquetTableMetadataCreator(selection, readerConfig, fs,
+        formatConfig.areCorruptDatesAutoCorrected());
 
     this.selectionRoot = metadataCreator.getSelectionRoot();
     this.tableMetadata = metadataCreator.getTableMetadata();

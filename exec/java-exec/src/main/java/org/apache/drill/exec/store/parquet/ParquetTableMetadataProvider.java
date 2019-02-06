@@ -17,9 +17,12 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.TableMetadataProvider;
+import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
+import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
 
 import java.util.List;
@@ -27,18 +30,23 @@ import java.util.List;
 public class ParquetTableMetadataProvider implements TableMetadataProvider {
   private BaseTableMetadataCreator metadataCreator;
 
+  public ParquetTableMetadataProvider(BaseTableMetadataCreator metadataCreator) {
+    this.metadataCreator = metadataCreator;
+  }
+
   @Override
   public TableMetadata getTableMetadata(String location, String tableName) {
     return metadataCreator.getTableMetadata();
   }
 
   @Override
-  public List<PartitionMetadata> getPartitions(String location, String tableName) {
+  public List<PartitionMetadata> getPartitionsMetadata(String location, String tableName) {
     return metadataCreator.getPartitionMetadata();
   }
 
   @Override
   public PartitionMetadata getPartitionMetadata(String location, String tableName, String columnName) {
+//    return metadataCreator.getPartitionMetadata().get(columnName); // TODO: introduce Map<String, PartitionMetadata> in the metadataCreator, where String is the columnName
     return null;
   }
 
@@ -55,5 +63,28 @@ public class ParquetTableMetadataProvider implements TableMetadataProvider {
   @Override
   public List<FileMetadata> getFiles(String location, String tableName) {
     return metadataCreator.getFilesMetadata();
+  }
+
+  @Override
+  public String getSelectionRoot() {
+    return metadataCreator.getSelectionRoot();
+  }
+
+  public List<RowGroupMetadata> getRowGroupsMeta() {
+    return metadataCreator.getRowGroupsMeta();
+  }
+
+  public boolean isUsedMetadataCache() {
+    return metadataCreator.isUsedMetadataCache();
+  }
+
+  @Override
+  public List<ReadEntryWithPath> getEntries() {
+    return metadataCreator.getEntries();
+  }
+
+  @Override
+  public List<SchemaPath> getPartitionColumns() {
+    return metadataCreator.getPartitionColumns();
   }
 }

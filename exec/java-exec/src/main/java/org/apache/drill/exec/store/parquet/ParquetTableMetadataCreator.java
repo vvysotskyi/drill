@@ -17,10 +17,6 @@
  */
 package org.apache.drill.exec.store.parquet;
 
-import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.logical.FormatPluginConfig;
-import org.apache.drill.common.logical.StoragePluginConfig;
-import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.MetadataContext;
@@ -29,7 +25,6 @@ import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
 import org.apache.drill.exec.util.ImpersonationUtil;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -47,52 +42,42 @@ import java.util.stream.Collectors;
 public class ParquetTableMetadataCreator extends BaseTableMetadataCreator {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetTableMetadataCreator.class);
 
-  private final ParquetFormatPlugin formatPlugin;
-  private final ParquetFormatConfig formatConfig;
   private final DrillFileSystem fs;
   private final MetadataContext metaContext;
-  private boolean usedMetadataCache; // false by default
   // may change when filter push down / partition pruning is applied
   private String selectionRoot;
   private String cacheFileRoot;
+  private final boolean corruptDatesAutoCorrected;
 
-  public ParquetTableMetadataCreator(StoragePluginRegistry engineRegistry,
-                                     String userName,
-                                     List<ReadEntryWithPath> entries,
-                                     StoragePluginConfig storageConfig,
-                                     FormatPluginConfig formatConfig,
+  public ParquetTableMetadataCreator(List<ReadEntryWithPath> entries,
                                      String selectionRoot,
                                      String cacheFileRoot,
                                      ParquetReaderConfig readerConfig,
-                                     Set<String> fileSet) throws IOException, ExecutionSetupException {
+                                     Set<String> fileSet,
+                                     DrillFileSystem fs,
+                                     boolean autoCorrectCorruptedDates) throws IOException {
     super(entries, readerConfig, fileSet);
     this.entries = entries;
-    Preconditions.checkNotNull(storageConfig);
-    Preconditions.checkNotNull(formatConfig);
-    this.formatPlugin = (ParquetFormatPlugin) engineRegistry.getFormatPlugin(storageConfig, formatConfig);
-    Preconditions.checkNotNull(formatPlugin);
-    this.fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
-    this.formatConfig = formatPlugin.getConfig();
+    this.fs = fs;
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
     this.metaContext = new MetadataContext();
 
     this.tableName = selectionRoot;
     this.tableLocation = selectionRoot;
+    this.corruptDatesAutoCorrected = autoCorrectCorruptedDates;
 
     init();
   }
 
-  public ParquetTableMetadataCreator(String userName,
-                                     FileSelection selection,
-                                     ParquetFormatPlugin formatPlugin,
-                                     ParquetReaderConfig readerConfig) throws IOException {
+  public ParquetTableMetadataCreator(FileSelection selection,
+                                     ParquetReaderConfig readerConfig,
+                                     DrillFileSystem fs,
+                                     boolean autoCorrectCorruptedDates) throws IOException {
     super(readerConfig);
     this.entries = new ArrayList<>();
 
-    this.formatPlugin = formatPlugin;
-    this.formatConfig = formatPlugin.getConfig();
-    this.fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
+    this.fs = fs;
     this.selectionRoot = selection.getSelectionRoot();
     this.cacheFileRoot = selection.getCacheFileRoot();
 
@@ -101,6 +86,7 @@ public class ParquetTableMetadataCreator extends BaseTableMetadataCreator {
 
     this.tableName = selectionRoot;
     this.tableLocation = selectionRoot;
+    this.corruptDatesAutoCorrected = autoCorrectCorruptedDates;
 
     FileSelection fileSelection = expandIfNecessary(selection);
     if (fileSelection != null) {
@@ -117,10 +103,7 @@ public class ParquetTableMetadataCreator extends BaseTableMetadataCreator {
     }
   }
 
-  public ParquetFormatPlugin getFormatPlugin() {
-    return formatPlugin;
-  }
-
+  @Override
   public String getSelectionRoot() {
     return selectionRoot;
   }
@@ -129,9 +112,9 @@ public class ParquetTableMetadataCreator extends BaseTableMetadataCreator {
     return fs;
   }
 
-  public boolean isUsedMetadataCache() {
-    return usedMetadataCache;
-  }
+//  public boolean isUsedMetadataCache() {
+//    return usedMetadataCache;
+//  }
 
   // parquet group scan methods
   protected void initInternal() throws IOException {
@@ -253,7 +236,7 @@ public class ParquetTableMetadataCreator extends BaseTableMetadataCreator {
     if (ignoreExpandingSelection(parquetTableMetadata)) {
       return selection;
     }
-    if (formatConfig.areCorruptDatesAutoCorrected()) {
+    if (corruptDatesAutoCorrected) {
       ParquetReaderUtility.correctDatesInMetadataCache(this.parquetTableMetadata);
     }
     ParquetReaderUtility.transformBinaryInMetadataCache(parquetTableMetadata, readerConfig);

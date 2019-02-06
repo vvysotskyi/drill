@@ -80,8 +80,10 @@ public abstract class BaseTableMetadataCreator {
 
   private List<RowGroupMetadata> rowGroups;
   private TableMetadata tableMetadata;
-  private List<PartitionMetadata> partitions;
+  private List<PartitionMetadata> partitions; // replace with Map, to obtain PartitionMetadata with a partitionColumnName
   private List<FileMetadata> files;
+  protected boolean usedMetadataCache; // false by default
+
 
   public BaseTableMetadataCreator(List<ReadEntryWithPath> entries,
                           ParquetReaderConfig readerConfig,
@@ -730,6 +732,12 @@ public abstract class BaseTableMetadataCreator {
       primitiveType = column.getPrimitiveType();
     }
     return primitiveType;
+  }
+
+  public abstract String getSelectionRoot();
+
+  public boolean isUsedMetadataCache() {
+    return usedMetadataCache;
   }
 
   protected void init() throws IOException {

@@ -60,11 +60,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
+  // AbstractFileGroupScanWithMetadata ?
+  // A lot of abstract classes
   // TODO: rewrite initialization of metadata using metadata provider.
   protected TableMetadataProvider metadataProvider;
 
   // table metadata info
-  protected TableMetadata tableMetadata;
+  protected TableMetadata tableMetadata; // TODO: may be null, but there no everywhere null checks. Add it
   protected String tableLocation;
   protected String tableName;
 
