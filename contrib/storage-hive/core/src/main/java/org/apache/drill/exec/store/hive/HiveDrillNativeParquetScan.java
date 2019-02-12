@@ -71,15 +71,17 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.hiveStoragePlugin = (HiveStoragePlugin) engineRegistry.getPlugin(hiveStoragePluginConfig);
     this.confProperties = confProperties;
 
-    HiveParquetTableMetadataCreator metadataCreator = new HiveParquetTableMetadataCreator(entries, hivePartitionHolder, hiveStoragePlugin, readerConfig, null);
+    HiveParquetTableMetadataProvider metadataProvider = new HiveParquetTableMetadataProvider(entries, hivePartitionHolder, hiveStoragePlugin, readerConfig, null);
 
-    this.tableMetadata = metadataCreator.getTableMetadata();
-    this.partitions = metadataCreator.getPartitionMetadata();
-    this.rowGroups = metadataCreator.getRowGroupsMeta();
-    this.files = metadataCreator.getFilesMetadata();
-    this.entries = metadataCreator.getEntries();
-    this.partitionColumns = metadataCreator.getPartitionColumns();
-    this.hivePartitionHolder = metadataCreator.getHivePartitionHolder();
+//    String tableLocation = null; // TODO: initialize properly
+//    String tableName = null; // TODO: initialize properly
+    this.tableMetadata = metadataProvider.getTableMetadata(tableLocation, tableName);
+    this.partitions = metadataProvider.getPartitionsMetadata(tableLocation, tableName);
+    this.rowGroups = metadataProvider.getRowGroupsMeta();
+    this.files = metadataProvider.getFilesMetadata(tableLocation, tableName);
+    this.entries = metadataProvider.getEntries();
+    this.partitionColumns = metadataProvider.getPartitionColumns();
+    this.hivePartitionHolder = metadataProvider.getHivePartitionHolder();
 
     init();
   }
@@ -105,12 +107,12 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.hiveStoragePlugin = hiveStoragePlugin;
     this.confProperties = confProperties;
 
-    HiveParquetTableMetadataCreator metadataCreator = new HiveParquetTableMetadataCreator(hiveStoragePlugin, logicalInputSplits, readerConfig);
+    HiveParquetTableMetadataProvider metadataCreator = new HiveParquetTableMetadataProvider(hiveStoragePlugin, logicalInputSplits, readerConfig);
 
-    this.tableMetadata = metadataCreator.getTableMetadata();
-    this.partitions = metadataCreator.getPartitionMetadata();
+    this.tableMetadata = metadataCreator.getTableMetadata(tableLocation, tableName);
+    this.partitions = metadataCreator.getPartitionsMetadata(tableLocation, tableName);
     this.rowGroups = metadataCreator.getRowGroupsMeta();
-    this.files = metadataCreator.getFilesMetadata();
+    this.files = metadataCreator.getFilesMetadata(tableLocation, tableName);
     this.entries = metadataCreator.getEntries();
     this.partitionColumns = metadataCreator.getPartitionColumns();
     this.hivePartitionHolder = metadataCreator.getHivePartitionHolder();

@@ -18,7 +18,7 @@
 package org.apache.drill.exec.store.hive;
 
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
-import org.apache.drill.exec.store.parquet.BaseTableMetadataCreator;
+import org.apache.drill.exec.store.parquet.BaseParquetTableMetadataProvider;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.hadoop.conf.Configuration;
@@ -38,11 +38,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class HiveParquetTableMetadataCreator extends BaseTableMetadataCreator {
+public class HiveParquetTableMetadataProvider extends BaseParquetTableMetadataProvider {
+
   private final HiveStoragePlugin hiveStoragePlugin;
   private final HivePartitionHolder hivePartitionHolder;
 
-  public HiveParquetTableMetadataCreator(List<ReadEntryWithPath> entries,
+  public HiveParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
                                          HivePartitionHolder hivePartitionHolder,
                                          HiveStoragePlugin hiveStoragePlugin,
                                          ParquetReaderConfig readerConfig,
@@ -58,8 +59,10 @@ public class HiveParquetTableMetadataCreator extends BaseTableMetadataCreator {
     init();
   }
 
-  public HiveParquetTableMetadataCreator(HiveStoragePlugin hiveStoragePlugin, List<HiveMetadataProvider.LogicalInputSplit> logicalInputSplits, ParquetReaderConfig readerConfig) throws IOException {
-    super(readerConfig);
+  public HiveParquetTableMetadataProvider(HiveStoragePlugin hiveStoragePlugin,
+                                          List<HiveMetadataProvider.LogicalInputSplit> logicalInputSplits,
+                                          ParquetReaderConfig readerConfig) throws IOException {
+    super(readerConfig, null);
     this.hiveStoragePlugin = hiveStoragePlugin;
     this.hivePartitionHolder = new HivePartitionHolder();
 
@@ -94,8 +97,8 @@ public class HiveParquetTableMetadataCreator extends BaseTableMetadataCreator {
     for (ReadEntryWithPath entry : entries) {
       Path path = new Path(entry.getPath());
       Configuration conf = new ProjectionPusher().pushProjectionsAndFilters(
-        new JobConf(hiveStoragePlugin.getHiveConf()),
-        path.getParent());
+          new JobConf(hiveStoragePlugin.getHiveConf()),
+          path.getParent());
       FileSystem fs = path.getFileSystem(conf);
       fileStatusConfMap.put(fs.getFileStatus(Path.getPathWithoutSchemeAndAuthority(path)), fs);
     }

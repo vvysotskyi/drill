@@ -17,14 +17,21 @@
  */
 package org.apache.drill.exec.store.parquet;
 
-import org.apache.calcite.util.Pair;
 import org.apache.commons.lang3.mutable.MutableLong;
+import org.apache.commons.lang3.tuple.Pair;
+
+import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
+import org.apache.drill.shaded.guava.com.google.common.collect.Table;
+
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.base.GroupScan;
+import org.apache.drill.exec.physical.base.TableMetadataProvider;
 import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.resolver.TypeCastRules;
+import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
+import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
 import org.apache.drill.exec.store.parquet.metadata.Metadata_V3;
 import org.apache.drill.exec.store.parquet.stat.ParquetMetaStatCollector;
 import org.apache.drill.metastore.ColumnStatistic;
@@ -34,14 +41,11 @@ import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
-import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
-import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
-import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
-import org.apache.drill.shaded.guava.com.google.common.collect.Table;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveComparator;
 import org.apache.parquet.schema.PrimitiveType;
+
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -58,10 +62,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Base logic for creating ParquetTableMetadata taken from the ParquetGroupScan.
- */
-public abstract class BaseTableMetadataCreator {
+public abstract class BaseParquetTableMetadataProvider implements TableMetadataProvider {
 
   private static Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
       PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
@@ -72,7 +73,7 @@ public abstract class BaseTableMetadataCreator {
 
   protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
   protected Set<String> fileSet;
-  protected final ParquetReaderConfig readerConfig;
+  protected /*final*/ ParquetReaderConfig readerConfig;
 
   private List<SchemaPath> partitionColumns;
   protected String tableName;
@@ -84,26 +85,21 @@ public abstract class BaseTableMetadataCreator {
   private List<FileMetadata> files;
   protected boolean usedMetadataCache; // false by default
 
-
-  public BaseTableMetadataCreator(List<ReadEntryWithPath> entries,
-                          ParquetReaderConfig readerConfig,
-                          Set<String> fileSet) {
-    this.entries = entries;
-
+  public BaseParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
+                                  ParquetReaderConfig readerConfig,
+                                  Set<String> fileSet) {
+    this(readerConfig, entries);
     this.fileSet = fileSet;
+  }
+
+  public BaseParquetTableMetadataProvider(ParquetReaderConfig readerConfig, List<ReadEntryWithPath> entries) {
+    this.entries = entries == null ? new ArrayList<>() : entries;
     this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
   }
 
-  public BaseTableMetadataCreator(ParquetReaderConfig readerConfig) {
-    this.entries = new ArrayList<>();
-    this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
-  }
-
-  public List<ReadEntryWithPath> getEntries() {
-    return entries;
-  }
-
-  public TableMetadata getTableMetadata() {
+  @Override
+  public TableMetadata getTableMetadata(String location, String tableName) {
+    // use String location, String tableName
     if (tableMetadata == null) {
 
       HashMap<String, Object> tableStatistics = new HashMap<>();
@@ -126,11 +122,18 @@ public abstract class BaseTableMetadataCreator {
     return tableMetadata;
   }
 
-  public List<PartitionMetadata> getPartitionMetadata() {
+  @Override
+  public List<SchemaPath> getPartitionColumns() {
+    return partitionColumns;
+  }
+
+  @Override
+  public List<PartitionMetadata> getPartitionsMetadata(String location, String tableName) {
     if (partitions == null) {
       Table<SchemaPath, Object, List<FileMetadata>> colValFile = HashBasedTable.create();
-      ParquetGroupScanStatistics parquetGroupScanStatistics = new ParquetGroupScanStatistics(getFilesMetadata());
-      List<FileMetadata> filesMetadata = getFilesMetadata();
+      ParquetGroupScanStatistics parquetGroupScanStatistics =
+          new ParquetGroupScanStatistics(getFilesMetadata(location, tableName));
+      List<FileMetadata> filesMetadata = getFilesMetadata(location, tableName);
       partitionColumns = parquetGroupScanStatistics.getPartitionColumns();
       for (FileMetadata fileMetadata : filesMetadata) {
         for (SchemaPath partitionColumn : partitionColumns) {
@@ -157,8 +160,15 @@ public abstract class BaseTableMetadataCreator {
     return partitions;
   }
 
-  protected abstract void initInternal() throws IOException;
+  // TODO: Why and how to replace below getPartitionMetadata(logicalExpressions, files) with this method ???
+  @Override
+  public PartitionMetadata getPartitionMetadata(String location, String tableName, String columnName) {
+    return null;
+  }
 
+  /**
+   * TODO: replace it with proper getPartitionMetadata method {@link #getPartitionMetadata(String, String, String)})}
+   */
   protected PartitionMetadata getPartitionMetadata(SchemaPath logicalExpressions, List<FileMetadata> files) {
     Map<SchemaPath, MutableLong> nullsCounts = new HashMap<>();
     Map<SchemaPath, Object> minVals = new HashMap<>();
@@ -237,15 +247,23 @@ public abstract class BaseTableMetadataCreator {
     partStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), partRowCount);
 
     return
-      new PartitionMetadata(logicalExpressions, files.iterator().next().getSchema(),
-          columnStatistics, partStatistics, locations, tableName, -1);
+        new PartitionMetadata(logicalExpressions, files.iterator().next().getSchema(),
+            columnStatistics, partStatistics, locations, tableName, -1);
   }
 
-  public List<SchemaPath> getPartitionColumns() {
-    return partitionColumns;
+  @Override
+  public FileMetadata getFileMetadata(String location, String tableName) {
+    return null;
   }
 
-  public List<FileMetadata> getFilesMetadata() {
+  @Override
+  public List<FileMetadata> getFilesForPartition(PartitionMetadata partition) {
+    return null;
+  }
+
+  @Override
+  public List<FileMetadata> getFilesMetadata(String location, String tableName) {
+    // use String location, String tableName
     if (files == null) {
       if (entries.isEmpty()) {
         return Collections.emptyList();
@@ -258,6 +276,98 @@ public abstract class BaseTableMetadataCreator {
     }
     return files;
   }
+
+  @Override
+  public abstract String getSelectionRoot();
+
+  @Override
+  public boolean isUsedMetadataCache() {
+    return usedMetadataCache;
+  }
+
+  @Override
+  public List<ReadEntryWithPath> getEntries() {
+    return entries;
+  }
+
+
+//  public List<ReadEntryWithPath> getEntries() {
+//    return entries;
+//  }
+
+//  public TableMetadata getTableMetadata() {
+//    if (tableMetadata == null) {
+//
+//      HashMap<String, Object> tableStatistics = new HashMap<>();
+//      tableStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getRowCount(parquetTableMetadata));
+//
+//      HashSet<String> partitionKeys = new HashSet<>();
+//
+//      LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields = resolveFields(parquetTableMetadata);
+//
+//      TupleSchema schema = new TupleSchema();
+//      for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : fields.entrySet()) {
+//        SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+//      }
+//
+//      HashMap<SchemaPath, ColumnStatistic> columnStatistics = getColumnStatistics(parquetTableMetadata, fields.keySet());
+//
+//      tableMetadata = new TableMetadata(tableName, tableLocation,
+//          schema, columnStatistics, tableStatistics, -1, "root", partitionKeys);
+//    }
+//    return tableMetadata;
+//  }
+
+//  public List<PartitionMetadata> getPartitionMetadata() {
+//    if (partitions == null) {
+//      Table<SchemaPath, Object, List<FileMetadata>> colValFile = HashBasedTable.create();
+//      ParquetGroupScanStatistics parquetGroupScanStatistics = new ParquetGroupScanStatistics(getFilesMetadata());
+//      List<FileMetadata> filesMetadata = getFilesMetadata();
+//      partitionColumns = parquetGroupScanStatistics.getPartitionColumns();
+//      for (FileMetadata fileMetadata : filesMetadata) {
+//        for (SchemaPath partitionColumn : partitionColumns) {
+//          Object partitionValue = parquetGroupScanStatistics.getPartitionValue(fileMetadata.getLocation(), partitionColumn);
+//          // Table cannot contain nulls
+//          partitionValue = partitionValue == null ? NULL_VALUE : partitionValue;
+//          List<FileMetadata> partitionFiles = colValFile.get(partitionColumn, partitionValue);
+//          if (partitionFiles == null) {
+//            partitionFiles = new ArrayList<>();
+//            colValFile.put(partitionColumn, partitionValue, partitionFiles);
+//          }
+//          partitionFiles.add(fileMetadata);
+//        }
+//      }
+//
+//      partitions = new ArrayList<>();
+//
+//      for (SchemaPath logicalExpressions : colValFile.rowKeySet()) {
+//        for (List<FileMetadata> partValues : colValFile.row(logicalExpressions).values()) {
+//          partitions.add(getPartitionMetadata(logicalExpressions, partValues));
+//        }
+//      }
+//    }
+//    return partitions;
+//  }
+
+  protected abstract void initInternal() throws IOException;
+
+//  public List<SchemaPath> getPartitionColumns() {
+//    return partitionColumns;
+//  }
+
+//  public List<FileMetadata> getFilesMetadata() {
+//    if (files == null) {
+//      if (entries.isEmpty()) {
+//        return Collections.emptyList();
+//      }
+//      files = new ArrayList<>();
+//      for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
+//        FileMetadata fileMetadata = getFileMetadata(file);
+//        files.add(fileMetadata);
+//      }
+//    }
+//    return files;
+//  }
 
   protected FileMetadata getFileMetadata(MetadataBase.ParquetFileMetadata file) {
     LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getFileFields(parquetTableMetadata, file);
@@ -297,7 +407,7 @@ public abstract class BaseTableMetadataCreator {
           }
 
           RowGroupMetadata groupMetadata = new RowGroupMetadata(
-            schema, columnStatistics, rowGroupStatistics, rowGroupMetadata.getHostAffinity(), index++, fileMetadata.getLocation());
+              schema, columnStatistics, rowGroupStatistics, rowGroupMetadata.getHostAffinity(), index++, fileMetadata.getLocation());
           rowGroups.add(groupMetadata);
         }
       }
@@ -370,8 +480,8 @@ public abstract class BaseTableMetadataCreator {
   }
 
   private static void collectSingleMetadataEntry(MetadataBase.ParquetTableMetadataBase parquetTableMetadata,
-      Map<SchemaPath, MutableLong> nullsCounts, Map<SchemaPath, Object> minVals, Map<SchemaPath, Object> maxVals,
-      Map<SchemaPath, Comparator> valComparator, MetadataBase.ColumnMetadata column) {
+                                                 Map<SchemaPath, MutableLong> nullsCounts, Map<SchemaPath, Object> minVals, Map<SchemaPath, Object> maxVals,
+                                                 Map<SchemaPath, Comparator> valComparator, MetadataBase.ColumnMetadata column) {
     PrimitiveType.PrimitiveTypeName primitiveType = getPrimitiveTypeName(parquetTableMetadata, column);
     OriginalType originalType = getOriginalType(parquetTableMetadata, column);
     SchemaPath colPath = SchemaPath.getCompoundPath(column.getName());
@@ -670,7 +780,7 @@ public abstract class BaseTableMetadataCreator {
   }
 
   private static LinkedHashMap<SchemaPath, TypeProtos.MajorType> getRowGroupFields(
-    MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.RowGroupMetadata rowGroup) {
+      MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.RowGroupMetadata rowGroup) {
     LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
     for (MetadataBase.ColumnMetadata column : rowGroup.getColumns()) {
 
@@ -683,7 +793,7 @@ public abstract class BaseTableMetadataCreator {
       // only ColumnTypeMetadata_v3 stores information about scale, precision, repetition level and definition level
       if (parquetTableMetadata.hasColumnMetadata() && parquetTableMetadata instanceof Metadata_V3.ParquetTableMetadata_v3) {
         Metadata_V3.ColumnTypeMetadata_v3 columnTypeInfo =
-          ((Metadata_V3.ParquetTableMetadata_v3) parquetTableMetadata).getColumnTypeInfo(column.getName());
+            ((Metadata_V3.ParquetTableMetadata_v3) parquetTableMetadata).getColumnTypeInfo(column.getName());
         scale = columnTypeInfo.scale;
         precision = columnTypeInfo.precision;
         repetitionLevel = parquetTableMetadata.getRepetitionLevel(column.getName());
@@ -734,11 +844,11 @@ public abstract class BaseTableMetadataCreator {
     return primitiveType;
   }
 
-  public abstract String getSelectionRoot();
+//  public abstract String getSelectionRoot();
 
-  public boolean isUsedMetadataCache() {
-    return usedMetadataCache;
-  }
+//  public boolean isUsedMetadataCache() {
+//    return usedMetadataCache;
+//  }
 
   protected void init() throws IOException {
     initInternal();
@@ -748,9 +858,10 @@ public abstract class BaseTableMetadataCreator {
     if (fileSet == null) {
       fileSet = new HashSet<>();
       fileSet.addAll(parquetTableMetadata.getFiles().stream()
-        .map(MetadataBase.ParquetFileMetadata::getPath)
-        .collect(Collectors.toSet()));
+          .map(MetadataBase.ParquetFileMetadata::getPath)
+          .collect(Collectors.toSet()));
     }
   }
   // overridden protected methods block end
+
 }

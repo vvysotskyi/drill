@@ -35,7 +35,7 @@ public interface TableMetadataProvider {
   PartitionMetadata getPartitionMetadata(String location, String tableName, String columnName);
   FileMetadata getFileMetadata(String location, String tableName);
   List<FileMetadata> getFilesForPartition(PartitionMetadata partition);
-  List<FileMetadata> getFiles(String location, String tableName);
+  List<FileMetadata> getFilesMetadata(String location, String tableName);
   String getSelectionRoot();
   boolean isUsedMetadataCache(); // is it really needed
   List<ReadEntryWithPath> getEntries(); // // do we really need it
