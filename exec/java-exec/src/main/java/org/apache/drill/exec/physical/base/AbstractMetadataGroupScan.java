@@ -577,7 +577,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   protected List<PartitionMetadata> getPartitions() {
-    return metadataProvider.getPartitions(tableLocation, tableName);
+    return metadataProvider.getPartitionsMetadata(tableLocation, tableName);
   }
 
   protected abstract static class GroupScanBuilder {

@@ -82,7 +82,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
 
   public Object getPartitionValue(String path, SchemaPath column) {
     Object partitionValue = partitionValueMap.get(path, column);
-    if (partitionValue == BaseTableMetadataCreator.NULL_VALUE) {
+    if (partitionValue == BaseParquetTableMetadataProvider.NULL_VALUE) {
       return null;
     }
     return partitionValue;
@@ -117,7 +117,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
         if (partitionColumn) {
           Object value = partitionValueMap.get(metadata.getLocation(), schemaPath);
           Object currentValue = column.getStatistic(ColumnStatisticsKind.MAX_VALUE);
-          if (value != null && value != BaseTableMetadataCreator.NULL_VALUE) {
+          if (value != null && value != BaseParquetTableMetadataProvider.NULL_VALUE) {
             if (value != currentValue) {
               partitionColTypeMap.remove(schemaPath);
             }
@@ -125,7 +125,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
             // the value of a column with primitive type can not be null,
             // so checks that there are really null value and puts it to the map
             if (rowCount == (long) column.getStatistic(ColumnStatisticsKind.NULLS_COUNT)) {
-              partitionValueMap.put(metadata.getLocation(), schemaPath, BaseTableMetadataCreator.NULL_VALUE);
+              partitionValueMap.put(metadata.getLocation(), schemaPath, BaseParquetTableMetadataProvider.NULL_VALUE);
             } else {
               partitionValueMap.put(metadata.getLocation(), schemaPath, currentValue);
             }

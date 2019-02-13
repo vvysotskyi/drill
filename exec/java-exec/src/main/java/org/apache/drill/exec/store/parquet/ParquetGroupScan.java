@@ -93,19 +93,20 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
     metadataProvider = new ParquetTableMetadataProvider(entries, selectionRoot, cacheFileRoot, null,
         readerConfig, fs, corruptDatesAutoCorrected);
+    ParquetTableMetadataProvider parquetMetadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
 
-
-    this.selectionRoot = metadataProvider.getSelectionRoot();
+    this.selectionRoot = parquetMetadataProvider.getSelectionRoot();
 //    String tableLocation = selectionRoot; // the same now in ParquetTableMetadataCreator constructors
 //    String tableName = selectionRoot; // the same now in ParquetTableMetadataCreator constructors
-    this.tableMetadata = metadataProvider.getTableMetadata(tableLocation, tableName);
-    this.partitions = metadataProvider.getPartitionsMetadata(tableLocation, tableName);
-    this.rowGroups = ((ParquetTableMetadataProvider) metadataProvider).getRowGroupsMeta();
-    this.files = metadataProvider.getFilesMetadata(tableLocation, tableName);
-    this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
-    this.entries = metadataProvider.getEntries();
-    this.partitionColumns = metadataProvider.getPartitionColumns();
-    this.fileSet = metadataProvider.fileSet;
+    this.tableMetadata = parquetMetadataProvider.getTableMetadata(tableLocation, tableName);
+    this.partitions = parquetMetadataProvider.getPartitionsMetadata(tableLocation, tableName);
+
+    this.rowGroups = parquetMetadataProvider.getRowGroupsMeta();
+    this.files = parquetMetadataProvider.getFilesMetadata(tableLocation, tableName);
+    this.usedMetadataCache = parquetMetadataProvider.isUsedMetadataCache();
+    this.entries = parquetMetadataProvider.getEntries();
+    this.partitionColumns = parquetMetadataProvider.getPartitionColumns();
+    this.fileSet = parquetMetadataProvider.fileSet;
 
     init();
   }
@@ -133,20 +134,22 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.cacheFileRoot = selection.getCacheFileRoot();
 
     DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
-    ParquetTableMetadataProvider metadataProvider = new ParquetTableMetadataProvider(selection, readerConfig, fs,
+    metadataProvider = new ParquetTableMetadataProvider(selection, readerConfig, fs,
         formatConfig.areCorruptDatesAutoCorrected());
+    ParquetTableMetadataProvider parquetMetadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
 
-    this.selectionRoot = metadataProvider.getSelectionRoot();
+    this.selectionRoot = parquetMetadataProvider.getSelectionRoot();
     String tableLocation = selectionRoot; // the same now in ParquetTableMetadataCreator constructors
     String tableName = selectionRoot; // the same now in ParquetTableMetadataCreator constructors
-    this.tableMetadata = metadataProvider.getTableMetadata(tableLocation, tableName);
-    this.rowGroups = metadataProvider.getRowGroupsMeta();
-    this.files = metadataProvider.getFilesMetadata(tableLocation, tableName);
-    this.partitions = metadataProvider.getPartitionsMetadata(tableLocation, tableName);
-    this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
-    this.entries = metadataProvider.getEntries();
-    this.partitionColumns = metadataProvider.getPartitionColumns();
-    this.fileSet = metadataProvider.fileSet;
+    this.tableMetadata = parquetMetadataProvider.getTableMetadata(tableLocation, tableName);
+
+    this.rowGroups = parquetMetadataProvider.getRowGroupsMeta();
+    this.files = parquetMetadataProvider.getFilesMetadata(tableLocation, tableName);
+    this.partitions = parquetMetadataProvider.getPartitionsMetadata(tableLocation, tableName);
+    this.usedMetadataCache = parquetMetadataProvider.isUsedMetadataCache();
+    this.entries = parquetMetadataProvider.getEntries();
+    this.partitionColumns = parquetMetadataProvider.getPartitionColumns();
+    this.fileSet = parquetMetadataProvider.fileSet;
 
     // TODO: initialize TableMetadata, FileMetadata and RowGroupMetadata from
     //  parquetTableMetadata if it wasn't fetched from the metastore using ParquetTableMetadataCreator
