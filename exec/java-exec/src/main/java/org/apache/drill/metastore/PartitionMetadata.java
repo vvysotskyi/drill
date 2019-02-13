@@ -69,7 +69,7 @@ public class PartitionMetadata implements BaseMetadata {
 //    return values;
 //  }
 
-  public Set<String> getLocation() {
+  public Set<String> getLocations() {
     return location;
   }
 

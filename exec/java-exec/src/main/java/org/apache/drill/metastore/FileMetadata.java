@@ -24,7 +24,8 @@ import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.Map;
 
-public class FileMetadata implements BaseMetadata {
+public class FileMetadata implements BaseMetadata, LocationProvider {
+  // TODO: unify fileName and location
   private final String fileName;
   private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;

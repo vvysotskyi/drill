@@ -25,11 +25,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
-import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
-import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
@@ -107,6 +105,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
     this.entries = metadataProvider.getEntries();
     this.partitionColumns = metadataProvider.getPartitionColumns();
+    this.fileSet = metadataProvider.fileSet;
 
     init();
   }
@@ -147,6 +146,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
     this.entries = metadataProvider.getEntries();
     this.partitionColumns = metadataProvider.getPartitionColumns();
+    this.fileSet = metadataProvider.fileSet;
 
     // TODO: initialize TableMetadata, FileMetadata and RowGroupMetadata from
     //  parquetTableMetadata if it wasn't fetched from the metastore using ParquetTableMetadataCreator
@@ -202,18 +202,6 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) {
     Preconditions.checkArgument(children.isEmpty());
     return new ParquetGroupScan(this);
-  }
-
-  @Override
-  public ScanStats getScanStats() {
-    int columnCount = columns == null ? 20 : columns.size();
-    // TODO: add check for metadata availability
-    long rowCount = 0;
-    for (RowGroupMetadata file : rowGroups) {
-      rowCount += (long) file.getStatistic(TableStatistics.ROW_COUNT);
-    }
-
-    return new ScanStats(ScanStats.GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, rowCount * columnCount);
   }
 
   @Override
@@ -306,14 +294,23 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     @Override
     public AbstractMetadataGroupScan build() {
       ParquetGroupScan groupScan = new ParquetGroupScan(source);
-      groupScan.tableMetadata = tableMetadata.get(0);
+      groupScan.tableMetadata = tableMetadata != null && !tableMetadata.isEmpty() ? tableMetadata.get(0) : null;
       groupScan.partitions = partitions != null ? partitions : Collections.emptyList();
       groupScan.files = files != null ? files : Collections.emptyList();
       groupScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();
       groupScan.partitionColumns = source.partitionColumns;
-      groupScan.entries = groupScan.files.stream()
-        .map(file -> new ReadEntryWithPath(file.getLocation()))
-        .collect(Collectors.toList());
+      // since builder is used when pruning happens, entries and fileSet should be expanded
+      if (!groupScan.files.isEmpty()) {
+        groupScan.entries = groupScan.files.stream()
+            .map(file -> new ReadEntryWithPath(file.getLocation()))
+            .collect(Collectors.toList());
+      } else if (!groupScan.rowGroups.isEmpty()) {
+        groupScan.entries = groupScan.rowGroups.stream()
+            .map(RowGroupMetadata::getLocation)
+            .distinct()
+            .map(ReadEntryWithPath::new)
+            .collect(Collectors.toList());
+      }
 
       groupScan.fileSet = groupScan.files.stream()
         .map(FileMetadata::getLocation)

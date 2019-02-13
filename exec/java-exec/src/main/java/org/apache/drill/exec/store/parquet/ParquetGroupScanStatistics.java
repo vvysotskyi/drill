@@ -23,9 +23,12 @@ import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaPathUtils;
+import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticsKind;
-import org.apache.drill.metastore.FileMetadata;
+import org.apache.drill.metastore.LocationProvider;
+import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
+import org.apache.drill.shaded.guava.com.google.common.collect.Table;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,10 +40,10 @@ import java.util.Objects;
  * Holds common statistics about data in parquet group scan,
  * including information about total row count, columns counts, partition columns.
  */
-public class ParquetGroupScanStatistics {
+public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvider> {
 
   // map from file names to maps of column name to partition value mappings
-  private Map<String, Map<SchemaPath, Object>> partitionValueMap;
+  private Table<String, SchemaPath, Object> partitionValueMap;
   // only for partition columns : value is unique for each partition
   private Map<SchemaPath, TypeProtos.MajorType> partitionColTypeMap;
   // total number of non-null value for each column in parquet files
@@ -49,12 +52,12 @@ public class ParquetGroupScanStatistics {
   private long rowCount;
 
 
-  public ParquetGroupScanStatistics(List<FileMetadata> rowGroupInfos) {
+  public ParquetGroupScanStatistics(List<T> rowGroupInfos) {
     collect(rowGroupInfos);
   }
 
   public ParquetGroupScanStatistics(ParquetGroupScanStatistics that) {
-    this.partitionValueMap = new HashMap<>(that.partitionValueMap);
+    this.partitionValueMap = HashBasedTable.create(that.partitionValueMap);
     this.partitionColTypeMap = new HashMap<>(that.partitionColTypeMap);
     this.columnValueCounts = new HashMap<>(that.columnValueCounts);
     this.rowCount = that.rowCount;
@@ -78,15 +81,23 @@ public class ParquetGroupScanStatistics {
   }
 
   public Object getPartitionValue(String path, SchemaPath column) {
-    return partitionValueMap.get(path).get(column);
+    Object partitionValue = partitionValueMap.get(path, column);
+    if (partitionValue == BaseTableMetadataCreator.NULL_VALUE) {
+      return null;
+    }
+    return partitionValue;
   }
 
-  public void collect(List<FileMetadata> files) {
+  public Map<String, Object> getPartitionPaths(SchemaPath column) {
+    return partitionValueMap.column(column);
+  }
+
+  public void collect(List<T> metadataList) {
     resetHolders();
     boolean first = true;
-    for (FileMetadata file : files) {
-      Long rowCount = (Long) file.getStatistic(ColumnStatisticsKind.ROW_COUNT);
-      for (Map.Entry<SchemaPath, ColumnStatistic> columnStatistic : file.getColumnStatistics().entrySet()) {
+    for (T metadata : metadataList) {
+      long rowCount = (long) metadata.getStatistic(ColumnStatisticsKind.ROW_COUNT);
+      for (Map.Entry<SchemaPath, ColumnStatistic> columnStatistic : metadata.getColumnStatistics().entrySet()) {
         SchemaPath schemaPath = columnStatistic.getKey();
         ColumnStatistic column = columnStatistic.getValue();
         MutableLong emptyCount = new MutableLong();
@@ -100,24 +111,23 @@ public class ParquetGroupScanStatistics {
         } else {
           previousCount.setValue(GroupScan.NO_COLUMN_STATS);
         }
-        ColumnMetadata columnMetadata = SchemaPathUtils.getColumnMetadata(schemaPath, file.getSchema());
+        ColumnMetadata columnMetadata = SchemaPathUtils.getColumnMetadata(schemaPath, metadata.getSchema());
         TypeProtos.MajorType majorType = columnMetadata != null ? columnMetadata.majorType() : null;
         boolean partitionColumn = checkForPartitionColumn(column, first, rowCount, majorType, schemaPath);
         if (partitionColumn) {
-          Map<SchemaPath, Object> map = partitionValueMap.computeIfAbsent(file.getLocation(), key -> new HashMap<>());
-          Object value = map.get(schemaPath);
+          Object value = partitionValueMap.get(metadata.getLocation(), schemaPath);
           Object currentValue = column.getStatistic(ColumnStatisticsKind.MAX_VALUE);
-          if (value != null) {
+          if (value != null && value != BaseTableMetadataCreator.NULL_VALUE) {
             if (value != currentValue) {
               partitionColTypeMap.remove(schemaPath);
             }
           } else {
             // the value of a column with primitive type can not be null,
             // so checks that there are really null value and puts it to the map
-            if (rowCount == column.getStatistic(ColumnStatisticsKind.NULLS_COUNT)) {
-              map.put(schemaPath, null);
+            if (rowCount == (long) column.getStatistic(ColumnStatisticsKind.NULLS_COUNT)) {
+              partitionValueMap.put(metadata.getLocation(), schemaPath, BaseTableMetadataCreator.NULL_VALUE);
             } else {
-              map.put(schemaPath, currentValue);
+              partitionValueMap.put(metadata.getLocation(), schemaPath, currentValue);
             }
           }
         } else {
@@ -133,7 +143,7 @@ public class ParquetGroupScanStatistics {
    * Re-init holders eigther during first instance creation or statistics update based on updated list of row groups.
    */
   private void resetHolders() {
-    this.partitionValueMap = new HashMap<>();
+    this.partitionValueMap = HashBasedTable.create();
     this.partitionColTypeMap = new HashMap<>();
     this.columnValueCounts = new HashMap<>();
     this.rowCount = 0;
@@ -153,7 +163,7 @@ public class ParquetGroupScanStatistics {
    */
   private boolean checkForPartitionColumn(ColumnStatistic columnMetadata,
                                           boolean first,
-                                          Long rowCount,
+                                          long rowCount,
                                           TypeProtos.MajorType type,
                                           SchemaPath schemaPath) {
     if (first) {

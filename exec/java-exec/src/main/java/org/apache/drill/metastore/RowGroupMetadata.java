@@ -24,7 +24,7 @@ import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.Map;
 
-public class RowGroupMetadata implements BaseMetadata {
+public class RowGroupMetadata implements BaseMetadata, LocationProvider {
   private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;
   private final Map<String, Object> rowGroupStatistics;

@@ -525,8 +525,8 @@ public class TestParquetFilterPushDown extends PlanTestBase {
     final String query = "select a from dfs.`parquetFilterPush/tfTbl` where ";
     testParquetFilterPD(query + "a is true", 3, 2, false);
     testParquetFilterPD(query + "a is false", 3, 2, false);
-    testParquetFilterPD(query + "a is not true", 5, 3, false);
-    testParquetFilterPD(query + "a is not false", 5, 3, false);
+    testParquetFilterPD(query + "a is not true", 5, 1, false);
+    testParquetFilterPD(query + "a is not false", 5, 1, false);
   }
 
   @Test // DRILL-5359

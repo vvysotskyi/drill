@@ -496,7 +496,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
           null);
         String query = String.format("select * from %s", tablePath);
         int expectedRowCount = 50;
-        int expectedNumFiles = 2;
+        int expectedNumFiles = 1;
         int actualRowCount = testSql(query);
         assertEquals("An incorrect result was obtained while querying a table with metadata cache files",
                       expectedRowCount, actualRowCount);
@@ -523,7 +523,7 @@ public class TestParquetMetadataCache extends PlanTestBase {
       checkForMetadataFile(pathWithSpaces);
       String query = String.format("select * from `%s`", pathWithSpaces);
       int expectedRowCount = 50;
-      int expectedNumFiles = 2;
+      int expectedNumFiles = 1;
       int actualRowCount = testSql(query);
       assertEquals("An incorrect result was obtained while querying a table with metadata cache files",
           expectedRowCount, actualRowCount);
