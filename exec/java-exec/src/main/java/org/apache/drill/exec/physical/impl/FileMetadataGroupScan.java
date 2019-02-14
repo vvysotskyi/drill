@@ -19,6 +19,8 @@ package org.apache.drill.exec.physical.impl;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.metastore.LocationProvider;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.Iterators;
@@ -148,6 +150,11 @@ public class FileMetadataGroupScan extends AbstractMetadataGroupScan {
   @Override
   protected boolean supportsFileImplicitColumns() {
     return false;
+  }
+
+  @Override
+  protected List<String> getPartitionValues(LocationProvider rowGroupInfo) {
+    return ColumnExplorer.listPartitionValues(rowGroupInfo.getLocation(), selectionRoot);
   }
 
   @Override

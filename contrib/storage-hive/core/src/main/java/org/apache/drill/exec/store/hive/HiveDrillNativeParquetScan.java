@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.metastore.FileMetadata;
+import org.apache.drill.metastore.LocationProvider;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -40,7 +41,6 @@ import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.store.hive.HiveMetadataProvider.LogicalInputSplit;
 import org.apache.drill.exec.store.parquet.AbstractParquetGroupScan;
 import org.apache.drill.exec.store.parquet.RowGroupReadEntry;
-import org.apache.drill.exec.store.parquet.RowGroupInfo;
 import org.apache.drill.exec.util.ImpersonationUtil;
 
 import java.io.IOException;
@@ -217,8 +217,8 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected List<String> getPartitionValues(RowGroupInfo rowGroupInfo) {
-    return hivePartitionHolder.get(rowGroupInfo.getPath());
+  protected List<String> getPartitionValues(LocationProvider rowGroupInfo) {
+    return hivePartitionHolder.get(rowGroupInfo.getLocation());
   }
 
   private static class HiveDrillNativeParquetScanBuilder extends RowGroupScanBuilder {

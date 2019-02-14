@@ -51,13 +51,17 @@ import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.metastore.expr.FilterBuilder;
 import org.apache.drill.metastore.expr.FilterPredicate;
+import org.apache.drill.metastore.expr.StatisticsProvider;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -311,7 +315,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
       boolean matchAllRowGroupsLocal = matchAllRowGroups;
       matchAllRowGroups = true;
-      List<FileMetadata> filteredFiles = filterAndGetMetadata(schemaPathsInExpr, prunedFiles, filterPredicate);
+      List<FileMetadata> filteredFiles = filterAndGetMetadata(schemaPathsInExpr, prunedFiles, filterPredicate, optionManager);
 
       builder.withFiles(filteredFiles)
           .withMatching(matchAllRowGroups);
@@ -333,7 +337,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
           PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
           boolean matchAllRowGroupsLocal = matchAllRowGroups;
           matchAllRowGroups = true;
-          List<PartitionMetadata> filteredPartitionMetadata = filterAndGetMetadata(schemaPathsInExpr, partitions, filterPredicate);
+          List<PartitionMetadata> filteredPartitionMetadata = filterAndGetMetadata(schemaPathsInExpr, partitions, filterPredicate, optionManager);
           builder.withPartitions(filteredPartitionMetadata)
               .withMatching(matchAllRowGroups);
           matchAllRowGroups = matchAllRowGroupsLocal;
@@ -353,7 +357,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     // If table matches fully, nothing is pruned and pruning of underlying metadata is stopped.
     matchAllRowGroups = true;
     List<TableMetadata> filteredTableMetadata =
-        filterAndGetMetadata(schemaPathsInExpr, Collections.singletonList(this.tableMetadata), filterPredicate);
+        filterAndGetMetadata(schemaPathsInExpr, Collections.singletonList(this.tableMetadata), filterPredicate, null);
 
     builder.withTable(filteredTableMetadata);
     builder.withMatching(matchAllRowGroups);
@@ -362,15 +366,32 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
   protected <T extends BaseMetadata> List<T> filterAndGetMetadata(Set<SchemaPath> schemaPathsInExpr,
                                                                   Iterable<T> metadataList,
-                                                                  FilterPredicate filterPredicate) {
+                                                                  FilterPredicate filterPredicate,
+                                                                  OptionManager optionManager) {
     List<T> qualifiedFiles = new ArrayList<>();
 
     for (T metadata : metadataList) {
       // TODO: decide where implicit + partition columns should be handled: either they should be present in
       //  file metadata or they should be populated in this method and passed with other columns.
 
+      Map<SchemaPath, ColumnStatistic> columnStatistics = metadata.getColumnStatistics();
+
+      // adds partition (dir) column statistics if it may be used during filter evaluation
+      if (supportsFileImplicitColumns() && metadata instanceof LocationProvider && optionManager != null) {
+        final ColumnExplorer columnExplorer = new ColumnExplorer(optionManager, columns);
+        LocationProvider locationProvider = (LocationProvider) metadata;
+        List<String> partitionValues = getPartitionValues(locationProvider);
+
+        Map<String, String> implicitColValues = columnExplorer.populateImplicitColumns(locationProvider.getLocation(), partitionValues, supportsFileImplicitColumns());
+        columnStatistics = new HashMap<>(columnStatistics);
+        for (Map.Entry<String, String> partitionValue : implicitColValues.entrySet()) {
+          columnStatistics.put(SchemaPath.getCompoundPath(partitionValue.getKey()),
+              new StatisticsProvider.MinMaxStatistics<>(partitionValue.getValue(), partitionValue.getValue(), Comparator.nullsFirst(Comparator.naturalOrder())));
+        }
+      }
+
       ParquetFilterPredicate.RowsMatch match = ParquetRGFilterEvaluator.matches(filterPredicate,
-          metadata.getColumnStatistics(), (long) metadata.getStatistic(TableStatistics.ROW_COUNT),
+          columnStatistics, (long) metadata.getStatistic(TableStatistics.ROW_COUNT),
           metadata.getSchema(), schemaPathsInExpr);
       if (match == ParquetFilterPredicate.RowsMatch.NONE) {
         continue; // No file comply to the filter => drop the file
@@ -570,6 +591,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   protected abstract boolean supportsFileImplicitColumns();
+  protected abstract List<String> getPartitionValues(LocationProvider rowGroupInfo);
 
   private boolean isImplicitOrPartCol(SchemaPath schemaPath, OptionManager optionManager) {
     Set<String> implicitColNames = ColumnExplorer.initImplicitFileColumns(optionManager).keySet();

@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.metastore.FileMetadata;
+import org.apache.drill.metastore.LocationProvider;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -282,8 +283,8 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected List<String> getPartitionValues(RowGroupInfo rowGroupInfo) {
-    return ColumnExplorer.listPartitionValues(rowGroupInfo.getPath(), selectionRoot);
+  protected List<String> getPartitionValues(LocationProvider rowGroupInfo) {
+    return ColumnExplorer.listPartitionValues(rowGroupInfo.getLocation(), selectionRoot);
   }
   // overridden protected methods block end
 

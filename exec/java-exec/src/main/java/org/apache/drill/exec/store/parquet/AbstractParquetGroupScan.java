@@ -351,7 +351,7 @@ public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan
       boolean matchAllRowGroupsLocal = matchAllRowGroups;
       matchAllRowGroups = true;
 
-      List<RowGroupMetadata> filteredRowGroups = filterAndGetMetadata(schemaPathsInExpr, prunedRowGroups, filterPredicate);
+      List<RowGroupMetadata> filteredRowGroups = filterAndGetMetadata(schemaPathsInExpr, prunedRowGroups, filterPredicate, optionManager);
 
       builder.withRowGroups(filteredRowGroups)
           .withMatching(matchAllRowGroups);
@@ -460,7 +460,6 @@ public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan
   // abstract methods block start
   protected abstract Collection<CoordinationProtos.DrillbitEndpoint> getDrillbits();
   protected abstract AbstractParquetGroupScan cloneWithFileSelection(Collection<String> filePaths) throws IOException;
-  protected abstract List<String> getPartitionValues(RowGroupInfo rowGroupInfo);
   // abstract methods block end
 
   protected static abstract class RowGroupScanBuilder extends GroupScanBuilder {
