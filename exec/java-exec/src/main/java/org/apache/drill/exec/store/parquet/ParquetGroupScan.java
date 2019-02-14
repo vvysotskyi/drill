@@ -302,6 +302,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
       groupScan.files = files != null ? files : Collections.emptyList();
       groupScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();
       groupScan.partitionColumns = source.partitionColumns;
+      groupScan.matchAllRowGroups = matchAllRowGroups;
       // since builder is used when pruning happens, entries and fileSet should be expanded
       if (!groupScan.files.isEmpty()) {
         groupScan.entries = groupScan.files.stream()

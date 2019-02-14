@@ -236,6 +236,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
       groupScan.files = files != null ? files : Collections.emptyList();
       groupScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();
       groupScan.partitionColumns = source.partitionColumns;
+      groupScan.matchAllRowGroups = matchAllRowGroups;
       if (!groupScan.files.isEmpty()) {
         groupScan.entries = groupScan.files.stream()
             .map(file -> new ReadEntryWithPath(file.getLocation()))

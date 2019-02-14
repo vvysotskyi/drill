@@ -660,48 +660,56 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
         break;
 
       case INT96:
-        if (minValue instanceof Binary) {
-          minValue = ((Binary) minValue).getBytes();
+        if (minValue != null) {
+          minValue = new String(getBytes(minValue));
         }
-        if (maxValue instanceof Binary) {
-          maxValue = ((Binary) maxValue).getBytes();
+        if (maxValue  != null) {
+          maxValue = new String(getBytes(maxValue));
         }
         break;
 
       case BINARY:
       case FIXED_LEN_BYTE_ARRAY:
         if (originalType == OriginalType.DECIMAL) {
-          if (minValue instanceof Binary) {
-            minValue = new BigInteger(((Binary) minValue).getBytes());
-          } else if (minValue instanceof byte[]) {
-            minValue = new BigInteger((byte[]) minValue);
+          if (minValue != null) {
+            minValue = new BigInteger(getBytes(minValue));
           }
-          if (maxValue instanceof Binary) {
-            maxValue = new BigInteger(((Binary) maxValue).getBytes());
-          } else if (maxValue instanceof byte[]) {
-            maxValue = new BigInteger((byte[]) maxValue);
+          if (maxValue != null) {
+            maxValue = new BigInteger(getBytes(maxValue));
           }
         } else if (originalType == OriginalType.INTERVAL) {
-          if (minValue instanceof Binary) {
-            minValue = ((Binary) minValue).getBytes();
+          if (minValue != null) {
+            minValue = getBytes(minValue);
           }
-          if (maxValue instanceof Binary) {
-            maxValue = ((Binary) maxValue).getBytes();
+          if (maxValue != null) {
+            maxValue = getBytes(maxValue);
           }
         } else {
-          if (minValue instanceof Binary) {
-            minValue = new String(((Binary) minValue).getBytes());
-          } else if (minValue instanceof byte[]) {
-            minValue = new String((byte[]) minValue);
+          if (minValue != null) {
+            minValue = new String(getBytes(minValue));
           }
-          if (maxValue instanceof Binary) {
-            maxValue = new String(((Binary) maxValue).getBytes());
-          } else if (maxValue instanceof byte[]) {
-            maxValue = new String((byte[]) maxValue);
+          if (maxValue  != null) {
+            maxValue = new String(getBytes(maxValue));
           }
         }
     }
     return Pair.of(minValue, maxValue);
+  }
+
+  private static byte[] getBytes(Object value) {
+    if (value instanceof Binary) {
+      return ((Binary) value).getBytes();
+    } else if (value instanceof byte[]) {
+      return (byte[]) value;
+    } else if (value instanceof String) { // value is obtained from metadata cache v2+
+      return ((String) value).getBytes();
+    } else if (value instanceof Map) { // value is obtained from metadata cache v1
+      String bytesString = (String) ((Map) value).get("bytes");
+      if (bytesString != null) {
+        return bytesString.getBytes();
+      }
+    }
+    throw new UnsupportedOperationException(String.format("Cannot obtain bytes using value %s", value));
   }
 
   private static Comparator getComparator(PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {

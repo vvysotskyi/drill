@@ -26,23 +26,21 @@ import org.apache.drill.exec.record.MaterializedField;
 public class SchemaPathUtils {
 
   public static ColumnMetadata getColumnMetadata(SchemaPath schemaPath, TupleMetadata schema) {
-    PathSegment.NameSegment colPath = schemaPath.getRootSegment();
+    PathSegment.NameSegment colPath = schemaPath.getUnIndexed().getRootSegment();
     ColumnMetadata colMetadata = schema.metadata(colPath.getPath());
     while (!colPath.isLastPath() && colMetadata != null) {
       if (!colMetadata.isMap()) {
         colMetadata = null;
         break;
       }
-      assert colPath.isNamed() : "NameSegment is expected";
       colPath = (PathSegment.NameSegment) colPath.getChild();
-
       colMetadata = colMetadata.mapSchema().metadata(colPath.getPath());
     }
     return colMetadata;
   }
 
   public static void addColumnMetadata(SchemaPath schemaPath, TupleMetadata schema, TypeProtos.MajorType type) {
-    PathSegment.NameSegment colPath = schemaPath.getRootSegment();
+    PathSegment.NameSegment colPath = schemaPath.getUnIndexed().getRootSegment();
     ColumnMetadata colMetadata;
 
     while (!colPath.isLastPath()) {
@@ -56,8 +54,6 @@ public class SchemaPathUtils {
       }
 
       schema = colMetadata.mapSchema();
-
-      assert colPath.isNamed() : "NameSegment is expected";
       colPath = (PathSegment.NameSegment) colPath.getChild();
     }
 
