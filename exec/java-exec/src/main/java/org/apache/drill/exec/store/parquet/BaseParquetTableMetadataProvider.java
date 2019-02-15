@@ -46,6 +46,7 @@ import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
+import org.apache.drill.shaded.guava.com.google.common.primitives.Longs;
 import org.apache.drill.shaded.guava.com.google.common.primitives.UnsignedBytes;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.OriginalType;
@@ -337,60 +338,6 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
 //    return entries;
 //  }
 
-//  public TableMetadata getTableMetadata() {
-//    if (tableMetadata == null) {
-//
-//      HashMap<String, Object> tableStatistics = new HashMap<>();
-//      tableStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getRowCount(parquetTableMetadata));
-//
-//      HashSet<String> partitionKeys = new HashSet<>();
-//
-//      LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields = resolveFields(parquetTableMetadata);
-//
-//      TupleSchema schema = new TupleSchema();
-//      for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : fields.entrySet()) {
-//        SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
-//      }
-//
-//      HashMap<SchemaPath, ColumnStatistic> columnStatistics = getColumnStatistics(parquetTableMetadata, fields.keySet());
-//
-//      tableMetadata = new TableMetadata(tableName, tableLocation,
-//          schema, columnStatistics, tableStatistics, -1, "root", partitionKeys);
-//    }
-//    return tableMetadata;
-//  }
-
-//  public List<PartitionMetadata> getPartitionMetadata() {
-//    if (partitions == null) {
-//      Table<SchemaPath, Object, List<FileMetadata>> colValFile = HashBasedTable.create();
-//      ParquetGroupScanStatistics parquetGroupScanStatistics = new ParquetGroupScanStatistics(getFilesMetadata());
-//      List<FileMetadata> filesMetadata = getFilesMetadata();
-//      partitionColumns = parquetGroupScanStatistics.getPartitionColumns();
-//      for (FileMetadata fileMetadata : filesMetadata) {
-//        for (SchemaPath partitionColumn : partitionColumns) {
-//          Object partitionValue = parquetGroupScanStatistics.getPartitionValue(fileMetadata.getLocation(), partitionColumn);
-//          // Table cannot contain nulls
-//          partitionValue = partitionValue == null ? NULL_VALUE : partitionValue;
-//          List<FileMetadata> partitionFiles = colValFile.get(partitionColumn, partitionValue);
-//          if (partitionFiles == null) {
-//            partitionFiles = new ArrayList<>();
-//            colValFile.put(partitionColumn, partitionValue, partitionFiles);
-//          }
-//          partitionFiles.add(fileMetadata);
-//        }
-//      }
-//
-//      partitions = new ArrayList<>();
-//
-//      for (SchemaPath logicalExpressions : colValFile.rowKeySet()) {
-//        for (List<FileMetadata> partValues : colValFile.row(logicalExpressions).values()) {
-//          partitions.add(getPartitionMetadata(logicalExpressions, partValues));
-//        }
-//      }
-//    }
-//    return partitions;
-//  }
-
   protected abstract void initInternal() throws IOException;
 
   private <T extends BaseMetadata>long getRowCount(List<T> rowGroups) {
@@ -588,34 +535,34 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
           switch (originalType) {
             case DATE:
               if (minValue != null) {
-                minValue = ParquetMetaStatCollector.convertToDrillDateValue(Integer.parseInt(minValue.toString()));
+                minValue = ParquetMetaStatCollector.convertToDrillDateValue(getInt(minValue));
               }
               if (maxValue != null) {
-                maxValue = ParquetMetaStatCollector.convertToDrillDateValue(Integer.parseInt(maxValue.toString()));
+                maxValue = ParquetMetaStatCollector.convertToDrillDateValue(getInt(maxValue));
               }
               break;
             case DECIMAL:
               if (minValue != null) {
-                minValue = new BigDecimal(minValue.toString()).unscaledValue();
+                minValue = BigInteger.valueOf(getInt(minValue));
               }
               if (maxValue != null) {
-                maxValue = new BigDecimal(maxValue.toString()).unscaledValue();
+                maxValue = BigInteger.valueOf(getInt(maxValue));
               }
               break;
             default:
               if (minValue != null) {
-                minValue = Integer.parseInt(minValue.toString());
+                minValue = getInt(minValue);
               }
               if (maxValue != null) {
-                maxValue = Integer.parseInt(maxValue.toString());
+                maxValue = getInt(maxValue);
               }
           }
         } else {
           if (minValue != null) {
-            minValue = Integer.parseInt(minValue.toString());
+            minValue = getInt(minValue);
           }
           if (maxValue != null) {
-            maxValue = Integer.parseInt(maxValue.toString());
+            maxValue = getInt(maxValue);
           }
         }
         break;
@@ -623,45 +570,45 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
       case INT64:
         if (originalType == OriginalType.DECIMAL) {
           if (minValue != null) {
-            minValue = new BigDecimal(minValue.toString()).unscaledValue();
+            minValue = BigInteger.valueOf(getLong(minValue));
           }
           if (maxValue != null) {
-            maxValue = new BigDecimal(maxValue.toString()).unscaledValue();
+            maxValue = BigInteger.valueOf(getLong(maxValue));
           }
         } else {
           if (minValue != null) {
-            minValue = Long.parseLong(minValue.toString());
+            minValue = getLong(minValue);
           }
           if (maxValue != null) {
-            maxValue = Long.parseLong(maxValue.toString());
+            maxValue = getLong(maxValue);
           }
         }
         break;
 
       case FLOAT:
         if (minValue != null) {
-          minValue = Float.parseFloat(minValue.toString());
+          minValue = getFloat(minValue);
         }
         if (maxValue != null) {
-          maxValue = Float.parseFloat(maxValue.toString());
+          maxValue = getFloat(maxValue);
         }
         break;
 
       case DOUBLE:
         if (minValue != null) {
-          minValue = Double.parseDouble(minValue.toString());
+          minValue = getDouble(minValue);
         }
         if (maxValue != null) {
-          maxValue = Double.parseDouble(maxValue.toString());
+          maxValue = getDouble(maxValue);
         }
         break;
 
       case INT96:
         if (minValue != null) {
-          minValue = new String(getBytes(minValue));
+          minValue = getBytes(minValue);
         }
         if (maxValue  != null) {
-          maxValue = new String(getBytes(maxValue));
+          maxValue = getBytes(maxValue);
         }
         break;
 
@@ -705,8 +652,96 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
       if (bytesString != null) {
         return bytesString.getBytes();
       }
+    } else if (value instanceof Long) {
+      return Longs.toByteArray((Long) value);
+    } else if (value instanceof Integer) {
+      return Longs.toByteArray((Integer) value);
+    } else if (value instanceof Float) {
+      return BigDecimal.valueOf((Float) value).unscaledValue().toByteArray();
+    } else if (value instanceof Double) {
+      return BigDecimal.valueOf((Double) value).unscaledValue().toByteArray();
     }
     throw new UnsupportedOperationException(String.format("Cannot obtain bytes using value %s", value));
+  }
+
+  private static Integer getInt(Object value) {
+    if (value instanceof Integer) {
+      return (Integer) value;
+    } else if (value instanceof Long) {
+      return ((Long) value).intValue();
+    } else if (value instanceof Float) {
+      return ((Float) value).intValue();
+    } else if (value instanceof Double) {
+      return ((Double) value).intValue();
+    } else if (value instanceof String) {
+      return Integer.parseInt(value.toString());
+    } else if (value instanceof byte[]) {
+      return new BigInteger((byte[]) value).intValue();
+    } else if (value instanceof Binary) {
+      return new BigInteger(((Binary) value).getBytes()).intValue();
+    }
+    throw new UnsupportedOperationException(String.format("Cannot obtain Integer using value %s", value));
+  }
+
+  private static Long getLong(Object value) {
+    if (value instanceof Integer) {
+      return Long.valueOf((Integer) value);
+    } else if (value instanceof Long) {
+      return (Long) value;
+    } else if (value instanceof Float) {
+      return ((Float) value).longValue();
+    } else if (value instanceof Double) {
+      return ((Double) value).longValue();
+    } else if (value instanceof String) {
+      return Long.parseLong(value.toString());
+    } else if (value instanceof byte[]) {
+      return new BigInteger((byte[]) value).longValue();
+    } else if (value instanceof Binary) {
+      return new BigInteger(((Binary) value).getBytes()).longValue();
+    }
+    throw new UnsupportedOperationException(String.format("Cannot obtain Integer using value %s", value));
+  }
+
+  private static Float getFloat(Object value) {
+    if (value instanceof Integer) {
+      return Float.valueOf((Integer) value);
+    } else if (value instanceof Long) {
+      return Float.valueOf((Long) value);
+    } else if (value instanceof Float) {
+      return (Float) value;
+    } else if (value instanceof Double) {
+      return ((Double) value).floatValue();
+    } else if (value instanceof String) {
+      return Float.parseFloat(value.toString());
+    }
+    // TODO: allow conversion form bytes only when actual type of data is known (to obtain scale)
+    /* else if (value instanceof byte[]) {
+      return new BigInteger((byte[]) value).floatValue();
+    } else if (value instanceof Binary) {
+      return new BigInteger(((Binary) value).getBytes()).floatValue();
+    }*/
+    throw new UnsupportedOperationException(String.format("Cannot obtain Integer using value %s", value));
+  }
+
+  private static Double getDouble(Object value) {
+    if (value instanceof Integer) {
+      return Double.valueOf((Integer) value);
+    } else if (value instanceof Long) {
+      return Double.valueOf((Long) value);
+    } else if (value instanceof Float) {
+      return Double.valueOf((Float) value);
+    } else if (value instanceof Double) {
+      return (Double) value;
+    } else if (value instanceof String) {
+      return Double.parseDouble(value.toString());
+    }
+    // TODO: allow conversion form bytes only when actual type of data is known (to obtain scale)
+    /* else if (value instanceof byte[]) {
+      return new BigInteger((byte[]) value).doubleValue();
+    } else if (value instanceof Binary) {
+      return new BigInteger(((Binary) value).getBytes()).doubleValue();
+    }*/
+    throw new UnsupportedOperationException(String.format("Cannot obtain Integer using value %s", value));
   }
 
   private static Comparator getComparator(PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {
@@ -853,19 +888,19 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
   }
 
   private static OriginalType getOriginalType(MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ColumnMetadata column) {
-    OriginalType originalType = parquetTableMetadata.getOriginalType(column.getName());
+    OriginalType originalType = column.getOriginalType();
     // for the case of parquet metadata v1 version, type information isn't stored in parquetTableMetadata, but in ColumnMetadata
     if (originalType == null) {
-      originalType = column.getOriginalType();
+      originalType = parquetTableMetadata.getOriginalType(column.getName());
     }
     return originalType;
   }
 
   private static PrimitiveType.PrimitiveTypeName getPrimitiveTypeName(MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ColumnMetadata column) {
-    PrimitiveType.PrimitiveTypeName primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
+    PrimitiveType.PrimitiveTypeName primitiveType = column.getPrimitiveType();
     // for the case of parquet metadata v1 version, type information isn't stored in parquetTableMetadata, but in ColumnMetadata
     if (primitiveType == null) {
-      primitiveType = column.getPrimitiveType();
+      primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
     }
     return primitiveType;
   }
