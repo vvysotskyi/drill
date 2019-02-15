@@ -793,6 +793,7 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
       case INTERVALDAY:
       case INTERVAL:
       case INTERVALYEAR:
+      case VARBINARY:
         return UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
       case UINT1:
         return Comparator.nullsFirst(UnsignedBytes::compare);
