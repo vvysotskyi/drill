@@ -22,7 +22,7 @@ import org.apache.parquet.column.statistics.Statistics;
 
 /**
  * Wrapper for the Parquet column statistics. Additionally involves Drill's MajorType
- * TODO: get rid from this wrapper. Use the common one for the all table formats
+ * TODO: get rid from this wrapper. Use the common one for all table formats
  *
  * @param <T> the Java type described by this Statistics instance
  */

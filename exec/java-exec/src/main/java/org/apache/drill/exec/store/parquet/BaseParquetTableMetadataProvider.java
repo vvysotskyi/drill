@@ -53,7 +53,6 @@ import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveComparator;
 import org.apache.parquet.schema.PrimitiveType;
 
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -67,6 +66,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -109,10 +109,22 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
     this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
   }
 
+  protected void init() throws IOException {
+    initInternal();
+
+    assert parquetTableMetadata != null;
+
+    if (fileSet == null) {
+      fileSet = new HashSet<>();
+      fileSet.addAll(parquetTableMetadata.getFiles().stream()
+          .map(MetadataBase.ParquetFileMetadata::getPath)
+          .collect(Collectors.toSet()));
+    }
+  }
+
   @Override
   @SuppressWarnings("unchecked")
-  public TableMetadata getTableMetadata(String location, String tableName) {
-    // use String location, String tableName
+  public TableMetadata getTableMetadata() {
     if (tableMetadata == null) {
 
       HashMap<String, Object> tableStatistics = new HashMap<>();
@@ -129,7 +141,7 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
 
       HashMap<SchemaPath, ColumnStatistic> columnStatistics;
       if (collectMetadata) {
-        List<? extends BaseMetadata> metadata = getFilesMetadata(location, tableName);
+        List<? extends BaseMetadata> metadata = getFilesMetadata();
         if (metadata == null || metadata.isEmpty()) {
           metadata = getRowGroupsMeta();
         }
@@ -138,24 +150,24 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
         columnStatistics = new HashMap<>();
 
         for (SchemaPath partitionColumn : fields.keySet()) {
-          long columnValueCount = getParquetGroupScanStatistics(location, tableName).getColumnValueCount(partitionColumn);
+          long columnValueCount = getParquetGroupScanStatistics().getColumnValueCount(partitionColumn);
           ImmutableMap<String, Long> stats = ImmutableMap.of(
               ColumnStatisticsKind.ROW_COUNT.getName(), columnValueCount,
-              ColumnStatisticsKind.NULLS_COUNT.getName(), getParquetGroupScanStatistics(location, tableName).getRowCount() - columnValueCount);
+              ColumnStatisticsKind.NULLS_COUNT.getName(), getParquetGroupScanStatistics().getRowCount() - columnValueCount);
           columnStatistics.put(partitionColumn, new ColumnStatisticImpl(stats, getNaturalNullsFirstComparator()));
         }
       }
-      tableMetadata = new TableMetadata(tableName, tableLocation,
-        schema, columnStatistics, tableStatistics, -1, "root", partitionKeys);
+      tableMetadata = new TableMetadata(tableName, tableLocation, schema, columnStatistics, tableStatistics,
+          -1, "root", partitionKeys);
     }
 
     return tableMetadata;
   }
 
-  private ParquetGroupScanStatistics<? extends BaseMetadata> getParquetGroupScanStatistics(String location, String tableName) {
+  private ParquetGroupScanStatistics<? extends BaseMetadata> getParquetGroupScanStatistics() {
     if (parquetGroupScanStatistics == null) {
       if (collectMetadata) {
-        parquetGroupScanStatistics = new ParquetGroupScanStatistics<>(getFilesMetadata(location, tableName));
+        parquetGroupScanStatistics = new ParquetGroupScanStatistics<>(getFilesMetadata());
       } else {
         parquetGroupScanStatistics = new ParquetGroupScanStatistics<>(getRowGroupsMeta());
       }
@@ -165,6 +177,8 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
 
   @Override
   public List<SchemaPath> getPartitionColumns() {
+// TODO: Why it is commented? Looks like it is fine to obtain Partition Columns list from metadata lazily
+
 //    if (partitionColumns == null) {
 //      partitionColumns = getParquetGroupScanStatistics().getPartitionColumns();
 //    }
@@ -173,17 +187,17 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
 
   @Override
   @SuppressWarnings("unchecked")
-  public List<PartitionMetadata> getPartitionsMetadata(String location, String tableName) {
+  public List<PartitionMetadata> getPartitionsMetadata() {
     if (partitions == null) {
       partitions = new ArrayList<>();
       if (collectMetadata) {
         Table<SchemaPath, Object, List<FileMetadata>> colValFile = HashBasedTable.create();
 
-        List<FileMetadata> filesMetadata = getFilesMetadata(location, tableName);
-        partitionColumns = getParquetGroupScanStatistics(location, tableName).getPartitionColumns();
+        List<FileMetadata> filesMetadata = getFilesMetadata();
+        partitionColumns = getParquetGroupScanStatistics().getPartitionColumns();
         for (FileMetadata fileMetadata : filesMetadata) {
           for (SchemaPath partitionColumn : partitionColumns) {
-            Object partitionValue = getParquetGroupScanStatistics(location, tableName).getPartitionValue(fileMetadata.getLocation(), partitionColumn);
+            Object partitionValue = getParquetGroupScanStatistics().getPartitionValue(fileMetadata.getLocation(), partitionColumn);
             // Table cannot contain nulls
             partitionValue = partitionValue == null ? NULL_VALUE : partitionValue;
             List<FileMetadata> partitionFiles = colValFile.get(partitionColumn, partitionValue);
@@ -201,8 +215,8 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
           }
         }
       } else {
-        for (SchemaPath partitionColumn : getParquetGroupScanStatistics(location, tableName).getPartitionColumns()) {
-          Map<String, Object> partitionPaths = getParquetGroupScanStatistics(location, tableName).getPartitionPaths(partitionColumn);
+        for (SchemaPath partitionColumn : getParquetGroupScanStatistics().getPartitionColumns()) {
+          Map<String, Object> partitionPaths = getParquetGroupScanStatistics().getPartitionPaths(partitionColumn);
           SetMultimap<Object, String> partitionsForValue = Multimaps.newSetMultimap(new HashMap<>(), HashSet::new);
 
           for (Map.Entry<String, Object> stringObjectEntry : partitionPaths.entrySet()) {
@@ -218,13 +232,13 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
             statistics.put(ColumnStatisticsKind.MIN_VALUE.getName(), partitionKey);
             statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), partitionKey);
             // incorrect row count, but it is ok, since nulls count is set here.
-            statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), partitionKey != null ? 0 : getParquetGroupScanStatistics(location, tableName).getRowCount());
-            statistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getParquetGroupScanStatistics(location, tableName).getRowCount());
+            statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), partitionKey != null ? 0 : getParquetGroupScanStatistics().getRowCount());
+            statistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
             columnStatistics.put(partitionColumn,
                 new ColumnStatisticImpl<>(statistics,
-                    getComparator(getParquetGroupScanStatistics(location, tableName).getTypeForColumn(partitionColumn).getMinorType())));
+                    getComparator(getParquetGroupScanStatistics().getTypeForColumn(partitionColumn).getMinorType())));
 
-            partitions.add(new PartitionMetadata(partitionColumn, getTableMetadata(location, tableName).getSchema(),
+            partitions.add(new PartitionMetadata(partitionColumn, getTableMetadata().getSchema(),
                 columnStatistics, statistics, (Set<String>) valueLocationsEntry.getValue(), tableName, -1));
           }
         }
@@ -233,15 +247,15 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
     return partitions;
   }
 
-  // TODO: Why and how to replace below getPartitionMetadata(logicalExpressions, files) with this method ???
   @Override
-  public PartitionMetadata getPartitionMetadata(String location, String tableName, String columnName) {
-    return null;
+  public PartitionMetadata getPartitionMetadata(SchemaPath columnName) {
+    return getPartitionsMetadata().stream()
+        .filter(Objects::nonNull)
+        .filter(partitionMetadata -> partitionMetadata.getColumn().equals(columnName))
+        .findFirst()
+        .orElse(null);
   }
 
-  /**
-   * TODO: replace it with proper getPartitionMetadata method {@link #getPartitionMetadata(String, String, String)})}
-   */
   private PartitionMetadata getPartitionMetadata(SchemaPath logicalExpressions, List<FileMetadata> files) {
     Set<String> locations = new HashSet<>();
     long partRowCount = 0;
@@ -268,8 +282,8 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
   }
 
   @Override
-  public FileMetadata getFileMetadata(String location, String tableName) {
-    return null;
+  public FileMetadata getFileMetadata() {
+    throw new UnsupportedOperationException("This mechanism should be implemented");
   }
 
   @Override
@@ -278,8 +292,7 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
   }
 
   @Override
-  public List<FileMetadata> getFilesMetadata(String location, String tableName) {
-    // use String location, String tableName
+  public List<FileMetadata> getFilesMetadata() {
     if (files == null) {
       if (entries.isEmpty() || !collectMetadata) {
         return Collections.emptyList();
@@ -324,21 +337,19 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
   }
 
   @Override
-  public boolean isUsedMetadataCache() {
-    return usedMetadataCache;
+  public Set<String> getFileSet() {
+    return fileSet;
   }
 
-  @Override
   public List<ReadEntryWithPath> getEntries() {
     return entries;
   }
 
-
-//  public List<ReadEntryWithPath> getEntries() {
-//    return entries;
-//  }
-
   protected abstract void initInternal() throws IOException;
+
+  boolean isUsedMetadataCache() {
+    return usedMetadataCache;
+  }
 
   private <T extends BaseMetadata>long getRowCount(List<T> rowGroups) {
     long sum = 0L;
@@ -903,25 +914,5 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
     }
     return primitiveType;
   }
-
-//  public abstract String getSelectionRoot();
-
-//  public boolean isUsedMetadataCache() {
-//    return usedMetadataCache;
-//  }
-
-  protected void init() throws IOException {
-    initInternal();
-
-    assert parquetTableMetadata != null;
-
-    if (fileSet == null) {
-      fileSet = new HashSet<>();
-      fileSet.addAll(parquetTableMetadata.getFiles().stream()
-          .map(MetadataBase.ParquetFileMetadata::getPath)
-          .collect(Collectors.toSet()));
-    }
-  }
-  // overridden protected methods block end
 
 }

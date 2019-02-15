@@ -20,7 +20,7 @@ package org.apache.drill.exec.store.parquet;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
+import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.metastore.ColumnStatisticsKind;
@@ -60,7 +60,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan {
+public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMetadata {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractParquetGroupScan.class);
 
@@ -236,7 +236,7 @@ public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan
   }
 
   @Override
-  public AbstractMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
+  public AbstractGroupScanWithMetadata applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
       FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
     // Builds filter for pruning. If filter cannot be built, null should be returned.
     FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, optionManager, true);
@@ -466,12 +466,40 @@ public abstract class AbstractParquetGroupScan extends AbstractMetadataGroupScan
   protected abstract AbstractParquetGroupScan cloneWithFileSelection(Collection<String> filePaths) throws IOException;
   // abstract methods block end
 
-  protected abstract static class RowGroupScanBuilder extends GroupScanBuilder {
+  protected abstract static class RowGroupScanBuilder extends GroupScanWithMetadataBuilder {
+    protected AbstractParquetGroupScan newScan;
     protected List<RowGroupMetadata> rowGroups;
 
     public RowGroupScanBuilder withRowGroups(List<RowGroupMetadata> rowGroups) {
       this.rowGroups = rowGroups;
       return this;
+    }
+
+    @Override
+    public AbstractGroupScanWithMetadata build() {
+      newScan.tableMetadata = tableMetadata != null && !tableMetadata.isEmpty() ? tableMetadata.get(0) : null;
+      newScan.partitions = partitions != null ? partitions : Collections.emptyList();
+      newScan.files = files != null ? files : Collections.emptyList();
+      newScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();
+      newScan.matchAllRowGroups = matchAllRowGroups;
+      // since builder is used when pruning happens, entries and fileSet should be expanded
+      if (!newScan.files.isEmpty()) {
+        newScan.entries = newScan.files.stream()
+            .map(file -> new ReadEntryWithPath(file.getLocation()))
+            .collect(Collectors.toList());
+      } else if (!newScan.rowGroups.isEmpty()) {
+        newScan.entries = newScan.rowGroups.stream()
+            .map(RowGroupMetadata::getLocation)
+            .distinct()
+            .map(ReadEntryWithPath::new)
+            .collect(Collectors.toList());
+      }
+
+      newScan.fileSet = newScan.files.stream()
+          .map(FileMetadata::getLocation)
+          .collect(Collectors.toSet());
+
+      return newScan;
     }
   }
 

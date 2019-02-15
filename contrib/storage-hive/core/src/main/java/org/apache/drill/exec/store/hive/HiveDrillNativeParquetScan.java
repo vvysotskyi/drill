@@ -21,11 +21,8 @@ import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
-import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.LocationProvider;
-import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -46,10 +43,8 @@ import org.apache.drill.exec.util.ImpersonationUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @JsonTypeName("hive-drill-native-parquet-scan")
 public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
@@ -72,17 +67,19 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.hiveStoragePlugin = (HiveStoragePlugin) engineRegistry.getPlugin(hiveStoragePluginConfig);
     this.confProperties = confProperties;
 
-    HiveParquetTableMetadataProvider metadataProvider = new HiveParquetTableMetadataProvider(entries, hivePartitionHolder, hiveStoragePlugin, readerConfig, null);
+    this.metadataProvider = new HiveParquetTableMetadataProvider(entries, hivePartitionHolder, hiveStoragePlugin, readerConfig, null);
 
 //    String tableLocation = null; // TODO: initialize properly
 //    String tableName = null; // TODO: initialize properly
-    this.tableMetadata = metadataProvider.getTableMetadata(tableLocation, tableName);
-    this.partitions = metadataProvider.getPartitionsMetadata(tableLocation, tableName);
-    this.rowGroups = metadataProvider.getRowGroupsMeta();
-    this.files = metadataProvider.getFilesMetadata(tableLocation, tableName);
-    this.entries = metadataProvider.getEntries();
+    this.tableMetadata = metadataProvider.getTableMetadata();
+    this.partitions = metadataProvider.getPartitionsMetadata();
+    this.files = metadataProvider.getFilesMetadata();
+
+    HiveParquetTableMetadataProvider metadataProvider = (HiveParquetTableMetadataProvider) this.metadataProvider;
     this.partitionColumns = metadataProvider.getPartitionColumns();
+    this.rowGroups = metadataProvider.getRowGroupsMeta();
     this.hivePartitionHolder = metadataProvider.getHivePartitionHolder();
+    this.entries = metadataProvider.getEntries();
 
     init();
   }
@@ -110,10 +107,10 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
     HiveParquetTableMetadataProvider metadataCreator = new HiveParquetTableMetadataProvider(hiveStoragePlugin, logicalInputSplits, readerConfig);
 
-    this.tableMetadata = metadataCreator.getTableMetadata(tableLocation, tableName);
-    this.partitions = metadataCreator.getPartitionsMetadata(tableLocation, tableName);
+    this.tableMetadata = metadataCreator.getTableMetadata();
+    this.partitions = metadataCreator.getPartitionsMetadata();
     this.rowGroups = metadataCreator.getRowGroupsMeta();
-    this.files = metadataCreator.getFilesMetadata(tableLocation, tableName);
+    this.files = metadataCreator.getFilesMetadata();
     this.entries = metadataCreator.getEntries();
     this.partitionColumns = metadataCreator.getPartitionColumns();
     this.hivePartitionHolder = metadataCreator.getHivePartitionHolder();
@@ -121,11 +118,16 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     init();
   }
 
+  /**
+   * Copy constructor for shallow partial cloning
+   * @param that old groupScan
+   */
   private HiveDrillNativeParquetScan(HiveDrillNativeParquetScan that) {
     super(that);
     this.hiveStoragePlugin = that.hiveStoragePlugin;
     this.hivePartitionHolder = that.hivePartitionHolder;
     this.confProperties = that.confProperties;
+    this.partitionColumns = that.partitionColumns;
   }
 
   @JsonProperty
@@ -222,38 +224,9 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
   private static class HiveDrillNativeParquetScanBuilder extends RowGroupScanBuilder {
-    private final HiveDrillNativeParquetScan source;
 
     public HiveDrillNativeParquetScanBuilder(HiveDrillNativeParquetScan source) {
-      this.source = source;
-    }
-
-    @Override
-    public AbstractMetadataGroupScan build() {
-      HiveDrillNativeParquetScan groupScan = new HiveDrillNativeParquetScan(source);
-      groupScan.tableMetadata = tableMetadata.get(0);
-      groupScan.partitions = partitions != null ? partitions : Collections.emptyList();
-      groupScan.files = files != null ? files : Collections.emptyList();
-      groupScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();
-      groupScan.partitionColumns = source.partitionColumns;
-      groupScan.matchAllRowGroups = matchAllRowGroups;
-      if (!groupScan.files.isEmpty()) {
-        groupScan.entries = groupScan.files.stream()
-            .map(file -> new ReadEntryWithPath(file.getLocation()))
-            .collect(Collectors.toList());
-      } else if (!groupScan.rowGroups.isEmpty()) {
-        groupScan.entries = groupScan.rowGroups.stream()
-            .map(RowGroupMetadata::getLocation)
-            .distinct()
-            .map(ReadEntryWithPath::new)
-            .collect(Collectors.toList());
-      }
-
-      groupScan.fileSet = groupScan.files.stream()
-        .map(FileMetadata::getLocation)
-        .collect(Collectors.toSet());
-
-      return groupScan;
+      this.newScan = new HiveDrillNativeParquetScan(source);
     }
   }
 }

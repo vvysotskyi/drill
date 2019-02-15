@@ -65,16 +65,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
-  // AbstractFileGroupScanWithMetadata ?
-  // A lot of abstract classes
-  // TODO: rewrite initialization of metadata using metadata provider.
+public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupScan {
+
+  // TODO: replace it with BaseTableMetadataProvider, once it is introduced
   protected TableMetadataProvider metadataProvider;
 
   // table metadata info
   protected TableMetadata tableMetadata;
-  protected String tableLocation;
-  protected String tableName;
 
   // partition metadata info: mixed partition values for all partition keys in the same list
   protected List<PartitionMetadata> partitions;
@@ -91,7 +88,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   // whether all row groups of this group scan fully match the filter
   protected boolean matchAllRowGroups = false;
 
-  protected AbstractMetadataGroupScan(String userName, List<SchemaPath> columns, LogicalExpression filter) {
+  protected AbstractGroupScanWithMetadata(String userName, List<SchemaPath> columns, LogicalExpression filter) {
     super(userName);
     this.columns = columns;
     this.filter = filter;
@@ -181,8 +178,8 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   @Override
-  public AbstractMetadataGroupScan applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
-                                               FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
+  public AbstractGroupScanWithMetadata applyFilter(LogicalExpression filterExpr, UdfUtilities udfUtilities,
+                                                   FunctionImplementationRegistry functionImplementationRegistry, OptionManager optionManager) {
 
     // Builds filter for pruning. If filter cannot be built, null should be returned.
     FilterPredicate filterPredicate = getFilterPredicate(filterExpr, udfUtilities, functionImplementationRegistry, optionManager, true);
@@ -194,7 +191,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     final Set<SchemaPath> schemaPathsInExpr =
         filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
 
-    GroupScanBuilder builder = getFiltered(optionManager, filterPredicate, schemaPathsInExpr);
+    GroupScanWithMetadataBuilder builder = getFiltered(optionManager, filterPredicate, schemaPathsInExpr);
 
     if (files != null) {
       if (builder.getFiles() != null && files.size() == builder.getFiles().size()) {
@@ -256,8 +253,8 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     return inputList != null && !inputList.isEmpty() ? Collections.singletonList(inputList.iterator().next()) : Collections.emptyList();
   }
 
-  protected GroupScanBuilder getFiltered(OptionManager optionManager, FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr) {
-    GroupScanBuilder builder = getBuilder();
+  protected GroupScanWithMetadataBuilder getFiltered(OptionManager optionManager, FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr) {
+    GroupScanWithMetadataBuilder builder = getBuilder();
 
     if (tableMetadata != null) {
       filterTableMetadata(filterPredicate, schemaPathsInExpr, builder);
@@ -273,7 +270,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     return builder;
   }
 
-  protected abstract GroupScanBuilder getBuilder();
+  protected abstract GroupScanWithMetadataBuilder getBuilder();
 
   protected <T extends BaseMetadata & LocationProvider> List<T> pruneForPartitions(List<T> metadataToPrune, List<PartitionMetadata> filteredPartitionMetadata) {
     List<T> prunedFiles = new ArrayList<>();
@@ -292,7 +289,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   protected void filterFileMetadata(OptionManager optionManager, FilterPredicate filterPredicate,
-                                    Set<SchemaPath> schemaPathsInExpr, GroupScanBuilder builder) {
+                                    Set<SchemaPath> schemaPathsInExpr, GroupScanWithMetadataBuilder builder) {
     List<FileMetadata> prunedFiles;
     if (partitions == null || partitions.isEmpty() || partitions.size() == builder.partitions.size()) {
       // no partition pruning happened, no need to prune initial files list
@@ -327,7 +324,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     }
   }
 
-  protected void filterPartitionMetadata(OptionManager optionManager, FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr, GroupScanBuilder builder) {
+  protected void filterPartitionMetadata(OptionManager optionManager, FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr, GroupScanWithMetadataBuilder builder) {
     if (!builder.matchAllRowGroups) {
       if (!partitions.isEmpty()) {
         if (partitions.size() <= optionManager.getOption(
@@ -348,7 +345,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     }
   }
 
-  protected void filterTableMetadata(FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr, GroupScanBuilder builder) {
+  protected void filterTableMetadata(FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr, GroupScanWithMetadataBuilder builder) {
     boolean matchAllRowGroupsLocal = matchAllRowGroups;
     // Filters table metadata. If resulting list is empty, should be used single minimum entity of metadata.
     // If table matches fully, nothing is pruned and pruning of underlying metadata is stopped.
@@ -470,7 +467,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   @Override
   public GroupScan applyLimit(int maxRecords) {
     maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
-    GroupScanBuilder builder = limitFiles(maxRecords);
+    GroupScanWithMetadataBuilder builder = limitFiles(maxRecords);
     if (tableMetadata != null && (builder.getTableMetadata() == null || builder.getTableMetadata().isEmpty())) {
       logger.debug("limit push down does not apply, since table has less rows.");
       return null;
@@ -486,8 +483,8 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     return builder.build();
   }
 
-  protected GroupScanBuilder limitFiles(int maxRecords) {
-    GroupScanBuilder builder = getBuilder();
+  protected GroupScanWithMetadataBuilder limitFiles(int maxRecords) {
+    GroupScanWithMetadataBuilder builder = getBuilder();
     // further optimization : minimize # of files chosen, or the affinity of files chosen.
 
     if (tableMetadata != null) {
@@ -561,7 +558,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     return fileSet;
   }
   // partition pruning methods end
-
+// above and below comments are not useful anymore
   // helper method used for partition pruning and filter push down
   @Override
   public void modifyFileSelection(FileSelection selection) {
@@ -591,10 +588,10 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   protected List<PartitionMetadata> getPartitions() {
-    return metadataProvider.getPartitionsMetadata(tableLocation, tableName);
+    return metadataProvider.getPartitionsMetadata();
   }
 
-  protected abstract static class GroupScanBuilder {
+  protected abstract static class GroupScanWithMetadataBuilder {
     protected boolean matchAllRowGroups = false;
 
     protected List<TableMetadata> tableMetadata;
@@ -602,29 +599,29 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     protected List<FileMetadata> files;
     protected MetadataLevel overflowLevel = MetadataLevel.NONE;
 
-    public abstract AbstractMetadataGroupScan build();
+    public abstract AbstractGroupScanWithMetadata build();
 
-    public GroupScanBuilder withTable(List<TableMetadata> filteredTableMetadata) {
+    public GroupScanWithMetadataBuilder withTable(List<TableMetadata> filteredTableMetadata) {
       this.tableMetadata = filteredTableMetadata;
       return this;
     }
 
-    public GroupScanBuilder withPartitions(List<PartitionMetadata> partitions) {
+    public GroupScanWithMetadataBuilder withPartitions(List<PartitionMetadata> partitions) {
       this.partitions = partitions;
       return this;
     }
 
-    public GroupScanBuilder withFiles(List<FileMetadata> files) {
+    public GroupScanWithMetadataBuilder withFiles(List<FileMetadata> files) {
       this.files = files;
       return this;
     }
 
-    public GroupScanBuilder withMatching(boolean matchAllRowGroups) {
+    public GroupScanWithMetadataBuilder withMatching(boolean matchAllRowGroups) {
       this.matchAllRowGroups = matchAllRowGroups;
       return this;
     }
 
-    public GroupScanBuilder withOverflow(MetadataLevel overflowLevel) {
+    public GroupScanWithMetadataBuilder withOverflow(MetadataLevel overflowLevel) {
       this.overflowLevel = overflowLevel;
       return this;
     }

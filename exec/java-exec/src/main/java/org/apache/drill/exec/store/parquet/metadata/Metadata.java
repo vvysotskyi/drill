@@ -536,32 +536,23 @@ public class Metadata {
   /**
    * Serialize parquet metadata to json and write to a file.
    *
-   * @param parquetTableMetadata parquet table metadata
+   * @param parquetTableMetadata parquet table or directory metadata
    * @param p file path
+   * @param fs Drill file system
+   * @throws IOException if metadata can't be serialized
    */
-  private void writeFile(ParquetTableMetadata_v3 parquetTableMetadata, Path p, FileSystem fs) throws IOException {
+  private void writeFile(Object parquetTableMetadata, Path p, FileSystem fs) throws IOException {
     JsonFactory jsonFactory = new JsonFactory();
     jsonFactory.configure(Feature.AUTO_CLOSE_TARGET, false);
     jsonFactory.configure(JsonParser.Feature.AUTO_CLOSE_SOURCE, false);
     ObjectMapper mapper = new ObjectMapper(jsonFactory);
     SimpleModule module = new SimpleModule();
-    module.addSerializer(ColumnMetadata_v3.class, new ColumnMetadata_v3.Serializer());
+    if (parquetTableMetadata instanceof ParquetTableMetadata_v3) {
+      module.addSerializer(ColumnMetadata_v3.class, new ColumnMetadata_v3.Serializer());
+    }
     mapper.registerModule(module);
     OutputStream os = fs.create(p);
     mapper.writerWithDefaultPrettyPrinter().writeValue(os, parquetTableMetadata);
-    os.flush();
-    os.close();
-  }
-
-  private void writeFile(ParquetTableMetadataDirs parquetTableMetadataDirs, Path p, FileSystem fs) throws IOException {
-    JsonFactory jsonFactory = new JsonFactory();
-    jsonFactory.configure(Feature.AUTO_CLOSE_TARGET, false);
-    jsonFactory.configure(JsonParser.Feature.AUTO_CLOSE_SOURCE, false);
-    ObjectMapper mapper = new ObjectMapper(jsonFactory);
-    SimpleModule module = new SimpleModule();
-    mapper.registerModule(module);
-    OutputStream os = fs.create(p);
-    mapper.writerWithDefaultPrettyPrinter().writeValue(os, parquetTableMetadataDirs);
     os.flush();
     os.close();
   }

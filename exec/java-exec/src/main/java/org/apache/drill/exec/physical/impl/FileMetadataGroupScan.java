@@ -31,7 +31,7 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
-import org.apache.drill.exec.physical.base.AbstractMetadataGroupScan;
+import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
 import org.apache.drill.exec.physical.EndpointAffinity;
 import org.apache.drill.exec.physical.base.FileGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
@@ -54,7 +54,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-public class FileMetadataGroupScan extends AbstractMetadataGroupScan {
+public class FileMetadataGroupScan extends AbstractGroupScanWithMetadata {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EasyGroupScan.class);
 
   private FileSelection selection;
@@ -235,7 +235,7 @@ public class FileMetadataGroupScan extends AbstractMetadataGroupScan {
   }
 
   @Override
-  protected GroupScanBuilder getBuilder() {
+  protected GroupScanWithMetadataBuilder getBuilder() {
     return new FileMetadataGroupScanBuilder(this);
   }
 
@@ -264,7 +264,7 @@ public class FileMetadataGroupScan extends AbstractMetadataGroupScan {
     return formatPlugin.supportsPushDown();
   }
 
-  private static class FileMetadataGroupScanBuilder extends GroupScanBuilder {
+  private static class FileMetadataGroupScanBuilder extends GroupScanWithMetadataBuilder {
     FileMetadataGroupScan source;
 
     public FileMetadataGroupScanBuilder(FileMetadataGroupScan source) {
@@ -272,7 +272,7 @@ public class FileMetadataGroupScan extends AbstractMetadataGroupScan {
     }
 
     @Override
-    public AbstractMetadataGroupScan build() {
+    public AbstractGroupScanWithMetadata build() {
       FileMetadataGroupScan groupScan = new FileMetadataGroupScan(source.getUserName(), source.getColumns(), source.getFilter());
       groupScan.tableMetadata = tableMetadata.get(0);
       groupScan.partitions =  partitions != null ? partitions : Collections.emptyList();
