@@ -213,7 +213,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
   @Override
   protected boolean supportsFileImplicitColumns() {
-    return false;
+    return true;
   }
 
   @Override

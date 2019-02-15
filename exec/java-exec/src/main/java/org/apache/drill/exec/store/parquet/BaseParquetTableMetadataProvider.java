@@ -71,10 +71,10 @@ import java.util.stream.Collectors;
 
 public abstract class BaseParquetTableMetadataProvider implements TableMetadataProvider {
 
-  private static Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
+  private static final Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
       PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
 
-  static Object NULL_VALUE = new Object();
+  static final Object NULL_VALUE = new Object();
 
   private ParquetGroupScanStatistics<? extends BaseMetadata> parquetGroupScanStatistics;
 
@@ -321,9 +321,6 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
       getColumnStatistics(rowGroups, rowGroups.iterator().next().getColumnStatistics().keySet()),
       fileStatistics, rowGroups.iterator().next().getLocation(), tableName, -1);
   }
-
-  @Override
-  public abstract String getSelectionRoot();
 
   @Override
   public boolean isUsedMetadataCache() {

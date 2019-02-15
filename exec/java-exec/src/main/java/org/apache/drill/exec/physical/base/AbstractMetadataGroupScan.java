@@ -72,7 +72,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   protected TableMetadataProvider metadataProvider;
 
   // table metadata info
-  protected TableMetadata tableMetadata; // TODO: may be null, but there no everywhere null checks. Add it
+  protected TableMetadata tableMetadata;
   protected String tableLocation;
   protected String tableName;
 
@@ -244,7 +244,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   }
 
   protected static <T> boolean unchangedMetadata(List<T> partitions, List<T> newPartitions) {
-    return (newPartitions == null || newPartitions.isEmpty()) && partitions != null && partitions.size() > 0;
+    return (newPartitions == null || newPartitions.isEmpty()) && partitions != null && !partitions.isEmpty();
   }
 
   /** Javadoc javadoc javadoc.
@@ -253,7 +253,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
    * @return return javadoc
    */
   protected <T> List<T> getNextOrEmpty(List<T> inputList) {
-    return inputList != null && inputList.size() > 0 ? Collections.singletonList(inputList.iterator().next()) : Collections.emptyList();
+    return inputList != null && !inputList.isEmpty() ? Collections.singletonList(inputList.iterator().next()) : Collections.emptyList();
   }
 
   protected GroupScanBuilder getFiltered(OptionManager optionManager, FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr) {
@@ -293,9 +293,8 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
   protected void filterFileMetadata(OptionManager optionManager, FilterPredicate filterPredicate,
                                     Set<SchemaPath> schemaPathsInExpr, GroupScanBuilder builder) {
-//    if ((builder.partitions != null && builder.partitions.size() > 0) || partitions.size() == 0) {
     List<FileMetadata> prunedFiles;
-    if (partitions == null || partitions.size() == 0 || partitions.size() == builder.partitions.size()) {
+    if (partitions == null || partitions.isEmpty() || partitions.size() == builder.partitions.size()) {
       // no partition pruning happened, no need to prune initial files list
       prunedFiles = files;
     } else {
@@ -326,13 +325,11 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
           .withFiles(prunedFiles)
           .withOverflow(MetadataLevel.FILE);
     }
-
-//    }
   }
 
   protected void filterPartitionMetadata(OptionManager optionManager, FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr, GroupScanBuilder builder) {
     if (!builder.matchAllRowGroups) {
-      if (partitions.size() > 0) {
+      if (!partitions.isEmpty()) {
         if (partitions.size() <= optionManager.getOption(
           PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
           boolean matchAllRowGroupsLocal = matchAllRowGroups;
@@ -371,13 +368,10 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     List<T> qualifiedFiles = new ArrayList<>();
 
     for (T metadata : metadataList) {
-      // TODO: decide where implicit + partition columns should be handled: either they should be present in
-      //  file metadata or they should be populated in this method and passed with other columns.
-
       Map<SchemaPath, ColumnStatistic> columnStatistics = metadata.getColumnStatistics();
 
       // adds partition (dir) column statistics if it may be used during filter evaluation
-      if (supportsFileImplicitColumns() && metadata instanceof LocationProvider && optionManager != null) {
+      if (metadata instanceof LocationProvider && optionManager != null) {
         final ColumnExplorer columnExplorer = new ColumnExplorer(optionManager, columns);
         LocationProvider locationProvider = (LocationProvider) metadata;
         List<String> partitionValues = getPartitionValues(locationProvider);
@@ -456,10 +450,10 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
     if (tableMetadata != null) {
       return tableMetadata.getSchema().copy();
     } else {
-      if (partitions != null && partitions.size() > 0) {
+      if (partitions != null && !partitions.isEmpty()) {
         return partitions.iterator().next().getSchema();
       } else {
-        if (files != null && files.size() > 0) {
+        if (files != null && !files.isEmpty()) {
           return files.iterator().next().getSchema();
         }
       }
@@ -507,7 +501,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
 
     List<PartitionMetadata> qualifiedPartitions = limitMetadata(partitions != null ? partitions : Collections.emptyList(), maxRecords);
 
-    List<FileMetadata> partFiles = partitions != null && partitions.size() > 0 ? pruneForPartitions(files, qualifiedPartitions) : files;
+    List<FileMetadata> partFiles = partitions != null && !partitions.isEmpty() ? pruneForPartitions(files, qualifiedPartitions) : files;
 
     // Calculate number of files to read based on maxRecords and update
     // number of records to read for each of those rowGroups.
@@ -571,13 +565,11 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   // helper method used for partition pruning and filter push down
   @Override
   public void modifyFileSelection(FileSelection selection) {
-    List<String> files = selection.getFiles();
-    fileSet = new HashSet<>(files);
+    fileSet = new HashSet<>(selection.getFiles());
   }
 
   // protected methods block
   protected void init() throws IOException {
-
     if (fileSet == null && files != null) {
       fileSet = files.stream()
           .map(FileMetadata::getLocation)
@@ -593,7 +585,7 @@ public abstract class AbstractMetadataGroupScan extends AbstractFileGroupScan {
   protected abstract boolean supportsFileImplicitColumns();
   protected abstract List<String> getPartitionValues(LocationProvider rowGroupInfo);
 
-  private boolean isImplicitOrPartCol(SchemaPath schemaPath, OptionManager optionManager) {
+  protected boolean isImplicitOrPartCol(SchemaPath schemaPath, OptionManager optionManager) {
     Set<String> implicitColNames = ColumnExplorer.initImplicitFileColumns(optionManager).keySet();
     return ColumnExplorer.isPartitionColumn(optionManager, schemaPath) || implicitColNames.contains(schemaPath.getRootSegmentPath());
   }

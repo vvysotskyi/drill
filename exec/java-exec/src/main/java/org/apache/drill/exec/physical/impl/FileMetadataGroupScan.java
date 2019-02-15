@@ -149,7 +149,7 @@ public class FileMetadataGroupScan extends AbstractMetadataGroupScan {
 
   @Override
   protected boolean supportsFileImplicitColumns() {
-    return false;
+    return true;
   }
 
   @Override
