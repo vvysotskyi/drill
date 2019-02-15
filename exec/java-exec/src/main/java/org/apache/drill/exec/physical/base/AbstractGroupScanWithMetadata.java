@@ -65,9 +65,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+// TODO: note that all these group scan operators are JSON serializable. Check is it still correct.
 public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupScan {
 
-  // TODO: replace it with BaseTableMetadataProvider, once it is introduced
   protected TableMetadataProvider metadataProvider;
 
   // table metadata info

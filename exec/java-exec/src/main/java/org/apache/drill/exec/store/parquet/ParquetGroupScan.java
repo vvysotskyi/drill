@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.metastore.LocationProvider;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -79,7 +80,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     DrillFileSystem fs =
         ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
 
-    this.metadataProvider = new ParquetTableMetadataProvider(entries, selectionRoot, cacheFileRoot, null,
+    this.metadataProvider = new ParquetTableMetadataProviderImpl(entries, selectionRoot, cacheFileRoot, null,
         readerConfig, fs, this.formatConfig.areCorruptDatesAutoCorrected());
     this.selectionRoot = metadataProvider.getSelectionRoot();
     this.tableMetadata = metadataProvider.getTableMetadata();
@@ -88,7 +89,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.fileSet = metadataProvider.getFileSet();
     this.partitionColumns = metadataProvider.getPartitionColumns();
 
-    BaseParquetTableMetadataProvider metadataProvider = (BaseParquetTableMetadataProvider) this.metadataProvider;
+    ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
     this.entries = metadataProvider.getEntries();
     this.rowGroups = metadataProvider.getRowGroupsMeta();
@@ -119,20 +120,20 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.cacheFileRoot = selection.getCacheFileRoot();
 
     DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
-    metadataProvider = new ParquetTableMetadataProvider(selection, readerConfig, fs,
+    metadataProvider = new ParquetTableMetadataProviderImpl(selection, readerConfig, fs,
         formatConfig.areCorruptDatesAutoCorrected());
-    ParquetTableMetadataProvider parquetMetadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
+    this.selectionRoot = metadataProvider.getSelectionRoot();
+    this.tableMetadata = metadataProvider.getTableMetadata();
+    this.files = metadataProvider.getFilesMetadata();
+    this.partitions = metadataProvider.getPartitionsMetadata();
+    this.partitionColumns = metadataProvider.getPartitionColumns();
+    this.fileSet = metadataProvider.getFileSet();
 
-    this.selectionRoot = parquetMetadataProvider.getSelectionRoot();
-    this.tableMetadata = parquetMetadataProvider.getTableMetadata();
+    ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
+    this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
+    this.entries = metadataProvider.getEntries();
+    this.rowGroups = metadataProvider.getRowGroupsMeta();
 
-    this.rowGroups = parquetMetadataProvider.getRowGroupsMeta();
-    this.files = parquetMetadataProvider.getFilesMetadata();
-    this.partitions = parquetMetadataProvider.getPartitionsMetadata();
-    this.usedMetadataCache = parquetMetadataProvider.isUsedMetadataCache();
-    this.entries = parquetMetadataProvider.getEntries();
-    this.partitionColumns = parquetMetadataProvider.getPartitionColumns();
-    this.fileSet = parquetMetadataProvider.fileSet;
 
     // TODO: initialize TableMetadata, FileMetadata and RowGroupMetadata from
     //  parquetTableMetadata if it wasn't fetched from the metastore using ParquetTableMetadataCreator

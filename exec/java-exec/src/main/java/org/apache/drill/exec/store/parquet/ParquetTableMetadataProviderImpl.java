@@ -39,9 +39,9 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class ParquetTableMetadataProvider extends BaseParquetTableMetadataProvider {
+public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataProvider {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetTableMetadataProvider.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetTableMetadataProviderImpl.class);
 
   private final DrillFileSystem fs;
   private final MetadataContext metaContext;
@@ -51,13 +51,13 @@ public class ParquetTableMetadataProvider extends BaseParquetTableMetadataProvid
   private final boolean corruptDatesAutoCorrected;
 
 
-  public ParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
-                                     String selectionRoot,
-                                     String cacheFileRoot,
-                                     Set<String> fileSet,
-                                     ParquetReaderConfig readerConfig,
-                                     DrillFileSystem fs,
-                                     boolean autoCorrectCorruptedDates) throws IOException {
+  public ParquetTableMetadataProviderImpl(List<ReadEntryWithPath> entries,
+                                          String selectionRoot,
+                                          String cacheFileRoot,
+                                          Set<String> fileSet,
+                                          ParquetReaderConfig readerConfig,
+                                          DrillFileSystem fs,
+                                          boolean autoCorrectCorruptedDates) throws IOException {
     super(entries, readerConfig, fileSet);
     this.entries = entries;
     this.fs = fs;
@@ -72,10 +72,10 @@ public class ParquetTableMetadataProvider extends BaseParquetTableMetadataProvid
     init();
   }
 
-  public ParquetTableMetadataProvider(FileSelection selection,
-                                     ParquetReaderConfig readerConfig,
-                                     DrillFileSystem fs,
-                                     boolean autoCorrectCorruptedDates) throws IOException {
+  public ParquetTableMetadataProviderImpl(FileSelection selection,
+                                          ParquetReaderConfig readerConfig,
+                                          DrillFileSystem fs,
+                                          boolean autoCorrectCorruptedDates) throws IOException {
     super(readerConfig, new ArrayList<>());
 
     this.fs = fs;
@@ -103,21 +103,6 @@ public class ParquetTableMetadataProvider extends BaseParquetTableMetadataProvid
       init();
     }
   }
-
-
-//  public ParquetTableMetadataProvider(BaseTableMetadataCreator metadataCreator) {
-//    this.metadataCreator = metadataCreator;
-//  }
-
-//  @Override
-//  public TableMetadata getTableMetadata(String location, String tableName) {
-//    return metadataCreator.getTableMetadata();
-//  }
-
-//  @Override
-//  public List<PartitionMetadata> getPartitionsMetadata(String location, String tableName) {
-//    return metadataCreator.getPartitionMetadata();
-//  }
 
   @Override
   public String getSelectionRoot() {

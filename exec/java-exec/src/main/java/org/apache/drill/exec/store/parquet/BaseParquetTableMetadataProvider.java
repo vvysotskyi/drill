@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.parquet;
 import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
 import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
@@ -31,7 +32,6 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Table;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.exec.physical.base.TableMetadataProvider;
 import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.resolver.TypeCastRules;
@@ -70,7 +70,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class BaseParquetTableMetadataProvider implements TableMetadataProvider {
+public abstract class BaseParquetTableMetadataProvider implements ParquetTableMetadataProvider {
 
   private static final Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
       PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
@@ -341,15 +341,49 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
     return fileSet;
   }
 
+  @Override
+  public boolean isUsedMetadataCache() {
+    return usedMetadataCache;
+  }
+
+  @Override
   public List<ReadEntryWithPath> getEntries() {
     return entries;
   }
 
-  protected abstract void initInternal() throws IOException;
-
-  boolean isUsedMetadataCache() {
-    return usedMetadataCache;
+  @Override
+  public List<RowGroupMetadata> getRowGroupsMeta() {
+    if (rowGroups == null) {
+      rowGroups = new ArrayList<>();
+      for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
+        int index = 0;
+        for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
+          rowGroups.add(getRowGroupMetadata(rowGroupMetadata, index++, file.getPath()));
+        }
+      }
+    }
+    return rowGroups;
   }
+
+  private RowGroupMetadata getRowGroupMetadata(MetadataBase.RowGroupMetadata rowGroupMetadata, int rgIndexInFile, String location) {
+    HashMap<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(rowGroupMetadata);
+    HashMap<String, Object> rowGroupStatistics = new HashMap<>();
+    rowGroupStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
+    rowGroupStatistics.put("start", rowGroupMetadata.getStart());
+    rowGroupStatistics.put("length", rowGroupMetadata.getLength());
+
+    LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getRowGroupFields(parquetTableMetadata, rowGroupMetadata);
+
+    TupleSchema schema = new TupleSchema();
+    for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : columns.entrySet()) {
+      SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+    }
+
+    return new RowGroupMetadata(
+      schema, columnStatistics, rowGroupStatistics, rowGroupMetadata.getHostAffinity(), rgIndexInFile, location);
+  }
+
+  protected abstract void initInternal() throws IOException;
 
   private <T extends BaseMetadata>long getRowCount(List<T> rowGroups) {
     long sum = 0L;
@@ -365,7 +399,7 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
 
   @SuppressWarnings("unchecked")
   private <T extends BaseMetadata> HashMap<SchemaPath, ColumnStatistic> getColumnStatistics(
-    List<T> rowGroups, Set<SchemaPath> columns) {
+      List<T> rowGroups, Set<SchemaPath> columns) {
     Map<SchemaPath, MutableLong> nullsCounts = new HashMap<>();
     Map<SchemaPath, Object> minVals = new HashMap<>();
     Map<SchemaPath, Object> maxVals = new HashMap<>();
@@ -380,7 +414,7 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
         unhandledColumns.remove(schemaPathColumnStatistic.getKey());
         SchemaPath colPath = schemaPathColumnStatistic.getKey();
         mergeStatistics(schemaPathColumnStatistic.getValue(), colPath, SchemaPathUtils.getColumnMetadata(colPath, rowGroupMetadata.getSchema()).majorType().getMinorType(),
-          nullsCounts, minVals, maxVals, valComparator);
+            nullsCounts, minVals, maxVals, valComparator);
       }
 
       // handle missed for file columns by collecting nulls count
@@ -443,37 +477,6 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
         maxVals.put(colPath, max);
       }
     }
-  }
-
-  public List<RowGroupMetadata> getRowGroupsMeta() {
-    if (rowGroups == null) {
-      rowGroups = new ArrayList<>();
-      for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
-        int index = 0;
-        for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
-          rowGroups.add(getRowGroupMetadata(rowGroupMetadata, index++, file.getPath()));
-        }
-      }
-    }
-    return rowGroups;
-  }
-
-  private RowGroupMetadata getRowGroupMetadata(MetadataBase.RowGroupMetadata rowGroupMetadata, int rgIndexInFile, String location) {
-    HashMap<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(rowGroupMetadata);
-    HashMap<String, Object> rowGroupStatistics = new HashMap<>();
-    rowGroupStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
-    rowGroupStatistics.put("start", rowGroupMetadata.getStart());
-    rowGroupStatistics.put("length", rowGroupMetadata.getLength());
-
-    LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getRowGroupFields(parquetTableMetadata, rowGroupMetadata);
-
-    TupleSchema schema = new TupleSchema();
-    for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : columns.entrySet()) {
-      SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
-    }
-
-    return new RowGroupMetadata(
-      schema, columnStatistics, rowGroupStatistics, rowGroupMetadata.getHostAffinity(), rgIndexInFile, location);
   }
 
   @SuppressWarnings("unchecked")
