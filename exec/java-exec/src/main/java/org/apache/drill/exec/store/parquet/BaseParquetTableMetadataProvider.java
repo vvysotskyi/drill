@@ -605,10 +605,10 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
 
       case INT96:
         if (minValue != null) {
-          minValue = getBytes(minValue);
+          minValue = new String(getBytes(minValue));
         }
         if (maxValue  != null) {
-          maxValue = getBytes(maxValue);
+          maxValue = new String(getBytes(maxValue));
         }
         break;
 
@@ -778,10 +778,9 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
         case DOUBLE:
         case BOOLEAN:
         case BINARY:
+        case INT96:
         case FIXED_LEN_BYTE_ARRAY:
           return getNaturalNullsFirstComparator();
-        case INT96:
-          return UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
         default:
           throw new UnsupportedOperationException("Unsupported type: " + primitiveType);
       }
@@ -793,7 +792,6 @@ public abstract class BaseParquetTableMetadataProvider implements TableMetadataP
       case INTERVALDAY:
       case INTERVAL:
       case INTERVALYEAR:
-      case VARBINARY:
         return UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
       case UINT1:
         return Comparator.nullsFirst(UnsignedBytes::compare);
