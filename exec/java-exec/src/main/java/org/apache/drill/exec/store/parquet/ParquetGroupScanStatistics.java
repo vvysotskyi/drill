@@ -27,6 +27,7 @@ import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.LocationProvider;
+import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
 import org.apache.drill.shaded.guava.com.google.common.collect.Table;
 
@@ -96,7 +97,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
     resetHolders();
     boolean first = true;
     for (T metadata : metadataList) {
-      long rowCount = (long) metadata.getStatistic(ColumnStatisticsKind.ROW_COUNT);
+      long localRowCount = (long) TableStatistics.ROW_COUNT.getValue(metadata);
       for (Map.Entry<SchemaPath, ColumnStatistic> columnStatistic : metadata.getColumnStatistics().entrySet()) {
         SchemaPath schemaPath = columnStatistic.getKey();
         ColumnStatistic column = columnStatistic.getValue();
@@ -107,13 +108,13 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
         }
         Long nullsNum = (Long) column.getStatistic(ColumnStatisticsKind.NULLS_COUNT);
         if (previousCount.longValue() != GroupScan.NO_COLUMN_STATS && nullsNum != null && nullsNum != GroupScan.NO_COLUMN_STATS) {
-          previousCount.add(rowCount - nullsNum);
+          previousCount.add(localRowCount - nullsNum);
         } else {
           previousCount.setValue(GroupScan.NO_COLUMN_STATS);
         }
         ColumnMetadata columnMetadata = SchemaPathUtils.getColumnMetadata(schemaPath, metadata.getSchema());
         TypeProtos.MajorType majorType = columnMetadata != null ? columnMetadata.majorType() : null;
-        boolean partitionColumn = checkForPartitionColumn(column, first, rowCount, majorType, schemaPath);
+        boolean partitionColumn = checkForPartitionColumn(column, first, localRowCount, majorType, schemaPath);
         if (partitionColumn) {
           Object value = partitionValueMap.get(metadata.getLocation(), schemaPath);
           Object currentValue = column.getStatistic(ColumnStatisticsKind.MAX_VALUE);
@@ -124,7 +125,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
           } else {
             // the value of a column with primitive type can not be null,
             // so checks that there are really null value and puts it to the map
-            if (rowCount == (long) column.getStatistic(ColumnStatisticsKind.NULLS_COUNT)) {
+            if (localRowCount == (long) column.getStatistic(ColumnStatisticsKind.NULLS_COUNT)) {
               partitionValueMap.put(metadata.getLocation(), schemaPath, BaseParquetTableMetadataProvider.NULL_VALUE);
             } else {
               partitionValueMap.put(metadata.getLocation(), schemaPath, currentValue);
@@ -134,7 +135,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
           partitionColTypeMap.remove(schemaPath);
         }
       }
-      this.rowCount += rowCount;
+      this.rowCount += localRowCount;
       first = false;
     }
   }

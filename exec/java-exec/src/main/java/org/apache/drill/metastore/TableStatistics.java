@@ -20,12 +20,36 @@ package org.apache.drill.metastore;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.metastore.expr.StatisticName;
 
-public enum TableStatistics implements StatisticsKind {
+import java.util.List;
+
+/**
+ * Implementation of {@link CollectableColumnStatisticKind} which contain base
+ * table statistic kinds with implemented {@code mergeStatistic()} method.
+ */
+public enum TableStatistics implements CollectableTableStatisticKind {
+  /**
+   * Table statistic kind which represents row count for the specific column.
+   */
   ROW_COUNT(StatisticName.ROW_COUNT) {
     @Override
-    public Object getValue(TableMetadata tableMetadata) {
-      Long rowCount = (Long) tableMetadata.getStatistic(this);
-      return rowCount != null ? rowCount : Long.valueOf(GroupScan.NO_COLUMN_STATS);
+    public Long mergeStatistic(List<? extends BaseMetadata> statistics) {
+      long rowCount = 0;
+      for (BaseMetadata statistic : statistics) {
+        Long statRowCount = getValue(statistic);
+        if (statRowCount == null || statRowCount == GroupScan.NO_COLUMN_STATS) {
+          rowCount = GroupScan.NO_COLUMN_STATS;
+          break;
+        } else {
+          rowCount += statRowCount;
+        }
+      }
+      return rowCount;
+    }
+
+    @Override
+    public Long getValue(BaseMetadata metadata) {
+      Long rowCount = (Long) metadata.getStatistic(this);
+      return rowCount != null ? rowCount : GroupScan.NO_COLUMN_STATS;
     }
   };
 
@@ -39,5 +63,12 @@ public enum TableStatistics implements StatisticsKind {
     return statisticKey;
   }
 
-  public abstract Object getValue(TableMetadata tableMetadata);
+  /**
+   * Returns value which corresponds to this statistic kind,
+   * obtained from specified {@link BaseMetadata}.
+   *
+   * @param metadata the source of statistic value
+   * @return value which corresponds to this statistic kind
+   */
+  public abstract Object getValue(BaseMetadata metadata);
 }

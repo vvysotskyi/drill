@@ -18,15 +18,49 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.Map;
 
 /**
- * Common statistics provider for table, file or row group.
+ * Common statistics provider for table, partition, file or row group.
  */
 public interface BaseMetadata {
+
+  /**
+   * Returns statistics stored in current metadata represented
+   * as Map of column {@code SchemaPath}s and corresponding {@code ColumnStatistic}s.
+   *
+   * @return statistics stored in current metadata
+   */
   Map<SchemaPath, ColumnStatistic> getColumnStatistics();
+
+  /**
+   * Returns schema stored in current metadata represented as
+   * {@link TupleSchema}.
+   *
+   * @return schema stored in current metadata
+   */
   TupleSchema getSchema();
+
+  /**
+   * Returns value of non-column statistic which corresponds to specified {@link StatisticsKind}.
+   *
+   * @param statisticsKind statistic kind whose value should be returned
+   * @return value of non-column statistic
+   */
   Object getStatistic(StatisticsKind statisticsKind);
+
+  /**
+   * Returns value of column statistic which corresponds to specified {@link StatisticsKind}
+   * for column with specified {@code columnName}.
+   *
+   * @param columnName     name of the column
+   * @param statisticsKind statistic kind whose value should be returned
+   * @return value of column statistic
+   */
+  Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind);
+
+  ColumnMetadata getColumn(SchemaPath name);
 }

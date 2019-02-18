@@ -65,6 +65,7 @@ public class TableMetadata implements BaseMetadata {
     partitionKeys = Collections.emptySet();
   }
 
+  @Override
   public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
     return columnStatistics.get(columnName).getStatistic(statisticsKind);
   }
@@ -73,14 +74,17 @@ public class TableMetadata implements BaseMetadata {
     return columnStatistics.get(columnName);
   }
 
+  @Override
   public Object getStatistic(StatisticsKind statisticsKind) {
     return tableStatistics.get(statisticsKind.getName());
   }
 
+  @Override
   public ColumnMetadata getColumn(SchemaPath name) {
     return SchemaPathUtils.getColumnMetadata(name, schema);
   }
 
+  @Override
   public TupleSchema getSchema() {
     return schema;
   }
@@ -115,5 +119,9 @@ public class TableMetadata implements BaseMetadata {
 
   public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {
     return columnStatistics;
+  }
+
+  public TableMetadata cloneWithStats(Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> tableStatistics) {
+    return new TableMetadata(tableName, location, schema, columnStatistics, tableStatistics, lastModifiedTime, owner, partitionKeys);
   }
 }

@@ -17,15 +17,20 @@
  */
 package org.apache.drill.metastore;
 
+import java.util.List;
+
 /**
- * A metadata which has specific location.
+ * This class represents kinds of table statistics which may be received as a union
+ * of other statistics, for example row count may be received as a sum of row counts
+ * of underlying metadata parts.
  */
-public interface LocationProvider {
+public interface CollectableTableStatisticKind extends StatisticsKind {
 
   /**
-   * Returns location of this metadata.
+   * Returns table statistic value received by collecting specified {@link ColumnStatistic}s.
    *
-   * @return metadata location
+   * @param statistics list of {@link ColumnStatistic} instances to be collected
+   * @return column statistic value received by collecting specified {@link ColumnStatistic}s
    */
-  String getLocation();
+  Object mergeStatistic(List<? extends BaseMetadata> statistics);
 }

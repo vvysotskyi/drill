@@ -189,7 +189,7 @@ public interface ColumnMetadata {
    * only for nullable columns.
    *
    * @param value column value, represented as a Java object, acceptable
-   * to the {@link ColumnWriter#setObject()} method for this column's writer.
+   * to the {@link org.apache.drill.exec.vector.accessor.ColumnWriter#setObject} method for this column's writer.
    */
   void setDefaultValue(Object value);
 

@@ -24,7 +24,11 @@ import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.Map;
 
+/**
+ * Metadata which corresponds to the row group level of table.
+ */
 public class RowGroupMetadata implements BaseMetadata, LocationProvider {
+
   private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;
   private final Map<String, Object> rowGroupStatistics;
@@ -32,8 +36,8 @@ public class RowGroupMetadata implements BaseMetadata, LocationProvider {
   private int rowGroupIndex;
   private String location;
 
-  public RowGroupMetadata(TupleSchema schema,
-                          Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> rowGroupStatistics, Map<String, Float> hostAffinity, int rowGroupIndex, String location) {
+  public RowGroupMetadata(TupleSchema schema, Map<SchemaPath, ColumnStatistic> columnStatistics,
+      Map<String, Object> rowGroupStatistics, Map<String, Float> hostAffinity, int rowGroupIndex, String location) {
     this.schema = schema;
     this.columnStatistics = columnStatistics;
     this.rowGroupStatistics = rowGroupStatistics;
@@ -42,7 +46,7 @@ public class RowGroupMetadata implements BaseMetadata, LocationProvider {
     this.location = location;
   }
 
-
+  @Override
   public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {
     return columnStatistics;
   }
@@ -52,6 +56,7 @@ public class RowGroupMetadata implements BaseMetadata, LocationProvider {
     return schema;
   }
 
+  @Override
   public ColumnMetadata getColumn(SchemaPath name) {
     return SchemaPathUtils.getColumnMetadata(name, schema);
   }
@@ -61,15 +66,31 @@ public class RowGroupMetadata implements BaseMetadata, LocationProvider {
     return rowGroupStatistics.get(statisticsKind.getName());
   }
 
+  @Override
+  public String getLocation() {
+    return location;
+  }
+
+  @Override
+  public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
+    return columnStatistics.get(columnName).getStatistic(statisticsKind);
+  }
+
+  /**
+   * Returns index of current row group within its file.
+   *
+   * @return row group index
+   */
   public int getRowGroupIndex() {
     return rowGroupIndex;
   }
 
+  /**
+   * Returns the host affinity for a row group.
+   *
+   * @return host affinity for the row group
+   */
   public Map<String, Float> getHostAffinity() {
     return hostAffinity;
-  }
-
-  public String getLocation() {
-    return location;
   }
 }

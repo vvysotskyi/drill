@@ -17,18 +17,77 @@
  */
 package org.apache.drill.metastore;
 
-public enum ColumnStatisticsKind  implements StatisticsKind {
-  ROW_COUNT("rowCount"),
-  NULLS_COUNT("nullsCount"),
+import org.apache.drill.exec.physical.base.GroupScan;
+
+import java.util.List;
+
+/**
+ * Implementation of {@link CollectableColumnStatisticKind} which contain base
+ * column statistic kinds with implemented {@code mergeStatistic()} method.
+ */
+public enum ColumnStatisticsKind implements CollectableColumnStatisticKind {
+
+  /**
+   * Column statistic kind which represents nulls count for the specific column.
+   */
+  NULLS_COUNT("nullsCount") {
+    @Override
+    public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {
+      long nullsCount = 0;
+      for (ColumnStatistic statistic : statistics) {
+        Long statNullsCount = (Long) statistic.getStatistic(this);
+        if (statNullsCount == null || statNullsCount == GroupScan.NO_COLUMN_STATS) {
+          return GroupScan.NO_COLUMN_STATS;
+        } else {
+          nullsCount += statNullsCount;
+        }
+      }
+      return nullsCount;
+    }
+  },
+
+  /**
+   * Column statistic kind which represents min value of the specific column.
+   */
   MIN_VALUE("minValue") {
     @Override
-    public boolean valueStatistic() {
+    @SuppressWarnings("unchecked")
+    public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {
+      Object minValue = null;
+      for (ColumnStatistic statistic : statistics) {
+        Object statMinValue = statistic.getValueStatistic(this);
+        if (statMinValue != null && (statistic.getValueComparator().compare(minValue, statMinValue) > 0 || minValue == null)) {
+          minValue = statMinValue;
+        }
+      }
+      return minValue;
+    }
+
+    @Override
+    public boolean isValueStatistic() {
       return true;
     }
   },
+
+  /**
+   * Column statistic kind which represents max value of the specific column.
+   */
   MAX_VALUE("maxValue") {
     @Override
-    public boolean valueStatistic() {
+    @SuppressWarnings("unchecked")
+    public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {
+      Object maxValue = null;
+      for (ColumnStatistic statistic : statistics) {
+        Object statMaxValue = statistic.getValueStatistic(this);
+        if (statMaxValue != null && statistic.getValueComparator().compare(maxValue, statMaxValue) < 0) {
+          maxValue = statMaxValue;
+        }
+      }
+      return maxValue;
+    }
+
+    @Override
+    public boolean isValueStatistic() {
       return true;
     }
   };
@@ -42,5 +101,4 @@ public enum ColumnStatisticsKind  implements StatisticsKind {
   public String getName() {
     return statisticKey;
   }
-
 }

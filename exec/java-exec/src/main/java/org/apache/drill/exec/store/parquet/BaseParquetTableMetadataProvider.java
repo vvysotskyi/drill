@@ -17,13 +17,14 @@
  */
 package org.apache.drill.exec.store.parquet;
 
-import org.apache.commons.lang3.mutable.MutableLong;
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
 import org.apache.drill.metastore.BaseMetadata;
+import org.apache.drill.metastore.CollectableColumnStatisticKind;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimaps;
 import org.apache.drill.shaded.guava.com.google.common.collect.SetMultimap;
@@ -74,6 +75,12 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
 
   private static final Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
       PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
+
+  private static final List<CollectableColumnStatisticKind> PARQUET_STATISTICS =
+      ImmutableList.of(
+          ColumnStatisticsKind.MAX_VALUE,
+          ColumnStatisticsKind.MIN_VALUE,
+          ColumnStatisticsKind.NULLS_COUNT);
 
   static final Object NULL_VALUE = new Object();
 
@@ -128,7 +135,6 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
     if (tableMetadata == null) {
 
       HashMap<String, Object> tableStatistics = new HashMap<>();
-      tableStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getRowCount(parquetTableMetadata));
 
       HashSet<String> partitionKeys = new HashSet<>();
 
@@ -139,20 +145,22 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
         SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
       }
 
-      HashMap<SchemaPath, ColumnStatistic> columnStatistics;
+      Map<SchemaPath, ColumnStatistic> columnStatistics;
       if (collectMetadata) {
         List<? extends BaseMetadata> metadata = getFilesMetadata();
         if (metadata == null || metadata.isEmpty()) {
           metadata = getRowGroupsMeta();
         }
-        columnStatistics = getColumnStatistics(metadata, fields.keySet());
+        tableStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(metadata));
+        columnStatistics = getColumnStatistics(metadata, fields.keySet(), PARQUET_STATISTICS);
       } else {
         columnStatistics = new HashMap<>();
+        tableStatistics.put(TableStatistics.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
 
         for (SchemaPath partitionColumn : fields.keySet()) {
           long columnValueCount = getParquetGroupScanStatistics().getColumnValueCount(partitionColumn);
           ImmutableMap<String, Long> stats = ImmutableMap.of(
-              ColumnStatisticsKind.ROW_COUNT.getName(), columnValueCount,
+              TableStatistics.ROW_COUNT.getName(), columnValueCount,
               ColumnStatisticsKind.NULLS_COUNT.getName(), getParquetGroupScanStatistics().getRowCount() - columnValueCount);
           columnStatistics.put(partitionColumn, new ColumnStatisticImpl(stats, getNaturalNullsFirstComparator()));
         }
@@ -177,11 +185,9 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
 
   @Override
   public List<SchemaPath> getPartitionColumns() {
-// TODO: Why it is commented? Looks like it is fine to obtain Partition Columns list from metadata lazily
-
-//    if (partitionColumns == null) {
-//      partitionColumns = getParquetGroupScanStatistics().getPartitionColumns();
-//    }
+    if (partitionColumns == null) {
+      partitionColumns = getParquetGroupScanStatistics().getPartitionColumns();
+    }
     return partitionColumns;
   }
 
@@ -233,7 +239,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
             statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), partitionKey);
             // incorrect row count, but it is ok, since nulls count is set here.
             statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), partitionKey != null ? 0 : getParquetGroupScanStatistics().getRowCount());
-            statistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
+            statistics.put(TableStatistics.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
             columnStatistics.put(partitionColumn,
                 new ColumnStatisticImpl<>(statistics,
                     getComparator(getParquetGroupScanStatistics().getTypeForColumn(partitionColumn).getMinorType())));
@@ -258,26 +264,18 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
 
   private PartitionMetadata getPartitionMetadata(SchemaPath logicalExpressions, List<FileMetadata> files) {
     Set<String> locations = new HashSet<>();
-    long partRowCount = 0;
     Set<SchemaPath> columns = new HashSet<>();
 
     for (FileMetadata file : files) {
-      Long fileRowCount = (Long) file.getStatistic(ColumnStatisticsKind.ROW_COUNT);
-      if (fileRowCount != null && fileRowCount != GroupScan.NO_COLUMN_STATS) {
-        partRowCount += fileRowCount;
-      } else {
-        partRowCount = GroupScan.NO_COLUMN_STATS;
-      }
-
       columns.addAll(file.getColumnStatistics().keySet());
       locations.add(file.getLocation());
     }
 
     HashMap<String, Object> partStatistics = new HashMap<>();
-    partStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), partRowCount);
+    partStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(files));
 
     return new PartitionMetadata(logicalExpressions,
-        files.iterator().next().getSchema(), getColumnStatistics(files, columns),
+        files.iterator().next().getSchema(), getColumnStatistics(files, columns, PARQUET_STATISTICS),
         partStatistics, locations, tableName, -1);
   }
 
@@ -327,13 +325,13 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
       return null;
     }
     HashMap<String, Object> fileStatistics = new HashMap<>();
-    fileStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), getRowCount(rowGroups));
+    fileStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(rowGroups));
 
     TupleSchema schema = rowGroups.iterator().next().getSchema();
 
     return new FileMetadata(rowGroups.iterator().next().getLocation(), schema,
-      getColumnStatistics(rowGroups, rowGroups.iterator().next().getColumnStatistics().keySet()),
-      fileStatistics, rowGroups.iterator().next().getLocation(), tableName, -1);
+        getColumnStatistics(rowGroups, rowGroups.iterator().next().getColumnStatistics().keySet(), PARQUET_STATISTICS),
+        fileStatistics, tableName, -1);
   }
 
   @Override
@@ -368,7 +366,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
   private RowGroupMetadata getRowGroupMetadata(MetadataBase.RowGroupMetadata rowGroupMetadata, int rgIndexInFile, String location) {
     HashMap<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(rowGroupMetadata);
     HashMap<String, Object> rowGroupStatistics = new HashMap<>();
-    rowGroupStatistics.put(ColumnStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
+    rowGroupStatistics.put(TableStatistics.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
     rowGroupStatistics.put("start", rowGroupMetadata.getStart());
     rowGroupStatistics.put("length", rowGroupMetadata.getLength());
 
@@ -385,98 +383,32 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
 
   protected abstract void initInternal() throws IOException;
 
-  private <T extends BaseMetadata>long getRowCount(List<T> rowGroups) {
-    long sum = 0L;
-    for (T rowGroupMetadata : rowGroups) {
-      Long rowCount = (Long) rowGroupMetadata.getStatistic(TableStatistics.ROW_COUNT);
-      if (rowCount == null || rowCount == GroupScan.NO_COLUMN_STATS) {
-        return GroupScan.NO_COLUMN_STATS;
-      }
-      sum += rowCount;
-    }
-    return sum;
-  }
-
   @SuppressWarnings("unchecked")
-  private <T extends BaseMetadata> HashMap<SchemaPath, ColumnStatistic> getColumnStatistics(
-      List<T> rowGroups, Set<SchemaPath> columns) {
-    Map<SchemaPath, MutableLong> nullsCounts = new HashMap<>();
-    Map<SchemaPath, Object> minVals = new HashMap<>();
-    Map<SchemaPath, Object> maxVals = new HashMap<>();
-    Map<SchemaPath, Comparator> valComparator = new HashMap<>();
-    for (SchemaPath column : columns) {
-      nullsCounts.put(column, new MutableLong());
-    }
-
-    for (T rowGroupMetadata : rowGroups) {
-      Set<SchemaPath> unhandledColumns = new HashSet<>(columns);
-      for (Map.Entry<SchemaPath, ColumnStatistic> schemaPathColumnStatistic : rowGroupMetadata.getColumnStatistics().entrySet()) {
-        unhandledColumns.remove(schemaPathColumnStatistic.getKey());
-        SchemaPath colPath = schemaPathColumnStatistic.getKey();
-        mergeStatistics(schemaPathColumnStatistic.getValue(), colPath, SchemaPathUtils.getColumnMetadata(colPath, rowGroupMetadata.getSchema()).majorType().getMinorType(),
-            nullsCounts, minVals, maxVals, valComparator);
-      }
-
-      // handle missed for file columns by collecting nulls count
-      for (SchemaPath unhandledColumn : unhandledColumns) {
-        MutableLong nullsCount = nullsCounts.get(unhandledColumn);
-        if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
-          nullsCount.add((Long) rowGroupMetadata.getStatistic(ColumnStatisticsKind.ROW_COUNT));
-        }
-      }
-
-    }
-
+  public static <T extends BaseMetadata> Map<SchemaPath, ColumnStatistic> getColumnStatistics(
+      List<T> rowGroups, Set<SchemaPath> columns, List<CollectableColumnStatisticKind> statisticsToCollect) {
     HashMap<SchemaPath, ColumnStatistic> columnStatistics = new HashMap<>();
+
     for (SchemaPath column : columns) {
-      Map<String, Object> statistics = new HashMap<>();
-      statistics.put(ColumnStatisticsKind.MIN_VALUE.getName(), minVals.get(column));
-      statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), maxVals.get(column));
-      statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), nullsCounts.get(column).getValue());
-      columnStatistics.put(column, new ColumnStatisticImpl(statistics, valComparator.get(column)));
+      List<ColumnStatistic> statisticsList = new ArrayList<>();
+      for (T metadata : rowGroups) {
+        ColumnStatistic columnStatistic = metadata.getColumnStatistics().get(column);
+        if (columnStatistic == null) {
+          // schema change happened, set statistics which represents all nulls
+          columnStatistic = new ColumnStatisticImpl(
+              ImmutableMap.of(ColumnStatisticsKind.NULLS_COUNT.getName(), metadata.getStatistic(TableStatistics.ROW_COUNT)),
+              getNaturalNullsFirstComparator());
+        }
+        statisticsList.add(columnStatistic);
+      }
+      Map<String, Object> statisticsMap = new HashMap<>();
+      for (CollectableColumnStatisticKind statisticsKind : statisticsToCollect) {
+        Object mergedStatistic = statisticsKind.mergeStatistic(statisticsList);
+        statisticsMap.put(statisticsKind.getName(), mergedStatistic);
+      }
+      columnStatistics.put(column, new ColumnStatisticImpl(statisticsMap, statisticsList.iterator().next().getValueComparator()));
     }
 
     return columnStatistics;
-  }
-
-  @SuppressWarnings("unchecked")
-  private void mergeStatistics(ColumnStatistic input,
-                               SchemaPath colPath,
-                               TypeProtos.MinorType type,
-                               Map<SchemaPath, MutableLong> nullsCounts,
-                               Map<SchemaPath, Object> minVals,
-                               Map<SchemaPath, Object> maxVals,
-                               Map<SchemaPath, Comparator> valComparator) {
-    MutableLong nullsCount = nullsCounts.get(colPath);
-    if (nullsCount.longValue() != GroupScan.NO_COLUMN_STATS) {
-      Long nulls = (Long) input.getStatistic(ColumnStatisticsKind.NULLS_COUNT);
-      if (nulls != null) {
-        nullsCount.add(nulls);
-      } else {
-        nullsCount.setValue(GroupScan.NO_COLUMN_STATS);
-      }
-    }
-    Comparator comparator = valComparator.get(colPath);
-
-    Object min = input.getStatistic(ColumnStatisticsKind.MIN_VALUE);
-    Object max = input.getStatistic(ColumnStatisticsKind.MAX_VALUE);
-
-    if (comparator == null) {
-      comparator = getComparator(type);
-
-      valComparator.put(colPath, comparator);
-
-      minVals.put(colPath, min);
-      maxVals.put(colPath, max);
-    } else {
-      Object prevMin = minVals.get(colPath);
-      if (min != null && (comparator.compare(prevMin, min) > 0 || prevMin == null)) {
-        minVals.put(colPath, min);
-      }
-      if (max != null && comparator.compare(maxVals.get(colPath), max) < 0) {
-        maxVals.put(colPath, max);
-      }
-    }
   }
 
   @SuppressWarnings("unchecked")
@@ -505,30 +437,6 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
     }
 
     return columnStatistics;
-  }
-
-  private long getRowCount(MetadataBase.ParquetTableMetadataBase parquetTableMetadata) {
-    long sum = 0L;
-    for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
-      long rowCount = getFileRowCount(file);
-      if (rowCount == GroupScan.NO_COLUMN_STATS) {
-        return GroupScan.NO_COLUMN_STATS;
-      }
-      sum += rowCount;
-    }
-    return sum;
-  }
-
-  private long getFileRowCount(MetadataBase.ParquetFileMetadata file) {
-    long sum = 0L;
-    for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
-      Long rowCount = rowGroupMetadata.getRowCount();
-      if (rowCount == null || rowCount == GroupScan.NO_COLUMN_STATS) {
-        return GroupScan.NO_COLUMN_STATS;
-      }
-      sum += rowCount;
-    }
-    return sum;
   }
 
   private static Pair<Object, Object> getMinMax(MetadataBase.ColumnMetadata column, PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {

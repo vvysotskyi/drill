@@ -514,7 +514,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     List<T> qualifiedMetadata = new ArrayList<>();
     int currentRowCount = 0;
     for (T metadata : metadataList) {
-      long rowCount = (long) metadata.getStatistic(ColumnStatisticsKind.ROW_COUNT);
+      long rowCount = (long) TableStatistics.ROW_COUNT.getValue(metadata);
       if (currentRowCount + rowCount <= maxRecords) {
         currentRowCount += rowCount;
         qualifiedMetadata.add(metadata);

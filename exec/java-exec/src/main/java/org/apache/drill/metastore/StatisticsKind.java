@@ -17,10 +17,26 @@
  */
 package org.apache.drill.metastore;
 
+/**
+ * Class represents kind of statistics or metadata, for example it may be min value for column,
+ * or row count for table.
+ */
 public interface StatisticsKind {
+
+  /**
+   * Returns name which corresponds to the statistics.
+   *
+   * @return statistic kind name
+   */
   String getName();
 
-  default boolean valueStatistic() {
+  /**
+   * Returns true if current statistics value has the same type as column values,
+   * for example it may be min value etc.
+   *
+   * @return true if current statistics value has the same type as column values
+   */
+  default boolean isValueStatistic() {
     return false;
   }
 }

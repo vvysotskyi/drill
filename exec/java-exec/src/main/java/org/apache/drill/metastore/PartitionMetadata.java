@@ -81,19 +81,28 @@ public class PartitionMetadata implements BaseMetadata {
     return lastModifiedTime;
   }
 
+  @Override
   public ColumnMetadata getColumn(SchemaPath name) {
     return SchemaPathUtils.getColumnMetadata(name, schema);
   }
 
+  @Override
   public TupleSchema getSchema() {
     return schema;
   }
 
+  @Override
   public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {
     return columnStatistics;
   }
 
+  @Override
   public Object getStatistic(StatisticsKind statisticsKind) {
     return partitionStatistics.get(statisticsKind.getName());
+  }
+
+  @Override
+  public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
+    return columnStatistics.get(columnName).getStatistic(statisticsKind);
   }
 }

@@ -23,11 +23,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
@@ -59,6 +61,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+
+import static org.apache.drill.exec.store.parquet.BaseParquetTableMetadataProvider.getColumnStatistics;
 
 public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMetadata {
 
@@ -151,10 +155,10 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     // TODO: add check for metadata availability and use tableMetadata with updated rows count
     long rowCount = 0;
     for (RowGroupMetadata rowGroup : rowGroups) {
-      rowCount += (long) rowGroup.getStatistic(TableStatistics.ROW_COUNT);
+      rowCount += (long) TableStatistics.ROW_COUNT.getValue(rowGroup);
     }
 
-    return new ScanStats(ScanStats.GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, rowCount * columnCount);
+    return new ScanStats(ScanStats.GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, rowCount * (double) columnCount);
   }
 
   @Override
@@ -183,7 +187,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
               (long) rowGroupMetadata.getStatistic(() -> "start"),
               (long) rowGroupMetadata.getStatistic(() -> "length"),
               rowGroupMetadata.getRowGroupIndex(),
-              (long) rowGroupMetadata.getStatistic(ColumnStatisticsKind.ROW_COUNT));
+              (long) rowGroupMetadata.getStatistic(TableStatistics.ROW_COUNT));
           rowGroupInfo.setNumRecordsToRead(
               rowGroupAndNumsToRead.getOrDefault(rgIndex.getAndIncrement(), rowGroupInfo.getRowCount()));
 
@@ -224,15 +228,15 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     Preconditions.checkArgument(!rowGroupsForMinor.isEmpty(),
         String.format("MinorFragmentId %d has no read entries assigned", minorFragmentId));
 
-    List<RowGroupReadEntry> entries = new ArrayList<>();
+    List<RowGroupReadEntry> readEntries = new ArrayList<>();
     for (RowGroupInfo rgi : rowGroupsForMinor) {
       RowGroupReadEntry entry = new RowGroupReadEntry(rgi.getPath(), rgi.getStart(),
           rgi.getLength(), rgi.getRowGroupIndex(),
           rowGroupAndNumsToRead.getOrDefault(rgi.getRowGroupIndex(), rgi.getNumRecordsToRead())
       );
-      entries.add(entry);
+      readEntries.add(entry);
     }
-    return entries;
+    return readEntries;
   }
 
   @Override
@@ -478,6 +482,18 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     @Override
     public AbstractGroupScanWithMetadata build() {
       newScan.tableMetadata = tableMetadata != null && !tableMetadata.isEmpty() ? tableMetadata.get(0) : null;
+      // updates common row count and nulls counts for every column
+      if (newScan.rowGroups.size() != rowGroups.size()) {
+        Map<String, Object> newStats = new HashMap<>();
+
+        newStats.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(newScan.rowGroups));
+
+        Map<SchemaPath, ColumnStatistic> columnStatistics =
+            getColumnStatistics(newScan.rowGroups, newScan.tableMetadata.getColumnStatistics().keySet(),
+                ImmutableList.of(ColumnStatisticsKind.NULLS_COUNT));
+
+        newScan.tableMetadata = newScan.tableMetadata.cloneWithStats(columnStatistics, newStats);
+      }
       newScan.partitions = partitions != null ? partitions : Collections.emptyList();
       newScan.files = files != null ? files : Collections.emptyList();
       newScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();

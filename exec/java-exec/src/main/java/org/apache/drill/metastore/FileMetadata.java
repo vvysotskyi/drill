@@ -24,22 +24,21 @@ import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.Map;
 
+/**
+ * Metadata which corresponds to the file level of table.
+ */
 public class FileMetadata implements BaseMetadata, LocationProvider {
-  // TODO: unify fileName and location
-  private final String fileName;
+
+  private final String location;
   private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistic> columnStatistics;
   private final Map<String, Object> fileStatistics;
-  // TODO: decide which of these: fileName or location should be left.
-  private final String location;
-  // TODO: decide whether this field is required
   private final String tableName;
   private final long lastModifiedTime;
 
-  public FileMetadata(String fileName, TupleSchema schema,
-                      Map<SchemaPath, ColumnStatistic> columnStatistics,
-                      Map<String, Object> fileStatistics, String location, String tableName, long lastModifiedTime) {
-    this.fileName = fileName;
+  public FileMetadata(String location, TupleSchema schema, Map<SchemaPath,
+      ColumnStatistic> columnStatistics, Map<String, Object> fileStatistics,
+      String tableName, long lastModifiedTime) {
     this.schema = schema;
     this.columnStatistics = columnStatistics;
     this.fileStatistics = fileStatistics;
@@ -48,39 +47,51 @@ public class FileMetadata implements BaseMetadata, LocationProvider {
     this.lastModifiedTime = lastModifiedTime;
   }
 
-  public String getFileName() {
-    return fileName;
-  }
-
+  @Override
   public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
     return columnStatistics.get(columnName).getStatistic(statisticsKind);
   }
 
+  @Override
   public Object getStatistic(StatisticsKind statisticsKind) {
     return fileStatistics.get(statisticsKind.getName());
   }
 
+  @Override
   public String getLocation() {
     return location;
   }
 
-  public String getTableName() {
-    return tableName;
-  }
-
-  public long getLastModifiedTime() {
-    return lastModifiedTime;
-  }
-
+  @Override
   public ColumnMetadata getColumn(SchemaPath name) {
     return SchemaPathUtils.getColumnMetadata(name, schema);
   }
 
+  @Override
   public TupleSchema getSchema() {
     return schema;
   }
 
+  @Override
   public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {
     return columnStatistics;
+  }
+
+  /**
+   * Returns name of the table which contain this file.
+   *
+   * @return name of the table for this file
+   */
+  public String getTableName() {
+    return tableName;
+  }
+
+  /**
+   * Returns last modified time of the file.
+   *
+   * @return last modified time of the file.
+   */
+  public long getLastModifiedTime() {
+    return lastModifiedTime;
   }
 }

@@ -19,9 +19,34 @@ package org.apache.drill.metastore;
 
 import java.util.Comparator;
 
+/**
+ * Represents collection of statistic values for specific column.
+ *
+ * @param <T> type of column values
+ */
 public interface ColumnStatistic<T> {
+
+  /**
+   * Returns statistic value which corresponds to specified {@link StatisticsKind}.
+   *
+   * @param statisticsKind kind of statistic which value should be returned
+   * @return statistic value
+   */
   Object getStatistic(StatisticsKind statisticsKind);
+
+  /**
+   * Checks whether specified statistic kind is set in this column statistics.
+   *
+   * @param statisticsKind statistic kind to check
+   * @return true if specified statistic kind is set
+   */
   boolean containsStatistic(StatisticsKind statisticsKind);
+
+  /**
+   * Returns {@link Comparator} for comparing values with the same type as column values.
+   *
+   * @return {@link Comparator}
+   */
   Comparator<T> getValueComparator();
 
   /**
@@ -32,7 +57,7 @@ public interface ColumnStatistic<T> {
    */
   @SuppressWarnings("unchecked")
   default T getValueStatistic(StatisticsKind statisticsKind) {
-    if (statisticsKind.valueStatistic()) {
+    if (statisticsKind.isValueStatistic()) {
       return (T) getStatistic(statisticsKind);
     }
     return null;

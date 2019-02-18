@@ -20,7 +20,14 @@ package org.apache.drill.metastore;
 import java.util.Comparator;
 import java.util.Map;
 
+/**
+ * Base implementation of {@link ColumnStatistic} which is not bound
+ * to the specific list of column statistic kinds.
+ *
+ * @param <T> type of column values
+ */
 public class ColumnStatisticImpl<T> implements ColumnStatistic<T> {
+
   private Map<String, Object> statistics;
   private Comparator<T> valueComparator;
 
