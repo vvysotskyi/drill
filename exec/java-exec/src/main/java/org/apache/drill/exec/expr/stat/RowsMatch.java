@@ -15,18 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.parquet.stat;
+package org.apache.drill.exec.expr.stat;
 
-import org.apache.drill.common.expression.SchemaPath;
-
-import java.util.Map;
-import java.util.Set;
-
-public interface ColumnStatCollector {
-  /**
-   * Given a list of fields (SchemaPath), return mapping from field to its corresponding ColumnStatistics
-   * @return
-   */
-  Map<SchemaPath, ColumnStatistics> collectColStat(Set<SchemaPath> fields);
-
-}
+/**
+ * Define the validity of a row group against a filter
+ * <ul>
+ * <li>ALL : all rows match the filter (can not drop the row group and can prune the filter)
+ * <li>NONE : no row matches the filter (can drop the row group)
+ * <li>SOME : some rows only match the filter or the filter can not be applied (can not drop the row group nor the filter)
+ * </ul>
+ */
+public enum RowsMatch {ALL, NONE, SOME}

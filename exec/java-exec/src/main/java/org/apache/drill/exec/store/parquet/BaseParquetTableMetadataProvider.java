@@ -17,14 +17,10 @@
  */
 package org.apache.drill.exec.store.parquet;
 
-import org.apache.commons.lang3.tuple.Pair;
-
 import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
 import org.apache.drill.metastore.BaseMetadata;
-import org.apache.drill.metastore.CollectableColumnStatisticKind;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimaps;
 import org.apache.drill.shaded.guava.com.google.common.collect.SetMultimap;
@@ -32,14 +28,10 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Table;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
-import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
-import org.apache.drill.exec.resolver.TypeCastRules;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
-import org.apache.drill.exec.store.parquet.metadata.Metadata_V3;
-import org.apache.drill.exec.store.parquet.stat.ParquetMetaStatCollector;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticImpl;
 import org.apache.drill.metastore.ColumnStatisticsKind;
@@ -47,24 +39,13 @@ import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
-import org.apache.drill.shaded.guava.com.google.common.primitives.Longs;
-import org.apache.drill.shaded.guava.com.google.common.primitives.UnsignedBytes;
-import org.apache.parquet.io.api.Binary;
-import org.apache.parquet.schema.OriginalType;
-import org.apache.parquet.schema.PrimitiveComparator;
-import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,24 +54,15 @@ import java.util.stream.Collectors;
 
 public abstract class BaseParquetTableMetadataProvider implements ParquetTableMetadataProvider {
 
-  private static final Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
-      PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
-
-  private static final List<CollectableColumnStatisticKind> PARQUET_STATISTICS =
-      ImmutableList.of(
-          ColumnStatisticsKind.MAX_VALUE,
-          ColumnStatisticsKind.MIN_VALUE,
-          ColumnStatisticsKind.NULLS_COUNT);
-
   static final Object NULL_VALUE = new Object();
 
   private ParquetGroupScanStatistics<? extends BaseMetadata> parquetGroupScanStatistics;
 
-  protected List<ReadEntryWithPath> entries;
+  protected final List<ReadEntryWithPath> entries;
+  protected final ParquetReaderConfig readerConfig;
 
   protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
   protected Set<String> fileSet;
-  protected /*final*/ ParquetReaderConfig readerConfig;
 
   private List<SchemaPath> partitionColumns;
   protected String tableName;
@@ -133,12 +105,9 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
   @SuppressWarnings("unchecked")
   public TableMetadata getTableMetadata() {
     if (tableMetadata == null) {
-
-      HashMap<String, Object> tableStatistics = new HashMap<>();
-
-      HashSet<String> partitionKeys = new HashSet<>();
-
-      LinkedHashMap<SchemaPath, TypeProtos.MajorType> fields = resolveFields(parquetTableMetadata);
+      Map<String, Object> tableStatistics = new HashMap<>();
+      Set<String> partitionKeys = new HashSet<>();
+      Map<SchemaPath, TypeProtos.MajorType> fields = ParquetTableMetadataUtils.resolveFields(parquetTableMetadata);
 
       TupleSchema schema = new TupleSchema();
       for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : fields.entrySet()) {
@@ -152,7 +121,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
           metadata = getRowGroupsMeta();
         }
         tableStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(metadata));
-        columnStatistics = getColumnStatistics(metadata, fields.keySet(), PARQUET_STATISTICS);
+        columnStatistics = ParquetTableMetadataUtils.getColumnStatistics(metadata, fields.keySet(), ParquetTableMetadataUtils.PARQUET_STATISTICS);
       } else {
         columnStatistics = new HashMap<>();
         tableStatistics.put(TableStatistics.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
@@ -162,7 +131,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
           ImmutableMap<String, Long> stats = ImmutableMap.of(
               TableStatistics.ROW_COUNT.getName(), columnValueCount,
               ColumnStatisticsKind.NULLS_COUNT.getName(), getParquetGroupScanStatistics().getRowCount() - columnValueCount);
-          columnStatistics.put(partitionColumn, new ColumnStatisticImpl(stats, getNaturalNullsFirstComparator()));
+          columnStatistics.put(partitionColumn, new ColumnStatisticImpl(stats, ParquetTableMetadataUtils.getNaturalNullsFirstComparator()));
         }
       }
       tableMetadata = new TableMetadata(tableName, tableLocation, schema, columnStatistics, tableStatistics,
@@ -217,7 +186,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
 
         for (SchemaPath logicalExpressions : colValFile.rowKeySet()) {
           for (List<FileMetadata> partValues : colValFile.row(logicalExpressions).values()) {
-            partitions.add(getPartitionMetadata(logicalExpressions, partValues));
+            partitions.add(ParquetTableMetadataUtils.getPartitionMetadata(logicalExpressions, partValues, tableName));
           }
         }
       } else {
@@ -242,7 +211,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
             statistics.put(TableStatistics.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
             columnStatistics.put(partitionColumn,
                 new ColumnStatisticImpl<>(statistics,
-                    getComparator(getParquetGroupScanStatistics().getTypeForColumn(partitionColumn).getMinorType())));
+                    ParquetTableMetadataUtils.getComparator(getParquetGroupScanStatistics().getTypeForColumn(partitionColumn).getMinorType())));
 
             partitions.add(new PartitionMetadata(partitionColumn, getTableMetadata().getSchema(),
                 columnStatistics, statistics, (Set<String>) valueLocationsEntry.getValue(), tableName, -1));
@@ -260,23 +229,6 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
         .filter(partitionMetadata -> partitionMetadata.getColumn().equals(columnName))
         .findFirst()
         .orElse(null);
-  }
-
-  private PartitionMetadata getPartitionMetadata(SchemaPath logicalExpressions, List<FileMetadata> files) {
-    Set<String> locations = new HashSet<>();
-    Set<SchemaPath> columns = new HashSet<>();
-
-    for (FileMetadata file : files) {
-      columns.addAll(file.getColumnStatistics().keySet());
-      locations.add(file.getLocation());
-    }
-
-    HashMap<String, Object> partStatistics = new HashMap<>();
-    partStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(files));
-
-    return new PartitionMetadata(logicalExpressions,
-        files.iterator().next().getSchema(), getColumnStatistics(files, columns, PARQUET_STATISTICS),
-        partStatistics, locations, tableName, -1);
   }
 
   @Override
@@ -305,7 +257,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
         int index = 0;
         List<RowGroupMetadata> fileRowGroups = new ArrayList<>();
         for (MetadataBase.RowGroupMetadata rowGroup : file.getRowGroups()) {
-          RowGroupMetadata rowGroupMetadata = getRowGroupMetadata(rowGroup, index++, file.getPath());
+          RowGroupMetadata rowGroupMetadata = ParquetTableMetadataUtils.getRowGroupMetadata(parquetTableMetadata, rowGroup, index++, file.getPath());
           fileRowGroups.add(rowGroupMetadata);
 
           if (addRowGroups) {
@@ -313,25 +265,11 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
           }
         }
 
-        FileMetadata fileMetadata = getFileMetadata(fileRowGroups);
+        FileMetadata fileMetadata = ParquetTableMetadataUtils.getFileMetadata(fileRowGroups, tableName);
         files.add(fileMetadata);
       }
     }
     return files;
-  }
-
-  private FileMetadata getFileMetadata(List<RowGroupMetadata> rowGroups) {
-    if (rowGroups.isEmpty()) {
-      return null;
-    }
-    HashMap<String, Object> fileStatistics = new HashMap<>();
-    fileStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(rowGroups));
-
-    TupleSchema schema = rowGroups.iterator().next().getSchema();
-
-    return new FileMetadata(rowGroups.iterator().next().getLocation(), schema,
-        getColumnStatistics(rowGroups, rowGroups.iterator().next().getColumnStatistics().keySet(), PARQUET_STATISTICS),
-        fileStatistics, tableName, -1);
   }
 
   @Override
@@ -352,478 +290,10 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
   @Override
   public List<RowGroupMetadata> getRowGroupsMeta() {
     if (rowGroups == null) {
-      rowGroups = new ArrayList<>();
-      for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
-        int index = 0;
-        for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
-          rowGroups.add(getRowGroupMetadata(rowGroupMetadata, index++, file.getPath()));
-        }
-      }
+      rowGroups = ParquetTableMetadataUtils.getRowGroupsMetadata(parquetTableMetadata);
     }
     return rowGroups;
   }
 
-  private RowGroupMetadata getRowGroupMetadata(MetadataBase.RowGroupMetadata rowGroupMetadata, int rgIndexInFile, String location) {
-    HashMap<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(rowGroupMetadata);
-    HashMap<String, Object> rowGroupStatistics = new HashMap<>();
-    rowGroupStatistics.put(TableStatistics.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
-    rowGroupStatistics.put("start", rowGroupMetadata.getStart());
-    rowGroupStatistics.put("length", rowGroupMetadata.getLength());
-
-    LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = getRowGroupFields(parquetTableMetadata, rowGroupMetadata);
-
-    TupleSchema schema = new TupleSchema();
-    for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : columns.entrySet()) {
-      SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
-    }
-
-    return new RowGroupMetadata(
-      schema, columnStatistics, rowGroupStatistics, rowGroupMetadata.getHostAffinity(), rgIndexInFile, location);
-  }
-
   protected abstract void initInternal() throws IOException;
-
-  @SuppressWarnings("unchecked")
-  public static <T extends BaseMetadata> Map<SchemaPath, ColumnStatistic> getColumnStatistics(
-      List<T> rowGroups, Set<SchemaPath> columns, List<CollectableColumnStatisticKind> statisticsToCollect) {
-    HashMap<SchemaPath, ColumnStatistic> columnStatistics = new HashMap<>();
-
-    for (SchemaPath column : columns) {
-      List<ColumnStatistic> statisticsList = new ArrayList<>();
-      for (T metadata : rowGroups) {
-        ColumnStatistic columnStatistic = metadata.getColumnStatistics().get(column);
-        if (columnStatistic == null) {
-          // schema change happened, set statistics which represents all nulls
-          columnStatistic = new ColumnStatisticImpl(
-              ImmutableMap.of(ColumnStatisticsKind.NULLS_COUNT.getName(), metadata.getStatistic(TableStatistics.ROW_COUNT)),
-              getNaturalNullsFirstComparator());
-        }
-        statisticsList.add(columnStatistic);
-      }
-      Map<String, Object> statisticsMap = new HashMap<>();
-      for (CollectableColumnStatisticKind statisticsKind : statisticsToCollect) {
-        Object mergedStatistic = statisticsKind.mergeStatistic(statisticsList);
-        statisticsMap.put(statisticsKind.getName(), mergedStatistic);
-      }
-      columnStatistics.put(column, new ColumnStatisticImpl(statisticsMap, statisticsList.iterator().next().getValueComparator()));
-    }
-
-    return columnStatistics;
-  }
-
-  @SuppressWarnings("unchecked")
-  private HashMap<SchemaPath, ColumnStatistic> getRowGroupColumnStatistics(MetadataBase.RowGroupMetadata rowGroupMetadata) {
-
-    HashMap<SchemaPath, ColumnStatistic> columnStatistics = new HashMap<>();
-
-    for (MetadataBase.ColumnMetadata column : rowGroupMetadata.getColumns()) {
-      SchemaPath colPath = SchemaPath.getCompoundPath(column.getName());
-
-      Long nulls = column.getNulls();
-      if (!column.isNumNullsSet() || nulls == null) {
-        nulls = GroupScan.NO_COLUMN_STATS;
-      }
-      PrimitiveType.PrimitiveTypeName primitiveType = getPrimitiveTypeName(parquetTableMetadata, column);
-      OriginalType originalType = getOriginalType(parquetTableMetadata, column);
-      Comparator comparator = getComparator(primitiveType, originalType);
-
-      Pair<Object, Object> minMaxPair = getMinMax(column, primitiveType, originalType);
-
-      Map<String, Object> statistics = new HashMap<>();
-      statistics.put(ColumnStatisticsKind.MIN_VALUE.getName(), minMaxPair.getKey());
-      statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), minMaxPair.getValue());
-      statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), nulls);
-      columnStatistics.put(colPath, new ColumnStatisticImpl(statistics, comparator));
-    }
-
-    return columnStatistics;
-  }
-
-  private static Pair<Object, Object> getMinMax(MetadataBase.ColumnMetadata column, PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {
-    Object minValue = column.getMinValue();
-    Object maxValue = column.getMaxValue();
-    switch (primitiveType) {
-      case BOOLEAN:
-        if (minValue != null) {
-          minValue = Boolean.parseBoolean(minValue.toString());
-        }
-        if (maxValue != null) {
-          maxValue = Boolean.parseBoolean(maxValue.toString());
-        }
-        break;
-
-      case INT32:
-        if (originalType != null) {
-          switch (originalType) {
-            case DATE:
-              if (minValue != null) {
-                minValue = ParquetMetaStatCollector.convertToDrillDateValue(getInt(minValue));
-              }
-              if (maxValue != null) {
-                maxValue = ParquetMetaStatCollector.convertToDrillDateValue(getInt(maxValue));
-              }
-              break;
-            case DECIMAL:
-              if (minValue != null) {
-                minValue = BigInteger.valueOf(getInt(minValue));
-              }
-              if (maxValue != null) {
-                maxValue = BigInteger.valueOf(getInt(maxValue));
-              }
-              break;
-            default:
-              if (minValue != null) {
-                minValue = getInt(minValue);
-              }
-              if (maxValue != null) {
-                maxValue = getInt(maxValue);
-              }
-          }
-        } else {
-          if (minValue != null) {
-            minValue = getInt(minValue);
-          }
-          if (maxValue != null) {
-            maxValue = getInt(maxValue);
-          }
-        }
-        break;
-
-      case INT64:
-        if (originalType == OriginalType.DECIMAL) {
-          if (minValue != null) {
-            minValue = BigInteger.valueOf(getLong(minValue));
-          }
-          if (maxValue != null) {
-            maxValue = BigInteger.valueOf(getLong(maxValue));
-          }
-        } else {
-          if (minValue != null) {
-            minValue = getLong(minValue);
-          }
-          if (maxValue != null) {
-            maxValue = getLong(maxValue);
-          }
-        }
-        break;
-
-      case FLOAT:
-        if (minValue != null) {
-          minValue = getFloat(minValue);
-        }
-        if (maxValue != null) {
-          maxValue = getFloat(maxValue);
-        }
-        break;
-
-      case DOUBLE:
-        if (minValue != null) {
-          minValue = getDouble(minValue);
-        }
-        if (maxValue != null) {
-          maxValue = getDouble(maxValue);
-        }
-        break;
-
-      case INT96:
-        if (minValue != null) {
-          minValue = new String(getBytes(minValue));
-        }
-        if (maxValue  != null) {
-          maxValue = new String(getBytes(maxValue));
-        }
-        break;
-
-      case BINARY:
-      case FIXED_LEN_BYTE_ARRAY:
-        if (originalType == OriginalType.DECIMAL) {
-          if (minValue != null) {
-            minValue = new BigInteger(getBytes(minValue));
-          }
-          if (maxValue != null) {
-            maxValue = new BigInteger(getBytes(maxValue));
-          }
-        } else if (originalType == OriginalType.INTERVAL) {
-          if (minValue != null) {
-            minValue = getBytes(minValue);
-          }
-          if (maxValue != null) {
-            maxValue = getBytes(maxValue);
-          }
-        } else {
-          if (minValue != null) {
-            minValue = new String(getBytes(minValue));
-          }
-          if (maxValue  != null) {
-            maxValue = new String(getBytes(maxValue));
-          }
-        }
-    }
-    return Pair.of(minValue, maxValue);
-  }
-
-  private static byte[] getBytes(Object value) {
-    if (value instanceof Binary) {
-      return ((Binary) value).getBytes();
-    } else if (value instanceof byte[]) {
-      return (byte[]) value;
-    } else if (value instanceof String) { // value is obtained from metadata cache v2+
-      return ((String) value).getBytes();
-    } else if (value instanceof Map) { // value is obtained from metadata cache v1
-      String bytesString = (String) ((Map) value).get("bytes");
-      if (bytesString != null) {
-        return bytesString.getBytes();
-      }
-    } else if (value instanceof Long) {
-      return Longs.toByteArray((Long) value);
-    } else if (value instanceof Integer) {
-      return Longs.toByteArray((Integer) value);
-    } else if (value instanceof Float) {
-      return BigDecimal.valueOf((Float) value).unscaledValue().toByteArray();
-    } else if (value instanceof Double) {
-      return BigDecimal.valueOf((Double) value).unscaledValue().toByteArray();
-    }
-    throw new UnsupportedOperationException(String.format("Cannot obtain bytes using value %s", value));
-  }
-
-  private static Integer getInt(Object value) {
-    if (value instanceof Integer) {
-      return (Integer) value;
-    } else if (value instanceof Long) {
-      return ((Long) value).intValue();
-    } else if (value instanceof Float) {
-      return ((Float) value).intValue();
-    } else if (value instanceof Double) {
-      return ((Double) value).intValue();
-    } else if (value instanceof String) {
-      return Integer.parseInt(value.toString());
-    } else if (value instanceof byte[]) {
-      return new BigInteger((byte[]) value).intValue();
-    } else if (value instanceof Binary) {
-      return new BigInteger(((Binary) value).getBytes()).intValue();
-    }
-    throw new UnsupportedOperationException(String.format("Cannot obtain Integer using value %s", value));
-  }
-
-  private static Long getLong(Object value) {
-    if (value instanceof Integer) {
-      return Long.valueOf((Integer) value);
-    } else if (value instanceof Long) {
-      return (Long) value;
-    } else if (value instanceof Float) {
-      return ((Float) value).longValue();
-    } else if (value instanceof Double) {
-      return ((Double) value).longValue();
-    } else if (value instanceof String) {
-      return Long.parseLong(value.toString());
-    } else if (value instanceof byte[]) {
-      return new BigInteger((byte[]) value).longValue();
-    } else if (value instanceof Binary) {
-      return new BigInteger(((Binary) value).getBytes()).longValue();
-    }
-    throw new UnsupportedOperationException(String.format("Cannot obtain Integer using value %s", value));
-  }
-
-  private static Float getFloat(Object value) {
-    if (value instanceof Integer) {
-      return Float.valueOf((Integer) value);
-    } else if (value instanceof Long) {
-      return Float.valueOf((Long) value);
-    } else if (value instanceof Float) {
-      return (Float) value;
-    } else if (value instanceof Double) {
-      return ((Double) value).floatValue();
-    } else if (value instanceof String) {
-      return Float.parseFloat(value.toString());
-    }
-    // TODO: allow conversion form bytes only when actual type of data is known (to obtain scale)
-    /* else if (value instanceof byte[]) {
-      return new BigInteger((byte[]) value).floatValue();
-    } else if (value instanceof Binary) {
-      return new BigInteger(((Binary) value).getBytes()).floatValue();
-    }*/
-    throw new UnsupportedOperationException(String.format("Cannot obtain Integer using value %s", value));
-  }
-
-  private static Double getDouble(Object value) {
-    if (value instanceof Integer) {
-      return Double.valueOf((Integer) value);
-    } else if (value instanceof Long) {
-      return Double.valueOf((Long) value);
-    } else if (value instanceof Float) {
-      return Double.valueOf((Float) value);
-    } else if (value instanceof Double) {
-      return (Double) value;
-    } else if (value instanceof String) {
-      return Double.parseDouble(value.toString());
-    }
-    // TODO: allow conversion form bytes only when actual type of data is known (to obtain scale)
-    /* else if (value instanceof byte[]) {
-      return new BigInteger((byte[]) value).doubleValue();
-    } else if (value instanceof Binary) {
-      return new BigInteger(((Binary) value).getBytes()).doubleValue();
-    }*/
-    throw new UnsupportedOperationException(String.format("Cannot obtain Integer using value %s", value));
-  }
-
-  private static Comparator getComparator(PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {
-    if (originalType != null) {
-      switch (originalType) {
-        case UINT_8:
-        case UINT_16:
-        case UINT_32:
-          return getNaturalNullsFirstComparator();
-        case UINT_64:
-          return getNaturalNullsFirstComparator();
-        case DATE:
-        case INT_8:
-        case INT_16:
-        case INT_32:
-        case INT_64:
-        case TIME_MICROS:
-        case TIME_MILLIS:
-        case TIMESTAMP_MICROS:
-        case TIMESTAMP_MILLIS:
-        case DECIMAL:
-        case UTF8:
-          return getNaturalNullsFirstComparator();
-        case INTERVAL:
-          return UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
-        default:
-          return getNaturalNullsFirstComparator();
-      }
-    } else {
-      switch (primitiveType) {
-        case INT32:
-        case INT64:
-        case FLOAT:
-        case DOUBLE:
-        case BOOLEAN:
-        case BINARY:
-        case INT96:
-        case FIXED_LEN_BYTE_ARRAY:
-          return getNaturalNullsFirstComparator();
-        default:
-          throw new UnsupportedOperationException("Unsupported type: " + primitiveType);
-      }
-    }
-  }
-
-  private static Comparator getComparator(TypeProtos.MinorType type) {
-    switch (type) {
-      case INTERVALDAY:
-      case INTERVAL:
-      case INTERVALYEAR:
-        return UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR;
-      case UINT1:
-        return Comparator.nullsFirst(UnsignedBytes::compare);
-      case UINT2:
-        // TODO: check whether it will work for Integer::compareUnsigned
-      case UINT4:
-        return Comparator.nullsFirst(Integer::compareUnsigned);
-      case UINT8:
-        return Comparator.nullsFirst(Long::compareUnsigned);
-      default:
-        return getNaturalNullsFirstComparator();
-    }
-  }
-
-  private static <T extends Comparable<T>> Comparator<T> getNaturalNullsFirstComparator() {
-    return Comparator.nullsFirst(Comparator.naturalOrder());
-  }
-
-  private static LinkedHashMap<SchemaPath, TypeProtos.MajorType> resolveFields(MetadataBase.ParquetTableMetadataBase parquetTableMetadata) {
-    LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
-    for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
-      // row groups in the file have the same schema, so using the first one
-      LinkedHashMap<SchemaPath, TypeProtos.MajorType> fileColumns = getFileFields(parquetTableMetadata, file);
-      for (Map.Entry<SchemaPath, TypeProtos.MajorType> schemaPathMajorType : fileColumns.entrySet()) {
-
-        SchemaPath columnPath = schemaPathMajorType.getKey();
-        TypeProtos.MajorType majorType = columns.get(columnPath);
-        if (majorType == null) {
-          columns.put(columnPath, schemaPathMajorType.getValue());
-        } else {
-          TypeProtos.MinorType leastRestrictiveType = TypeCastRules.getLeastRestrictiveType(Arrays.asList(majorType.getMinorType(), schemaPathMajorType.getValue().getMinorType()));
-          if (leastRestrictiveType != majorType.getMinorType()) {
-            columns.put(columnPath, schemaPathMajorType.getValue());
-          }
-        }
-      }
-    }
-    return columns;
-  }
-
-  private static LinkedHashMap<SchemaPath, TypeProtos.MajorType> getFileFields(
-      MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ParquetFileMetadata file) {
-
-    // does not resolve types considering all row groups, just takes type from the first row group.
-    return getRowGroupFields(parquetTableMetadata, file.getRowGroups().iterator().next());
-  }
-
-  private static LinkedHashMap<SchemaPath, TypeProtos.MajorType> getRowGroupFields(
-      MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.RowGroupMetadata rowGroup) {
-    LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
-    for (MetadataBase.ColumnMetadata column : rowGroup.getColumns()) {
-
-      PrimitiveType.PrimitiveTypeName primitiveType = getPrimitiveTypeName(parquetTableMetadata, column);
-      OriginalType originalType = getOriginalType(parquetTableMetadata, column);
-      int precision = 0;
-      int scale = 0;
-      int definitionLevel = 1;
-      int repetitionLevel = 0;
-      // only ColumnTypeMetadata_v3 stores information about scale, precision, repetition level and definition level
-      if (parquetTableMetadata.hasColumnMetadata() && parquetTableMetadata instanceof Metadata_V3.ParquetTableMetadata_v3) {
-        Metadata_V3.ColumnTypeMetadata_v3 columnTypeInfo =
-            ((Metadata_V3.ParquetTableMetadata_v3) parquetTableMetadata).getColumnTypeInfo(column.getName());
-        scale = columnTypeInfo.scale;
-        precision = columnTypeInfo.precision;
-        repetitionLevel = parquetTableMetadata.getRepetitionLevel(column.getName());
-        definitionLevel = parquetTableMetadata.getDefinitionLevel(column.getName());
-      }
-      TypeProtos.DataMode mode;
-      if (repetitionLevel >= 1) {
-        mode = TypeProtos.DataMode.REPEATED;
-      } else if (repetitionLevel == 0 && definitionLevel == 0) {
-        mode = TypeProtos.DataMode.REQUIRED;
-      } else {
-        mode = TypeProtos.DataMode.OPTIONAL;
-      }
-      TypeProtos.MajorType columnType =
-          TypeProtos.MajorType.newBuilder(ParquetReaderUtility.getType(primitiveType, originalType, scale, precision))
-              .setMode(mode)
-              .build();
-
-      SchemaPath columnPath = SchemaPath.getCompoundPath(column.getName());
-      TypeProtos.MajorType majorType = columns.get(columnPath);
-      if (majorType == null) {
-        columns.put(columnPath, columnType);
-      } else {
-        TypeProtos.MinorType leastRestrictiveType = TypeCastRules.getLeastRestrictiveType(Arrays.asList(majorType.getMinorType(), columnType.getMinorType()));
-        if (leastRestrictiveType != majorType.getMinorType()) {
-          columns.put(columnPath, columnType);
-        }
-      }
-    }
-    return columns;
-  }
-
-  private static OriginalType getOriginalType(MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ColumnMetadata column) {
-    OriginalType originalType = column.getOriginalType();
-    // for the case of parquet metadata v1 version, type information isn't stored in parquetTableMetadata, but in ColumnMetadata
-    if (originalType == null) {
-      originalType = parquetTableMetadata.getOriginalType(column.getName());
-    }
-    return originalType;
-  }
-
-  private static PrimitiveType.PrimitiveTypeName getPrimitiveTypeName(MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ColumnMetadata column) {
-    PrimitiveType.PrimitiveTypeName primitiveType = column.getPrimitiveType();
-    // for the case of parquet metadata v1 version, type information isn't stored in parquetTableMetadata, but in ColumnMetadata
-    if (primitiveType == null) {
-      primitiveType = parquetTableMetadata.getPrimitiveType(column.getName());
-    }
-    return primitiveType;
-  }
-
 }

@@ -62,7 +62,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.apache.drill.exec.store.parquet.BaseParquetTableMetadataProvider.getColumnStatistics;
+import static org.apache.drill.exec.store.parquet.ParquetTableMetadataUtils.getColumnStatistics;
 
 public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMetadata {
 
@@ -250,7 +250,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     }
 
     Set<SchemaPath> schemaPathsInExpr =
-        filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
+        filterExpr.accept(new FilterEvaluatorUtils.FieldReferenceFinder(), null);
 
     RowGroupScanBuilder builder = getFiltered(optionManager, filterPredicate, schemaPathsInExpr);
 

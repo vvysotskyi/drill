@@ -17,8 +17,8 @@
  */
 package org.apache.drill.metastore.expr;
 
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate;
+import org.apache.drill.exec.expr.stat.RowsMatch;
 
 public interface FilterPredicate<T extends Comparable<T>> {
-  ParquetFilterPredicate.RowsMatch matches(StatisticsProvider<T> evaluator);
+  RowsMatch matches(StatisticsProvider<T> evaluator);
 }

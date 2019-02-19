@@ -21,7 +21,7 @@ import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.visitors.ExprVisitor;
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate.RowsMatch;
+import org.apache.drill.exec.expr.stat.RowsMatch;
 
 import java.util.List;
 

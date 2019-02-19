@@ -21,6 +21,9 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
+import org.apache.drill.metastore.RowGroupMetadata;
+import org.apache.drill.metastore.TableStatistics;
+import org.apache.drill.metastore.expr.FilterBuilder;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
@@ -31,63 +34,42 @@ import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.compile.sig.ConstantExpressionIdentifier;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.FunctionLookupContext;
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate;
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate.RowsMatch;
-import org.apache.drill.exec.expr.stat.RangeExprEvaluator;
+import org.apache.drill.exec.expr.stat.RowsMatch;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.UdfUtilities;
 import org.apache.drill.exec.server.options.OptionManager;
-import org.apache.drill.exec.store.parquet.stat.ColumnStatCollector;
-import org.apache.drill.exec.store.parquet.stat.ColumnStatistics;
-import org.apache.drill.exec.store.parquet.stat.ParquetFooterStatCollector;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.expr.FilterPredicate;
 import org.apache.drill.metastore.expr.StatisticsProvider;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.drill.exec.store.parquet.metadata.MetadataBase.ParquetTableMetadataBase;
+public class FilterEvaluatorUtils {
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FilterEvaluatorUtils.class);
 
-public class ParquetRGFilterEvaluator {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetRGFilterEvaluator.class);
-
-  public static RowsMatch evalFilter(LogicalExpression expr, ParquetMetadata footer, int rowGroupIndex,
-      OptionManager options, FragmentContext fragmentContext) {
-    final HashMap<String, String> emptyMap = new HashMap<>();
-    return evalFilter(expr, footer, rowGroupIndex, options, fragmentContext, emptyMap);
+  private FilterEvaluatorUtils() {
   }
 
-  public static RowsMatch evalFilter(LogicalExpression expr, ParquetMetadata footer, int rowGroupIndex,
-      OptionManager options, FragmentContext fragmentContext, Map<String, String> implicitColValues) {
-    // figure out the set of columns referenced in expression.
-    final Set<SchemaPath> schemaPathsInExpr = expr.accept(new FieldReferenceFinder(), null);
-    final ColumnStatCollector columnStatCollector = new ParquetFooterStatCollector(footer, rowGroupIndex, implicitColValues,true, options);
+  public static RowsMatch evalFilter(LogicalExpression expr, MetadataBase.ParquetTableMetadataBase footer,
+                                     int rowGroupIndex, OptionManager options, FragmentContext fragmentContext) {
+    List<SchemaPath> schemaPathsInExpr = new ArrayList<>(expr.accept(new FieldReferenceFinder(), null));
 
-    Map<SchemaPath, ColumnStatistics> columnStatisticsMap = columnStatCollector.collectColStat(schemaPathsInExpr);
+    RowGroupMetadata rowGroupMetadata = ParquetTableMetadataUtils.getRowGroupsMetadata(footer).get(rowGroupIndex);
+    Map<SchemaPath, ColumnStatistic> columnStatisticsMap = rowGroupMetadata.getColumnStatistics();
+    columnStatisticsMap = ParquetTableMetadataUtils.addImplicitColumnsStatistic(columnStatisticsMap,
+        schemaPathsInExpr, Collections.emptyList(), options, rowGroupMetadata.getLocation(), true);
 
-    return matches(expr, columnStatisticsMap, footer.getBlocks().get(rowGroupIndex).getRowCount(), fragmentContext, fragmentContext.getFunctionRegistry());
+    return matches(expr, columnStatisticsMap, rowGroupMetadata.getSchema(), (Long) TableStatistics.ROW_COUNT.getValue(rowGroupMetadata),
+        fragmentContext, fragmentContext.getFunctionRegistry());
   }
 
-  public static RowsMatch matches(ParquetFilterPredicate parquetPredicate,
-      Map<SchemaPath, ColumnStatistics> columnStatisticsMap, long rowCount) {
-    if (parquetPredicate != null) {
-      RangeExprEvaluator rangeExprEvaluator = new RangeExprEvaluator(columnStatisticsMap, rowCount);
-      return parquetPredicate.matches(rangeExprEvaluator);
-    }
-    return RowsMatch.SOME;
-  }
-
-  public static RowsMatch matches(LogicalExpression expr, Map<SchemaPath, ColumnStatistics> columnStatisticsMap,
-      long rowCount, UdfUtilities udfUtilities, FunctionLookupContext functionImplementationRegistry) {
+  public static RowsMatch matches(LogicalExpression expr, Map<SchemaPath, ColumnStatistic> columnStatisticsMap,
+      TupleSchema schema, long rowCount, UdfUtilities udfUtilities, FunctionLookupContext functionImplementationRegistry) {
     ErrorCollector errorCollector = new ErrorCollectorImpl();
-    TupleSchema schema = new TupleSchema();
-    for (Map.Entry<SchemaPath, ColumnStatistics> pathStat : columnStatisticsMap.entrySet()) {
-      SchemaPathUtils.addColumnMetadata(pathStat.getKey(), schema, pathStat.getValue().getMajorType());
-    }
 
     LogicalExpression materializedFilter = ExpressionTreeMaterializer.materializeFilterExpr(
         expr,
@@ -101,15 +83,10 @@ public class ParquetRGFilterEvaluator {
     }
 
     Set<LogicalExpression> constantBoundaries = ConstantExpressionIdentifier.getConstantExpressionSet(materializedFilter);
-    ParquetFilterPredicate parquetPredicate = ParquetFilterBuilder.buildParquetFilterPredicate(
+    FilterPredicate parquetPredicate = FilterBuilder.buildFilterPredicate(
         materializedFilter, constantBoundaries, udfUtilities, true);
 
     return matches(parquetPredicate, columnStatisticsMap, rowCount);
-  }
-
-  public static RowsMatch matches(ParquetFilterPredicate parquetPredicate, Map<SchemaPath, ColumnStatistics> columnStatisticsMap, long rowCount, ParquetTableMetadataBase parquetTableMetadata, List<? extends MetadataBase.ColumnMetadata> columnMetadataList, Set<SchemaPath> schemaPathsInExpr) {
-    RowsMatch temp = matches(parquetPredicate, columnStatisticsMap, rowCount);
-    return temp == RowsMatch.ALL && isRepeated(schemaPathsInExpr, parquetTableMetadata, columnMetadataList) ? RowsMatch.SOME : temp;
   }
 
   public static RowsMatch matches(FilterPredicate parquetPredicate,
@@ -133,26 +110,6 @@ public class ParquetRGFilterEvaluator {
       ColumnMetadata columnMetadata = SchemaPathUtils.getColumnMetadata(field, fileMetadata);
       TypeProtos.MajorType fieldType = columnMetadata != null ? columnMetadata.majorType() : null;
       if (fieldType != null && fieldType.getMode() == TypeProtos.DataMode.REPEATED) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Check if one of the fields involved in the filter is an array (used in DRILL_6259_test_data).
-   *
-   * @return true if one at least is an array, false otherwise.
-   */
-  private static boolean isRepeated(Set<SchemaPath> fields, ParquetTableMetadataBase parquetTableMetadata, List<? extends MetadataBase.ColumnMetadata> columnMetadataList) {
-    final Map<SchemaPath, MetadataBase.ColumnMetadata> columnMetadataMap = new HashMap<>();
-    for (final MetadataBase.ColumnMetadata columnMetadata : columnMetadataList) {
-      SchemaPath schemaPath = SchemaPath.getCompoundPath(columnMetadata.getName());
-      columnMetadataMap.put(schemaPath, columnMetadata);
-    }
-    for (final SchemaPath field : fields) {
-      MetadataBase.ColumnMetadata columnMetadata = columnMetadataMap.get(field.getUnIndexed());
-      if (columnMetadata != null && parquetTableMetadata.getRepetitionLevel(columnMetadata.getName()) >= 1) {
         return true;
       }
     }

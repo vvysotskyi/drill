@@ -22,7 +22,7 @@ import org.apache.drill.common.expression.LogicalExpressionBase;
 import org.apache.drill.common.expression.visitors.ExprVisitor;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate.RowsMatch;
+import org.apache.drill.exec.expr.stat.RowsMatch;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 

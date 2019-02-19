@@ -30,7 +30,7 @@ import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.compile.sig.ConstantExpressionIdentifier;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate;
+import org.apache.drill.exec.expr.stat.RowsMatch;
 import org.apache.drill.exec.ops.UdfUtilities;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.record.MaterializedField;
@@ -40,7 +40,8 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.dfs.FileSelection;
-import org.apache.drill.exec.store.parquet.ParquetRGFilterEvaluator;
+import org.apache.drill.exec.store.parquet.FilterEvaluatorUtils;
+import org.apache.drill.exec.store.parquet.ParquetTableMetadataUtils;
 import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticsKind;
@@ -51,14 +52,11 @@ import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.metastore.expr.FilterBuilder;
 import org.apache.drill.metastore.expr.FilterPredicate;
-import org.apache.drill.metastore.expr.StatisticsProvider;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -189,7 +187,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     }
 
     final Set<SchemaPath> schemaPathsInExpr =
-        filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
+        filterExpr.accept(new FilterEvaluatorUtils.FieldReferenceFinder(), null);
 
     GroupScanWithMetadataBuilder builder = getFiltered(optionManager, filterPredicate, schemaPathsInExpr);
 
@@ -369,26 +367,19 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
 
       // adds partition (dir) column statistics if it may be used during filter evaluation
       if (metadata instanceof LocationProvider && optionManager != null) {
-        final ColumnExplorer columnExplorer = new ColumnExplorer(optionManager, columns);
         LocationProvider locationProvider = (LocationProvider) metadata;
-        List<String> partitionValues = getPartitionValues(locationProvider);
-
-        Map<String, String> implicitColValues = columnExplorer.populateImplicitColumns(locationProvider.getLocation(), partitionValues, supportsFileImplicitColumns());
-        columnStatistics = new HashMap<>(columnStatistics);
-        for (Map.Entry<String, String> partitionValue : implicitColValues.entrySet()) {
-          columnStatistics.put(SchemaPath.getCompoundPath(partitionValue.getKey()),
-              new StatisticsProvider.MinMaxStatistics<>(partitionValue.getValue(), partitionValue.getValue(), Comparator.nullsFirst(Comparator.naturalOrder())));
-        }
+        columnStatistics = ParquetTableMetadataUtils.addImplicitColumnsStatistic(columnStatistics,
+            columns, getPartitionValues(locationProvider), optionManager, locationProvider.getLocation(), supportsFileImplicitColumns());
       }
 
-      ParquetFilterPredicate.RowsMatch match = ParquetRGFilterEvaluator.matches(filterPredicate,
+      RowsMatch match = FilterEvaluatorUtils.matches(filterPredicate,
           columnStatistics, (long) metadata.getStatistic(TableStatistics.ROW_COUNT),
           metadata.getSchema(), schemaPathsInExpr);
-      if (match == ParquetFilterPredicate.RowsMatch.NONE) {
+      if (match == RowsMatch.NONE) {
         continue; // No file comply to the filter => drop the file
       }
       if (matchAllRowGroups) {
-        matchAllRowGroups = match == ParquetFilterPredicate.RowsMatch.ALL;
+        matchAllRowGroups = match == RowsMatch.ALL;
       }
       qualifiedFiles.add(metadata);
     }
@@ -417,7 +408,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       throw new UnsupportedOperationException("At least one schema source should be available.");
     }
 
-    Set<SchemaPath> schemaPathsInExpr = filterExpr.accept(new ParquetRGFilterEvaluator.FieldReferenceFinder(), null);
+    Set<SchemaPath> schemaPathsInExpr = filterExpr.accept(new FilterEvaluatorUtils.FieldReferenceFinder(), null);
 
     // adds implicit or partition columns if they weren't added before.
     if (supportsFileImplicitColumns()) {

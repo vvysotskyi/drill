@@ -17,7 +17,7 @@
  */
 package org.apache.drill.metastore.expr;
 
-import org.apache.drill.exec.expr.stat.ParquetFilterPredicate.RowsMatch;
+import org.apache.drill.exec.expr.stat.RowsMatch;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -33,8 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiFunction;
 
-public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase
-  implements FilterPredicate<C> {
+public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase implements FilterPredicate<C> {
 
   private final LogicalExpression expr;
 

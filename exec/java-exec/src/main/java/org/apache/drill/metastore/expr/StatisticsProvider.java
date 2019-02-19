@@ -45,9 +45,11 @@ import org.apache.drill.metastore.StatisticsKind;
 
 import java.math.BigInteger;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
-import static org.apache.drill.exec.expr.stat.RangeExprEvaluator.CAST_FUNC;
 import static org.apache.drill.metastore.expr.ComparisonPredicate.getMaxValue;
 import static org.apache.drill.metastore.expr.ComparisonPredicate.getMinValue;
 import static org.apache.drill.metastore.expr.IsPredicate.isNullOrEmpty;
@@ -293,5 +295,41 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     public void setNullsCount(long nullsCount) {
       this.nullsCount = nullsCount;
     }
+  }
+
+  public static final Map<TypeProtos.MinorType, Set<TypeProtos.MinorType>> CAST_FUNC = new HashMap<>();
+  static {
+    // float -> double , int, bigint
+    HashSet<TypeProtos.MinorType> float4Types = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.FLOAT4, float4Types);
+    float4Types.add(TypeProtos.MinorType.FLOAT8);
+    float4Types.add(TypeProtos.MinorType.INT);
+    float4Types.add(TypeProtos.MinorType.BIGINT);
+
+    // double -> float, int, bigint
+    HashSet<TypeProtos.MinorType> float8Types = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.FLOAT8, float8Types);
+    float8Types.add(TypeProtos.MinorType.FLOAT4);
+    float8Types.add(TypeProtos.MinorType.INT);
+    float8Types.add(TypeProtos.MinorType.BIGINT);
+
+    // int -> float, double, bigint
+    HashSet<TypeProtos.MinorType> intTypes = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.INT, intTypes);
+    intTypes.add(TypeProtos.MinorType.FLOAT4);
+    intTypes.add(TypeProtos.MinorType.FLOAT8);
+    intTypes.add(TypeProtos.MinorType.BIGINT);
+
+    // bigint -> int, float, double
+    HashSet<TypeProtos.MinorType> bigIntTypes = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.BIGINT, bigIntTypes);
+    bigIntTypes.add(TypeProtos.MinorType.INT);
+    bigIntTypes.add(TypeProtos.MinorType.FLOAT4);
+    bigIntTypes.add(TypeProtos.MinorType.FLOAT8);
+
+    // date -> timestamp
+    HashSet<TypeProtos.MinorType> dateTypes = new HashSet<>();
+    CAST_FUNC.put(TypeProtos.MinorType.DATE, dateTypes);
+    dateTypes.add(TypeProtos.MinorType.TIMESTAMP);
   }
 }

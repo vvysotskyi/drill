@@ -59,7 +59,6 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
                                           DrillFileSystem fs,
                                           boolean autoCorrectCorruptedDates) throws IOException {
     super(entries, readerConfig, fileSet);
-    this.entries = entries;
     this.fs = fs;
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
