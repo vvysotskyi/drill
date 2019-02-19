@@ -18,6 +18,7 @@
 package org.apache.drill.metastore;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -49,5 +50,18 @@ public class ColumnStatisticImpl<T> implements ColumnStatistic<T> {
   @Override
   public Comparator<T> getValueComparator() {
     return valueComparator;
+  }
+
+  @Override
+  public ColumnStatistic<T> cloneWithStats(ColumnStatistic statistic) {
+    Map<String, Object> newStats = new HashMap<>(this.statistics);
+    for (String statisticKey : statistics.keySet()) {
+      Object statisticValue = statistic.getStatistic(() -> statisticKey);
+      if (statisticValue != null) {
+        newStats.put(statisticKey, statisticValue);
+      }
+    }
+
+    return new ColumnStatisticImpl<>(newStats, valueComparator);
   }
 }

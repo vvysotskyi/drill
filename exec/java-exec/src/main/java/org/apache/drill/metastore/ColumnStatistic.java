@@ -62,4 +62,12 @@ public interface ColumnStatistic<T> {
     }
     return null;
   }
+
+  /**
+   * Returns new {@link ColumnStatistic} instance with overridden statistics taken from specified {@link ColumnStatistic}.
+   *
+   * @param statistic source of statistics to override
+   * @return new {@link ColumnStatistic} instance with overridden statistics
+   */
+  ColumnStatistic<T> cloneWithStats(ColumnStatistic statistic);
 }

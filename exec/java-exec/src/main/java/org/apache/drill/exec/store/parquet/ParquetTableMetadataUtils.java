@@ -62,6 +62,7 @@ import java.util.Set;
 /**
  * Utility class for converting parquet metadata classes to metastore metadata classes.
  */
+@SuppressWarnings("WeakerAccess")
 public class ParquetTableMetadataUtils {
   private static final Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
       PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
@@ -103,6 +104,13 @@ public class ParquetTableMetadataUtils {
     return columnStatistics;
   }
 
+  /**
+   * Returns list of {@link RowGroupMetadata} received by converting parquet row groups metadata
+   * taken from the specified tableMetadata.
+   *
+   * @param tableMetadata the source of row groups to be converted
+   * @return list of {@link RowGroupMetadata}
+   */
   public static List<RowGroupMetadata> getRowGroupsMetadata(MetadataBase.ParquetTableMetadataBase tableMetadata) {
     List<RowGroupMetadata> rowGroups = new ArrayList<>();
     for (MetadataBase.ParquetFileMetadata file : tableMetadata.getFiles()) {
@@ -115,6 +123,15 @@ public class ParquetTableMetadataUtils {
     return rowGroups;
   }
 
+  /**
+   * Returns {@link RowGroupMetadata} instance converted from specified parquet {@code rowGroupMetadata}.
+   *
+   * @param tableMetadata    table metadata which contains row grup metadata to convert
+   * @param rowGroupMetadata row group metadata to convert
+   * @param rgIndexInFile    index of current row group within the file
+   * @param location         location of file with current row group
+   * @return {@link RowGroupMetadata} instance converted from specified parquet {@code rowGroupMetadata}
+   */
   public static RowGroupMetadata getRowGroupMetadata(MetadataBase.ParquetTableMetadataBase tableMetadata,
       MetadataBase.RowGroupMetadata rowGroupMetadata, int rgIndexInFile, String location) {
     Map<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(tableMetadata, rowGroupMetadata);
@@ -134,14 +151,23 @@ public class ParquetTableMetadataUtils {
       schema, columnStatistics, rowGroupStatistics, rowGroupMetadata.getHostAffinity(), rgIndexInFile, location);
   }
 
+  /**
+   * Merges list of specified metadata into the map of {@link ColumnStatistic} with columns as keys.
+   *
+   * @param metadataList        list of metadata to be merged
+   * @param columns             set of columns whose statistic should be merged
+   * @param statisticsToCollect kinds of statistics which should be collected
+   * @param <T>                 type of metadata to collect
+   * @return list of merged metadata
+   */
   @SuppressWarnings("unchecked")
-  public static <T extends BaseMetadata> Map<SchemaPath, ColumnStatistic> getColumnStatistics(
-      List<T> rowGroups, Set<SchemaPath> columns, List<CollectableColumnStatisticKind> statisticsToCollect) {
+  public static <T extends BaseMetadata> Map<SchemaPath, ColumnStatistic> mergeColumnStatistics(
+      List<T> metadataList, Set<SchemaPath> columns, List<CollectableColumnStatisticKind> statisticsToCollect) {
     Map<SchemaPath, ColumnStatistic> columnStatistics = new HashMap<>();
 
     for (SchemaPath column : columns) {
       List<ColumnStatistic> statisticsList = new ArrayList<>();
-      for (T metadata : rowGroups) {
+      for (T metadata : metadataList) {
         ColumnStatistic columnStatistic = metadata.getColumnStatistics().get(column);
         if (columnStatistic == null) {
           // schema change happened, set statistics which represents all nulls
@@ -162,6 +188,13 @@ public class ParquetTableMetadataUtils {
     return columnStatistics;
   }
 
+  /**
+   * Returns {@link FileMetadata} instance received by merging specified {@link RowGroupMetadata} list.
+   *
+   * @param rowGroups list of {@link RowGroupMetadata} to be merged
+   * @param tableName name of the table
+   * @return {@link FileMetadata} instance
+   */
   public static FileMetadata getFileMetadata(List<RowGroupMetadata> rowGroups, String tableName) {
     if (rowGroups.isEmpty()) {
       return null;
@@ -172,11 +205,19 @@ public class ParquetTableMetadataUtils {
     TupleSchema schema = rowGroups.iterator().next().getSchema();
 
     return new FileMetadata(rowGroups.iterator().next().getLocation(), schema,
-      getColumnStatistics(rowGroups, rowGroups.iterator().next().getColumnStatistics().keySet(), PARQUET_STATISTICS),
+      mergeColumnStatistics(rowGroups, rowGroups.iterator().next().getColumnStatistics().keySet(), PARQUET_STATISTICS),
       fileStatistics, tableName, -1);
   }
 
-  public static PartitionMetadata getPartitionMetadata(SchemaPath logicalExpressions, List<FileMetadata> files, String tableName) {
+  /**
+   * Returns {@link PartitionMetadata} instance received by merging specified {@link FileMetadata} list.
+   *
+   * @param partitionColumn partition column
+   * @param files           list of files to be merged
+   * @param tableName       name of the table
+   * @return {@link PartitionMetadata} instance
+   */
+  public static PartitionMetadata getPartitionMetadata(SchemaPath partitionColumn, List<FileMetadata> files, String tableName) {
     Set<String> locations = new HashSet<>();
     Set<SchemaPath> columns = new HashSet<>();
 
@@ -188,15 +229,28 @@ public class ParquetTableMetadataUtils {
     Map<String, Object> partStatistics = new HashMap<>();
     partStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(files));
 
-    return new PartitionMetadata(logicalExpressions,
-      files.iterator().next().getSchema(), getColumnStatistics(files, columns, PARQUET_STATISTICS),
-      partStatistics, locations, tableName, -1);
+    return new PartitionMetadata(partitionColumn, files.iterator().next().getSchema(),
+        mergeColumnStatistics(files, columns, PARQUET_STATISTICS), partStatistics, locations, tableName, -1);
   }
 
+  /**
+   * Returns "natural order" comparator which threads nulls as min values.
+   *
+   * @param <T> type to compare
+   * @return "natural order" comparator
+   */
   public static <T extends Comparable<T>> Comparator<T> getNaturalNullsFirstComparator() {
     return Comparator.nullsFirst(Comparator.naturalOrder());
   }
 
+  /**
+   * Converts specified {@link MetadataBase.RowGroupMetadata} into the map of {@link ColumnStatistic}
+   * instances with column names as keys.
+   *
+   * @param tableMetadata    the source of column types
+   * @param rowGroupMetadata metadata to convert
+   * @return map with converted row group metadata
+   */
   @SuppressWarnings("unchecked")
   public static Map<SchemaPath, ColumnStatistic> getRowGroupColumnStatistics(
       MetadataBase.ParquetTableMetadataBase tableMetadata, MetadataBase.RowGroupMetadata rowGroupMetadata) {
@@ -224,6 +278,14 @@ public class ParquetTableMetadataUtils {
     return columnStatistics;
   }
 
+  /**
+   * Handles passed value considering its type and specified {@code primitiveType} with {@code originalType}.
+   *
+   * @param value         value to handle
+   * @param primitiveType primitive type of the column whose value should be handled
+   * @param originalType  original type of the column whose value should be handled
+   * @return handled value
+   */
   public static Object getValue(Object value, PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {
     if (value != null) {
       switch (primitiveType) {
@@ -376,6 +438,13 @@ public class ParquetTableMetadataUtils {
     return dateValue * (long) DateTimeConstants.MILLIS_PER_DAY;
   }
 
+  /**
+   * Returns {@link Comparator} instance considering specified {@code primitiveType} and {@code originalType}.
+   *
+   * @param primitiveType primitive type of the column
+   * @param originalType  original type og the column
+   * @return {@link Comparator} instance
+   */
   public static Comparator getComparator(PrimitiveType.PrimitiveTypeName primitiveType, OriginalType originalType) {
     if (originalType != null) {
       switch (originalType) {
@@ -419,6 +488,13 @@ public class ParquetTableMetadataUtils {
     }
   }
 
+
+  /**
+   * Returns {@link Comparator} instance considering specified {@code type}.
+   *
+   * @param type type of the column
+   * @return {@link Comparator} instance
+   */
   public static Comparator getComparator(TypeProtos.MinorType type) {
     switch (type) {
       case INTERVALDAY:
@@ -438,13 +514,27 @@ public class ParquetTableMetadataUtils {
     }
   }
 
-  static Map<SchemaPath, TypeProtos.MajorType> getFileFields(
+  /**
+   * Returns map of column names with their drill types for specified {@code file}.
+   *
+   * @param parquetTableMetadata the source of primitive and original column types
+   * @param file                 file whose columns should be discovered
+   * @return map of column names with their drill types
+   */
+  public static Map<SchemaPath, TypeProtos.MajorType> getFileFields(
     MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ParquetFileMetadata file) {
 
     // does not resolve types considering all row groups, just takes type from the first row group.
     return getRowGroupFields(parquetTableMetadata, file.getRowGroups().iterator().next());
   }
 
+  /**
+   * Returns map of column names with their drill types for specified {@code rowGroup}.
+   *
+   * @param parquetTableMetadata the source of primitive and original column types
+   * @param rowGroup             row group whose columns should be discovered
+   * @return map of column names with their drill types
+   */
   public static Map<SchemaPath, TypeProtos.MajorType> getRowGroupFields(
       MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.RowGroupMetadata rowGroup) {
     Map<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
@@ -492,6 +582,13 @@ public class ParquetTableMetadataUtils {
     return columns;
   }
 
+  /**
+   * Returns {@link OriginalType} type for the specified column.
+   *
+   * @param parquetTableMetadata the source of column type
+   * @param column               column whose {@link OriginalType} should be returned
+   * @return {@link OriginalType} type for the specified column
+   */
   public static OriginalType getOriginalType(MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ColumnMetadata column) {
     OriginalType originalType = column.getOriginalType();
     // for the case of parquet metadata v1 version, type information isn't stored in parquetTableMetadata, but in ColumnMetadata
@@ -501,6 +598,13 @@ public class ParquetTableMetadataUtils {
     return originalType;
   }
 
+  /**
+   * Returns {@link PrimitiveType.PrimitiveTypeName} type for the specified column.
+   *
+   * @param parquetTableMetadata the source of column type
+   * @param column               column whose {@link PrimitiveType.PrimitiveTypeName} should be returned
+   * @return {@link PrimitiveType.PrimitiveTypeName} type for the specified column
+   */
   public static PrimitiveType.PrimitiveTypeName getPrimitiveTypeName(MetadataBase.ParquetTableMetadataBase parquetTableMetadata, MetadataBase.ColumnMetadata column) {
     PrimitiveType.PrimitiveTypeName primitiveType = column.getPrimitiveType();
     // for the case of parquet metadata v1 version, type information isn't stored in parquetTableMetadata, but in ColumnMetadata
@@ -510,6 +614,13 @@ public class ParquetTableMetadataUtils {
     return primitiveType;
   }
 
+  /**
+   * Returns map of column names with their drill types for specified {@code parquetTableMetadata}
+   * with resolved types for the case of schema evolution.
+   *
+   * @param parquetTableMetadata table metadata whose columns should be discovered
+   * @return map of column names with their drill types
+   */
   static Map<SchemaPath, TypeProtos.MajorType> resolveFields(MetadataBase.ParquetTableMetadataBase parquetTableMetadata) {
     LinkedHashMap<SchemaPath, TypeProtos.MajorType> columns = new LinkedHashMap<>();
     for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {

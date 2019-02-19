@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class FilterEvaluatorUtils {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FilterEvaluatorUtils.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FilterEvaluatorUtils.class);
 
   private FilterEvaluatorUtils() {
   }

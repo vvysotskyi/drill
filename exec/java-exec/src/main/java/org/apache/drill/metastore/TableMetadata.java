@@ -23,6 +23,7 @@ import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -122,6 +123,15 @@ public class TableMetadata implements BaseMetadata {
   }
 
   public TableMetadata cloneWithStats(Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> tableStatistics) {
-    return new TableMetadata(tableName, location, schema, columnStatistics, tableStatistics, lastModifiedTime, owner, partitionKeys);
+    Map<String, Object> mergedTableStatistics = new HashMap<>(this.tableStatistics);
+    mergedTableStatistics.putAll(tableStatistics);
+
+    Map<SchemaPath, ColumnStatistic> newColumnStatistics = new HashMap<>(this.columnStatistics);
+    for (Map.Entry<SchemaPath, ColumnStatistic> columnStatisticEntry : this.columnStatistics.entrySet()) {
+      SchemaPath columnName = columnStatisticEntry.getKey();
+      newColumnStatistics.put(columnName, columnStatisticEntry.getValue().cloneWithStats(columnStatistics.get(columnName)));
+    }
+
+    return new TableMetadata(tableName, location, schema, newColumnStatistics, mergedTableStatistics, lastModifiedTime, owner, partitionKeys);
   }
 }

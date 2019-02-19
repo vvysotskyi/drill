@@ -62,8 +62,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static org.apache.drill.exec.store.parquet.ParquetTableMetadataUtils.getColumnStatistics;
-
 public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMetadata {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractParquetGroupScan.class);
@@ -489,7 +487,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
         newStats.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(newScan.rowGroups));
 
         Map<SchemaPath, ColumnStatistic> columnStatistics =
-            getColumnStatistics(newScan.rowGroups, newScan.tableMetadata.getColumnStatistics().keySet(),
+            ParquetTableMetadataUtils.mergeColumnStatistics(newScan.rowGroups, newScan.tableMetadata.getColumnStatistics().keySet(),
                 ImmutableList.of(ColumnStatisticsKind.NULLS_COUNT));
 
         newScan.tableMetadata = newScan.tableMetadata.cloneWithStats(columnStatistics, newStats);

@@ -45,8 +45,8 @@ import org.apache.drill.metastore.StatisticsKind;
 
 import java.math.BigInteger;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -69,13 +69,13 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
   }
 
   @Override
-  public ColumnStatisticImpl visitUnknown(LogicalExpression e, Void value) throws RuntimeException {
+  public ColumnStatisticImpl visitUnknown(LogicalExpression e, Void value) {
     // do nothing for the unknown expression
     return null;
   }
 
   @Override
-  public ColumnStatistic visitTypedFieldExpr(TypedFieldExpr typedFieldExpr, Void value) throws RuntimeException {
+  public ColumnStatistic visitTypedFieldExpr(TypedFieldExpr typedFieldExpr, Void value) {
     final ColumnStatistic columnStatistic = columnStatMap.get(typedFieldExpr.getPath().getUnIndexed());
     if (columnStatistic != null) {
       return columnStatistic;
@@ -89,61 +89,61 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
   }
 
   @Override
-  public ColumnStatistic<Integer> visitIntConstant(ValueExpressions.IntExpression expr, Void value) throws RuntimeException {
+  public ColumnStatistic<Integer> visitIntConstant(ValueExpressions.IntExpression expr, Void value) {
     int exprValue = expr.getInt();
     return new MinMaxStatistics<>(exprValue, exprValue, Integer::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Boolean> visitBooleanConstant(ValueExpressions.BooleanExpression expr, Void value) throws RuntimeException {
+  public ColumnStatistic<Boolean> visitBooleanConstant(ValueExpressions.BooleanExpression expr, Void value) {
     boolean exprValue = expr.getBoolean();
     return new MinMaxStatistics<>(exprValue, exprValue, Boolean::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Long> visitLongConstant(ValueExpressions.LongExpression expr, Void value) throws RuntimeException {
+  public ColumnStatistic<Long> visitLongConstant(ValueExpressions.LongExpression expr, Void value) {
     long exprValue = expr.getLong();
     return new MinMaxStatistics<>(exprValue, exprValue, Long::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Float> visitFloatConstant(ValueExpressions.FloatExpression expr, Void value) throws RuntimeException {
+  public ColumnStatistic<Float> visitFloatConstant(ValueExpressions.FloatExpression expr, Void value) {
     float exprValue = expr.getFloat();
     return new MinMaxStatistics<>(exprValue, exprValue, Float::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Double> visitDoubleConstant(ValueExpressions.DoubleExpression expr, Void value) throws RuntimeException {
+  public ColumnStatistic<Double> visitDoubleConstant(ValueExpressions.DoubleExpression expr, Void value) {
     double exprValue = expr.getDouble();
     return new MinMaxStatistics<>(exprValue, exprValue, Double::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Long> visitDateConstant(ValueExpressions.DateExpression expr, Void value) throws RuntimeException {
+  public ColumnStatistic<Long> visitDateConstant(ValueExpressions.DateExpression expr, Void value) {
     long exprValue = expr.getDate();
     return new MinMaxStatistics<>(exprValue, exprValue, Long::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Long> visitTimeStampConstant(ValueExpressions.TimeStampExpression tsExpr, Void value) throws RuntimeException {
+  public ColumnStatistic<Long> visitTimeStampConstant(ValueExpressions.TimeStampExpression tsExpr, Void value) {
     long exprValue = tsExpr.getTimeStamp();
     return new MinMaxStatistics<>(exprValue, exprValue, Long::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Integer> visitTimeConstant(ValueExpressions.TimeExpression timeExpr, Void value) throws RuntimeException {
+  public ColumnStatistic<Integer> visitTimeConstant(ValueExpressions.TimeExpression timeExpr, Void value) {
     int exprValue = timeExpr.getTime();
     return new MinMaxStatistics<>(exprValue, exprValue, Integer::compareTo);
   }
 
   @Override
-  public ColumnStatistic<String> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) throws RuntimeException {
+  public ColumnStatistic<String> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) {
     String binary = quotedString.getString();
     return new MinMaxStatistics<>(binary, binary, Comparator.nullsFirst(Comparator.naturalOrder()));
   }
 
   @Override
-  public ColumnStatistic<BigInteger> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) throws RuntimeException {
+  public ColumnStatistic<BigInteger> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) {
     BigInteger unscaled = decExpr.getBigDecimal().unscaledValue();
     return new MinMaxStatistics<>(
         unscaled,
@@ -152,10 +152,11 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
   }
 
   @Override
-  public ColumnStatistic visitFunctionHolderExpression(FunctionHolderExpression holderExpr, Void value) throws RuntimeException {
+  @SuppressWarnings("unchecked")
+  public ColumnStatistic visitFunctionHolderExpression(FunctionHolderExpression holderExpr, Void value) {
     FuncHolder funcHolder = holderExpr.getHolder();
 
-    if (! (funcHolder instanceof DrillSimpleFuncHolder)) {
+    if (!(funcHolder instanceof DrillSimpleFuncHolder)) {
       // Only Drill function is allowed.
       return null;
     }
@@ -171,13 +172,15 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     return null;
   }
 
+  @SuppressWarnings("unchecked")
   private ColumnStatistic<T> evalCastFunc(FunctionHolderExpression holderExpr, ColumnStatistic<T> input) {
     try {
       DrillSimpleFuncHolder funcHolder = (DrillSimpleFuncHolder) holderExpr.getHolder();
 
       DrillSimpleFunc interpreter = funcHolder.createInterpreter();
 
-      final ValueHolder minHolder, maxHolder;
+      ValueHolder minHolder;
+      ValueHolder maxHolder;
 
       TypeProtos.MinorType srcType = holderExpr.args.get(0).getMajorType().getMinorType();
       TypeProtos.MinorType destType = holderExpr.getMajorType().getMinorType();
@@ -268,8 +271,6 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
           return maxVal;
         case StatisticName.NULLS_COUNT:
           return nullsCount;
-//        case StatisticName.ROW_COUNT:
-//          return 1;
         default:
           return null;
       }
@@ -292,43 +293,48 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
       return valueComparator;
     }
 
-    public void setNullsCount(long nullsCount) {
+    @Override
+    public ColumnStatistic<V> cloneWithStats(ColumnStatistic statistic) {
+      throw new UnsupportedOperationException("MinMaxStatistics does not support cloneWithStats");
+    }
+
+    void setNullsCount(long nullsCount) {
       this.nullsCount = nullsCount;
     }
   }
 
-  public static final Map<TypeProtos.MinorType, Set<TypeProtos.MinorType>> CAST_FUNC = new HashMap<>();
+  private static final Map<TypeProtos.MinorType, Set<TypeProtos.MinorType>> CAST_FUNC = new EnumMap<>(TypeProtos.MinorType.class);
   static {
     // float -> double , int, bigint
-    HashSet<TypeProtos.MinorType> float4Types = new HashSet<>();
+    Set<TypeProtos.MinorType> float4Types = EnumSet.noneOf(TypeProtos.MinorType.class);
     CAST_FUNC.put(TypeProtos.MinorType.FLOAT4, float4Types);
     float4Types.add(TypeProtos.MinorType.FLOAT8);
     float4Types.add(TypeProtos.MinorType.INT);
     float4Types.add(TypeProtos.MinorType.BIGINT);
 
     // double -> float, int, bigint
-    HashSet<TypeProtos.MinorType> float8Types = new HashSet<>();
+    Set<TypeProtos.MinorType> float8Types = EnumSet.noneOf(TypeProtos.MinorType.class);
     CAST_FUNC.put(TypeProtos.MinorType.FLOAT8, float8Types);
     float8Types.add(TypeProtos.MinorType.FLOAT4);
     float8Types.add(TypeProtos.MinorType.INT);
     float8Types.add(TypeProtos.MinorType.BIGINT);
 
     // int -> float, double, bigint
-    HashSet<TypeProtos.MinorType> intTypes = new HashSet<>();
+    Set<TypeProtos.MinorType> intTypes = EnumSet.noneOf(TypeProtos.MinorType.class);
     CAST_FUNC.put(TypeProtos.MinorType.INT, intTypes);
     intTypes.add(TypeProtos.MinorType.FLOAT4);
     intTypes.add(TypeProtos.MinorType.FLOAT8);
     intTypes.add(TypeProtos.MinorType.BIGINT);
 
     // bigint -> int, float, double
-    HashSet<TypeProtos.MinorType> bigIntTypes = new HashSet<>();
+    Set<TypeProtos.MinorType> bigIntTypes = EnumSet.noneOf(TypeProtos.MinorType.class);
     CAST_FUNC.put(TypeProtos.MinorType.BIGINT, bigIntTypes);
     bigIntTypes.add(TypeProtos.MinorType.INT);
     bigIntTypes.add(TypeProtos.MinorType.FLOAT4);
     bigIntTypes.add(TypeProtos.MinorType.FLOAT8);
 
     // date -> timestamp
-    HashSet<TypeProtos.MinorType> dateTypes = new HashSet<>();
+    Set<TypeProtos.MinorType> dateTypes = EnumSet.noneOf(TypeProtos.MinorType.class);
     CAST_FUNC.put(TypeProtos.MinorType.DATE, dateTypes);
     dateTypes.add(TypeProtos.MinorType.TIMESTAMP);
   }

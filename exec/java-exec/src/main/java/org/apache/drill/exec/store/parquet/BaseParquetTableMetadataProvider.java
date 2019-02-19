@@ -121,7 +121,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
           metadata = getRowGroupsMeta();
         }
         tableStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(metadata));
-        columnStatistics = ParquetTableMetadataUtils.getColumnStatistics(metadata, fields.keySet(), ParquetTableMetadataUtils.PARQUET_STATISTICS);
+        columnStatistics = ParquetTableMetadataUtils.mergeColumnStatistics(metadata, fields.keySet(), ParquetTableMetadataUtils.PARQUET_STATISTICS);
       } else {
         columnStatistics = new HashMap<>();
         tableStatistics.put(TableStatistics.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
