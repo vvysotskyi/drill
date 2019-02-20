@@ -27,7 +27,7 @@ import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.ColumnStatistic;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.LocationProvider;
-import org.apache.drill.metastore.TableStatistics;
+import org.apache.drill.metastore.TableStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
 import org.apache.drill.shaded.guava.com.google.common.collect.Table;
 
@@ -97,7 +97,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
     resetHolders();
     boolean first = true;
     for (T metadata : metadataList) {
-      long localRowCount = (long) TableStatistics.ROW_COUNT.getValue(metadata);
+      long localRowCount = (long) TableStatisticsKind.ROW_COUNT.getValue(metadata);
       for (Map.Entry<SchemaPath, ColumnStatistic> columnStatistic : metadata.getColumnStatistics().entrySet()) {
         SchemaPath schemaPath = columnStatistic.getKey();
         ColumnStatistic column = columnStatistic.getValue();

@@ -71,13 +71,9 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
 //    String tableLocation = null; // TODO: initialize properly
 //    String tableName = null; // TODO: initialize properly
-    this.tableMetadata = metadataProvider.getTableMetadata();
-    this.partitions = metadataProvider.getPartitionsMetadata();
-    this.files = metadataProvider.getFilesMetadata();
 
     HiveParquetTableMetadataProvider metadataProvider = (HiveParquetTableMetadataProvider) this.metadataProvider;
     this.partitionColumns = metadataProvider.getPartitionColumns();
-    this.rowGroups = metadataProvider.getRowGroupsMeta();
     this.hivePartitionHolder = metadataProvider.getHivePartitionHolder();
     this.entries = metadataProvider.getEntries();
 
@@ -107,10 +103,6 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
     HiveParquetTableMetadataProvider metadataCreator = new HiveParquetTableMetadataProvider(hiveStoragePlugin, logicalInputSplits, readerConfig);
 
-    this.tableMetadata = metadataCreator.getTableMetadata();
-    this.partitions = metadataCreator.getPartitionsMetadata();
-    this.rowGroups = metadataCreator.getRowGroupsMeta();
-    this.files = metadataCreator.getFilesMetadata();
     this.entries = metadataCreator.getEntries();
     this.partitionColumns = metadataCreator.getPartitionColumns();
     this.hivePartitionHolder = metadataCreator.getHivePartitionHolder();
@@ -184,7 +176,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     builder.append("HiveDrillNativeParquetScan [");
     builder.append("entries=").append(entries);
     builder.append(", numFiles=").append(getEntries().size());
-    builder.append(", numRowGroups=").append(rowGroups.size());
+    builder.append(", numRowGroups=").append(getRowGroupsMetadata().size());
 
     String filterString = getFilterString();
     if (!filterString.isEmpty()) {

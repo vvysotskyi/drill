@@ -17,9 +17,14 @@
  */
 package org.apache.drill.metastore.expr;
 
-public interface StatisticName {
-  String MIN_VALUE = "minValue";
-  String MAX_VALUE = "maxValue";
-  String ROW_COUNT = "rowCount";
-  String NULLS_COUNT = "nullsCount";
+public final class StatisticName {
+
+  private StatisticName() {
+    throw new IllegalStateException("Utility class");
+  }
+
+  public static final String MIN_VALUE = "minValue";
+  public static final String MAX_VALUE = "maxValue";
+  public static final String ROW_COUNT = "rowCount";
+  public static final String NULLS_COUNT = "nullsCount";
 }

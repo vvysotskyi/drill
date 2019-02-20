@@ -26,7 +26,7 @@ import java.util.List;
  * Implementation of {@link CollectableColumnStatisticKind} which contain base
  * table statistic kinds with implemented {@code mergeStatistic()} method.
  */
-public enum TableStatistics implements CollectableTableStatisticKind {
+public enum TableStatisticsKind implements CollectableTableStatisticKind {
   /**
    * Table statistic kind which represents row count for the specific column.
    */
@@ -55,7 +55,7 @@ public enum TableStatistics implements CollectableTableStatisticKind {
 
   private final String statisticKey;
 
-  TableStatistics(String statisticKey) {
+  TableStatisticsKind(String statisticKey) {
     this.statisticKey = statisticKey;
   }
 

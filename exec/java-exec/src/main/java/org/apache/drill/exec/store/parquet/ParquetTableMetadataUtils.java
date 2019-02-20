@@ -36,7 +36,7 @@ import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
-import org.apache.drill.metastore.TableStatistics;
+import org.apache.drill.metastore.TableStatisticsKind;
 import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
@@ -75,6 +75,7 @@ public class ParquetTableMetadataUtils {
               ColumnStatisticsKind.NULLS_COUNT);
 
   private ParquetTableMetadataUtils() {
+    throw new IllegalStateException("Utility class");
   }
 
   /**
@@ -137,7 +138,7 @@ public class ParquetTableMetadataUtils {
       MetadataBase.RowGroupMetadata rowGroupMetadata, int rgIndexInFile, String location) {
     Map<SchemaPath, ColumnStatistic> columnStatistics = getRowGroupColumnStatistics(tableMetadata, rowGroupMetadata);
     Map<String, Object> rowGroupStatistics = new HashMap<>();
-    rowGroupStatistics.put(TableStatistics.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
+    rowGroupStatistics.put(TableStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
     rowGroupStatistics.put("start", rowGroupMetadata.getStart());
     rowGroupStatistics.put("length", rowGroupMetadata.getLength());
 
@@ -173,7 +174,7 @@ public class ParquetTableMetadataUtils {
         if (columnStatistic == null) {
           // schema change happened, set statistics which represents all nulls
           columnStatistic = new ColumnStatisticImpl(
-              ImmutableMap.of(ColumnStatisticsKind.NULLS_COUNT.getName(), metadata.getStatistic(TableStatistics.ROW_COUNT)),
+              ImmutableMap.of(ColumnStatisticsKind.NULLS_COUNT.getName(), metadata.getStatistic(TableStatisticsKind.ROW_COUNT)),
               getNaturalNullsFirstComparator());
         }
         statisticsList.add(columnStatistic);
@@ -201,7 +202,7 @@ public class ParquetTableMetadataUtils {
       return null;
     }
     Map<String, Object> fileStatistics = new HashMap<>();
-    fileStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(rowGroups));
+    fileStatistics.put(TableStatisticsKind.ROW_COUNT.getName(), TableStatisticsKind.ROW_COUNT.mergeStatistic(rowGroups));
 
     TupleSchema schema = rowGroups.iterator().next().getSchema();
 
@@ -228,7 +229,7 @@ public class ParquetTableMetadataUtils {
     }
 
     Map<String, Object> partStatistics = new HashMap<>();
-    partStatistics.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(files));
+    partStatistics.put(TableStatisticsKind.ROW_COUNT.getName(), TableStatisticsKind.ROW_COUNT.mergeStatistic(files));
 
     return new PartitionMetadata(partitionColumn, files.iterator().next().getSchema(),
         mergeColumnStatistics(files, columns, PARQUET_STATISTICS), partStatistics, locations, tableName, -1);
@@ -489,7 +490,6 @@ public class ParquetTableMetadataUtils {
     }
   }
 
-
   /**
    * Returns {@link Comparator} instance considering specified {@code type}.
    *
@@ -654,7 +654,7 @@ public class ParquetTableMetadataUtils {
   public static TableMetadata updateRowCount(TableMetadata tableMetadata, List<? extends BaseMetadata> statistics) {
     Map<String, Object> newStats = new HashMap<>();
 
-    newStats.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(statistics));
+    newStats.put(TableStatisticsKind.ROW_COUNT.getName(), TableStatisticsKind.ROW_COUNT.mergeStatistic(statistics));
 
     Map<SchemaPath, ColumnStatistic> columnStatistics =
       mergeColumnStatistics(statistics, tableMetadata.getColumnStatistics().keySet(),

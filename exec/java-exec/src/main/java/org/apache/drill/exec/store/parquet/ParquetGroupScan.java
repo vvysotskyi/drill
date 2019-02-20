@@ -83,22 +83,16 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.metadataProvider = new ParquetTableMetadataProviderImpl(entries, selectionRoot, cacheFileRoot, null,
         readerConfig, fs, this.formatConfig.areCorruptDatesAutoCorrected());
     this.selectionRoot = metadataProvider.getSelectionRoot();
-    this.tableMetadata = metadataProvider.getTableMetadata();
-    this.partitions = metadataProvider.getPartitionsMetadata();
-    this.files = metadataProvider.getFilesMetadata();
     this.fileSet = metadataProvider.getFileSet();
     this.partitionColumns = metadataProvider.getPartitionColumns();
 
     ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
     this.entries = metadataProvider.getEntries();
-    this.rowGroups = metadataProvider.getRowGroupsMeta();
 
     init();
   }
 
-  // TODO: replace constructors by ParquetTableMetadataCreator usage and
-  //  add method for creating ParquetGroupScan
   public ParquetGroupScan(String userName,
                           FileSelection selection,
                           ParquetFormatPlugin formatPlugin,
@@ -123,20 +117,13 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     metadataProvider = new ParquetTableMetadataProviderImpl(selection, readerConfig, fs,
         formatConfig.areCorruptDatesAutoCorrected());
     this.selectionRoot = metadataProvider.getSelectionRoot();
-    this.tableMetadata = metadataProvider.getTableMetadata();
-    this.files = metadataProvider.getFilesMetadata();
-    this.partitions = metadataProvider.getPartitionsMetadata();
+
     this.partitionColumns = metadataProvider.getPartitionColumns();
     this.fileSet = metadataProvider.getFileSet();
 
     ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
     this.entries = metadataProvider.getEntries();
-    this.rowGroups = metadataProvider.getRowGroupsMeta();
-
-
-    // TODO: initialize TableMetadata, FileMetadata and RowGroupMetadata from
-    //  parquetTableMetadata if it wasn't fetched from the metastore using ParquetTableMetadataCreator
 
     init();
   }
@@ -226,7 +213,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     // TODO: solve whether print entries when no pruning is done or list of files
     //  and the actual number instead of root and 1 file...
     builder.append(", numFiles=").append(getEntries().size());
-    builder.append(", numRowGroups=").append(rowGroups.size());
+    builder.append(", numRowGroups=").append(getRowGroupsMetadata().size());
     builder.append(", usedMetadataFile=").append(usedMetadataCache);
 
     String filterString = getFilterString();

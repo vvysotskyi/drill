@@ -43,8 +43,7 @@ import static org.apache.drill.metastore.expr.IsPredicate.isNullOrEmpty;
 /**
  * Comparison predicates for metadata filter pushdown.
  */
-public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpressionBase
-    implements FilterPredicate<C> {
+public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpressionBase implements FilterPredicate<C> {
 
   private final LogicalExpression left;
   private final LogicalExpression right;

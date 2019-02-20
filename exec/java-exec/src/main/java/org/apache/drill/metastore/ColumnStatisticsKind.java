@@ -18,6 +18,7 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.exec.physical.base.GroupScan;
+import org.apache.drill.metastore.expr.StatisticName;
 
 import java.util.List;
 
@@ -30,7 +31,7 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticKind {
   /**
    * Column statistic kind which represents nulls count for the specific column.
    */
-  NULLS_COUNT("nullsCount") {
+  NULLS_COUNT(StatisticName.NULLS_COUNT) {
     @Override
     public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {
       long nullsCount = 0;
@@ -49,7 +50,7 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticKind {
   /**
    * Column statistic kind which represents min value of the specific column.
    */
-  MIN_VALUE("minValue") {
+  MIN_VALUE(StatisticName.MIN_VALUE) {
     @Override
     @SuppressWarnings("unchecked")
     public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {
@@ -72,7 +73,7 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticKind {
   /**
    * Column statistic kind which represents max value of the specific column.
    */
-  MAX_VALUE("maxValue") {
+  MAX_VALUE(StatisticName.MAX_VALUE) {
     @Override
     @SuppressWarnings("unchecked")
     public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {

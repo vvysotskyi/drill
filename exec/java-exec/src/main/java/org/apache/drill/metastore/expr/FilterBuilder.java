@@ -98,62 +98,57 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
   }
 
   @Override
-  public LogicalExpression visitTypedFieldExpr(TypedFieldExpr typedFieldExpr, Set<LogicalExpression> value) throws RuntimeException {
+  public LogicalExpression visitTypedFieldExpr(TypedFieldExpr typedFieldExpr, Set<LogicalExpression> value) {
     return typedFieldExpr;
   }
 
   @Override
-  public LogicalExpression visitIntConstant(ValueExpressions.IntExpression intExpr, Set<LogicalExpression> value)
-    throws RuntimeException {
+  public LogicalExpression visitIntConstant(ValueExpressions.IntExpression intExpr, Set<LogicalExpression> value) {
     return intExpr;
   }
 
   @Override
-  public LogicalExpression visitDoubleConstant(ValueExpressions.DoubleExpression dExpr, Set<LogicalExpression> value)
-    throws RuntimeException {
+  public LogicalExpression visitDoubleConstant(ValueExpressions.DoubleExpression dExpr, Set<LogicalExpression> value) {
     return dExpr;
   }
 
   @Override
-  public LogicalExpression visitFloatConstant(ValueExpressions.FloatExpression fExpr, Set<LogicalExpression> value)
-    throws RuntimeException {
+  public LogicalExpression visitFloatConstant(ValueExpressions.FloatExpression fExpr, Set<LogicalExpression> value) {
     return fExpr;
   }
 
   @Override
-  public LogicalExpression visitLongConstant(ValueExpressions.LongExpression intExpr, Set<LogicalExpression> value)
-    throws RuntimeException {
+  public LogicalExpression visitLongConstant(ValueExpressions.LongExpression intExpr, Set<LogicalExpression> value) {
     return intExpr;
   }
 
   @Override
-  public LogicalExpression visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Set<LogicalExpression> value)
-    throws RuntimeException {
+  public LogicalExpression visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Set<LogicalExpression> value) {
     return decExpr;
   }
 
   @Override
-  public LogicalExpression visitDateConstant(ValueExpressions.DateExpression dateExpr, Set<LogicalExpression> value) throws RuntimeException {
+  public LogicalExpression visitDateConstant(ValueExpressions.DateExpression dateExpr, Set<LogicalExpression> value) {
     return dateExpr;
   }
 
   @Override
-  public LogicalExpression visitTimeStampConstant(ValueExpressions.TimeStampExpression tsExpr, Set<LogicalExpression> value) throws RuntimeException {
+  public LogicalExpression visitTimeStampConstant(ValueExpressions.TimeStampExpression tsExpr, Set<LogicalExpression> value) {
     return tsExpr;
   }
 
   @Override
-  public LogicalExpression visitTimeConstant(ValueExpressions.TimeExpression timeExpr, Set<LogicalExpression> value) throws RuntimeException {
+  public LogicalExpression visitTimeConstant(ValueExpressions.TimeExpression timeExpr, Set<LogicalExpression> value) {
     return timeExpr;
   }
 
   @Override
-  public LogicalExpression visitBooleanConstant(ValueExpressions.BooleanExpression booleanExpression, Set<LogicalExpression> value) throws RuntimeException {
+  public LogicalExpression visitBooleanConstant(ValueExpressions.BooleanExpression booleanExpression, Set<LogicalExpression> value) {
     return booleanExpression;
   }
 
   @Override
-  public LogicalExpression visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Set<LogicalExpression> value) throws RuntimeException {
+  public LogicalExpression visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Set<LogicalExpression> value) {
     return quotedString;
   }
 
@@ -179,7 +174,7 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
       }
     }
 
-    if (childPredicates.size() == 0) {
+    if (childPredicates.isEmpty()) {
       return null; // none leg is qualified, return null.
     } else if (childPredicates.size() == 1) {
       return childPredicates.get(0); // only one leg is qualified, remove boolean op.
@@ -223,8 +218,7 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
   }
 
   @Override
-  public LogicalExpression visitFunctionHolderExpression(FunctionHolderExpression funcHolderExpr, Set<LogicalExpression> value)
-    throws RuntimeException {
+  public LogicalExpression visitFunctionHolderExpression(FunctionHolderExpression funcHolderExpr, Set<LogicalExpression> value) {
     FuncHolder holder = funcHolderExpr.getHolder();
 
     if (! (holder instanceof DrillSimpleFuncHolder)) {

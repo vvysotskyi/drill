@@ -22,7 +22,7 @@ import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
 import org.apache.drill.metastore.RowGroupMetadata;
-import org.apache.drill.metastore.TableStatistics;
+import org.apache.drill.metastore.TableStatisticsKind;
 import org.apache.drill.metastore.expr.FilterBuilder;
 import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -63,7 +63,7 @@ public class FilterEvaluatorUtils {
     columnStatisticsMap = ParquetTableMetadataUtils.addImplicitColumnsStatistic(columnStatisticsMap,
         schemaPathsInExpr, Collections.emptyList(), options, rowGroupMetadata.getLocation(), true);
 
-    return matches(expr, columnStatisticsMap, rowGroupMetadata.getSchema(), (Long) TableStatistics.ROW_COUNT.getValue(rowGroupMetadata),
+    return matches(expr, columnStatisticsMap, rowGroupMetadata.getSchema(), (Long) TableStatisticsKind.ROW_COUNT.getValue(rowGroupMetadata),
         fragmentContext, fragmentContext.getFunctionRegistry());
   }
 

@@ -29,13 +29,13 @@ import java.util.Set;
  * The main Drill Metastore API for obtaining TableMetadata Base interface for providing table, partition, file etc. metadata.
  */
 public interface TableMetadataProvider {
-  TableMetadata getTableMetadata(); // TODO: do change: do not pass location and tableName for every method
+  TableMetadata getTableMetadata();
 
   List<SchemaPath> getPartitionColumns();
 
   List<PartitionMetadata> getPartitionsMetadata();
 
-  PartitionMetadata getPartitionMetadata(SchemaPath columnName);
+  List<PartitionMetadata> getPartitionMetadata(SchemaPath columnName);
 
   FileMetadata getFileMetadata();
 
