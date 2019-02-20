@@ -46,7 +46,6 @@
         <include>org.apache.drill.contrib:drill-storage-kafka:jar</include>
         <include>org.apache.drill.contrib:drill-opentsdb-storage:jar</include>
         <include>org.apache.drill.contrib:drill-udfs:jar</include>
-      <include>org.apache.drill.metastore:metastore-file-metadata:jar</include>
     </includes>
       <sources>
         <includeModuleDirectory>false</includeModuleDirectory>

@@ -23,13 +23,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.metastore.ColumnStatistic;
-import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
@@ -59,7 +56,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMetadata {
@@ -74,6 +70,8 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
   protected ParquetReaderConfig readerConfig;
 
   private List<EndpointAffinity> endpointAffinities;
+  // used for applying assignments for incoming endpoints
+  private List<RowGroupInfo> rowGroupInfos;
 
   protected AbstractParquetGroupScan(String userName,
                                      List<SchemaPath> columns,
@@ -108,15 +106,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
 
   @JsonProperty
   public List<ReadEntryWithPath> getEntries() {
-    // master version has incorrect behavior: all files list is known and stored in metadata,
-    // but it is ignored and is affected only when pruning is happened.
-    // Is it done in order to decrease plan?
-//    if (files == null || files.isEmpty()) {
     return entries;
-//    }
-//    return files.stream()
-//        .map(fileMetadata -> new ReadEntryWithPath(fileMetadata.getLocation()))
-//        .collect(Collectors.toList());
   }
 
   @JsonProperty("readerConfig")
@@ -150,11 +140,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
   @Override
   public ScanStats getScanStats() {
     int columnCount = columns == null ? 20 : columns.size();
-    // TODO: add check for metadata availability and use tableMetadata with updated rows count
-    long rowCount = 0;
-    for (RowGroupMetadata rowGroup : rowGroups) {
-      rowCount += (long) TableStatistics.ROW_COUNT.getValue(rowGroup);
-    }
+    long rowCount = (long) TableStatistics.ROW_COUNT.getValue(tableMetadata);
 
     return new ScanStats(ScanStats.GroupScanProperty.EXACT_ROW_COUNT, rowCount, 1, rowCount * (double) columnCount);
   }
@@ -164,43 +150,39 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     this.mappings = AssignmentCreator.getMappings(incomingEndpoints, getRowGroupInfos());
   }
 
-  // TODO: rework to store once and update where needed
   private List<RowGroupInfo> getRowGroupInfos() {
-    Map<String, CoordinationProtos.DrillbitEndpoint> hostEndpointMap = new HashMap<>();
+    if (rowGroupInfos == null) {
+      Map<String, CoordinationProtos.DrillbitEndpoint> hostEndpointMap = new HashMap<>();
 
-    for (CoordinationProtos.DrillbitEndpoint endpoint : getDrillbits()) {
-      hostEndpointMap.put(endpoint.getAddress(), endpoint);
+      for (CoordinationProtos.DrillbitEndpoint endpoint : getDrillbits()) {
+        hostEndpointMap.put(endpoint.getAddress(), endpoint);
+      }
+      int rgIndex = 0;
+
+      rowGroupInfos = new ArrayList<>();
+      for (RowGroupMetadata rowGroupMetadata : rowGroups) {
+        RowGroupInfo rowGroupInfo = new RowGroupInfo(rowGroupMetadata.getLocation(),
+            (long) rowGroupMetadata.getStatistic(() -> "start"),
+            (long) rowGroupMetadata.getStatistic(() -> "length"),
+            rowGroupMetadata.getRowGroupIndex(),
+            (long) rowGroupMetadata.getStatistic(TableStatistics.ROW_COUNT));
+        rowGroupInfo.setNumRecordsToRead(
+            rowGroupAndNumsToRead.getOrDefault(rgIndex++, rowGroupInfo.getRowCount()));
+
+        EndpointByteMap endpointByteMap = new EndpointByteMapImpl();
+        for (String host : rowGroupMetadata.getHostAffinity().keySet()) {
+          if (hostEndpointMap.containsKey(host)) {
+            endpointByteMap.add(hostEndpointMap.get(host),
+              (long) (rowGroupMetadata.getHostAffinity().get(host) * (long) rowGroupMetadata.getStatistic(() -> "length")));
+          }
+        }
+
+        rowGroupInfo.setEndpointByteMap(endpointByteMap);
+
+        rowGroupInfos.add(rowGroupInfo);
+      }
     }
-    AtomicInteger rgIndex = new AtomicInteger();
-
-    // TODO: investigate how to handle such case.
-    //  Perhaps approach used for files should be used in such case.
-    if (rowGroups == null) {
-      return null;
-    }
-
-    return rowGroups.stream()
-        .map(rowGroupMetadata -> {
-          RowGroupInfo rowGroupInfo = new RowGroupInfo(rowGroupMetadata.getLocation(),
-              (long) rowGroupMetadata.getStatistic(() -> "start"),
-              (long) rowGroupMetadata.getStatistic(() -> "length"),
-              rowGroupMetadata.getRowGroupIndex(),
-              (long) rowGroupMetadata.getStatistic(TableStatistics.ROW_COUNT));
-          rowGroupInfo.setNumRecordsToRead(
-              rowGroupAndNumsToRead.getOrDefault(rgIndex.getAndIncrement(), rowGroupInfo.getRowCount()));
-
-          EndpointByteMap endpointByteMap = new EndpointByteMapImpl();
-          rowGroupMetadata.getHostAffinity().keySet().stream()
-              .filter(hostEndpointMap::containsKey)
-              .forEach(host ->
-                  endpointByteMap.add(hostEndpointMap.get(host),
-                      (long) (rowGroupMetadata.getHostAffinity().get(host) * (long) rowGroupMetadata.getStatistic(() -> "length"))));
-
-          rowGroupInfo.setEndpointByteMap(endpointByteMap);
-
-          return rowGroupInfo;
-        })
-        .collect(Collectors.toList());
+    return rowGroupInfos;
   }
 
   @Override
@@ -230,8 +212,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     for (RowGroupInfo rgi : rowGroupsForMinor) {
       RowGroupReadEntry entry = new RowGroupReadEntry(rgi.getPath(), rgi.getStart(),
           rgi.getLength(), rgi.getRowGroupIndex(),
-          rowGroupAndNumsToRead.getOrDefault(rgi.getRowGroupIndex(), rgi.getNumRecordsToRead())
-      );
+          rgi.getNumRecordsToRead());
       readEntries.add(entry);
     }
     return readEntries;
@@ -436,6 +417,8 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
           .collect(Collectors.toList());
     }
 
+    tableMetadata = ParquetTableMetadataUtils.updateRowCount(tableMetadata, rowGroups);
+
     if (this.files != null) {
       this.files = this.files.stream()
           .filter(entry -> fileSet.contains(entry.getLocation()))
@@ -453,6 +436,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       }
       partitions = new ArrayList<>(newPartitions);
     }
+    rowGroupInfos = null;
   }
 
   // protected methods block
@@ -481,16 +465,8 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     public AbstractGroupScanWithMetadata build() {
       newScan.tableMetadata = tableMetadata != null && !tableMetadata.isEmpty() ? tableMetadata.get(0) : null;
       // updates common row count and nulls counts for every column
-      if (newScan.rowGroups.size() != rowGroups.size()) {
-        Map<String, Object> newStats = new HashMap<>();
-
-        newStats.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(newScan.rowGroups));
-
-        Map<SchemaPath, ColumnStatistic> columnStatistics =
-            ParquetTableMetadataUtils.mergeColumnStatistics(newScan.rowGroups, newScan.tableMetadata.getColumnStatistics().keySet(),
-                ImmutableList.of(ColumnStatisticsKind.NULLS_COUNT));
-
-        newScan.tableMetadata = newScan.tableMetadata.cloneWithStats(columnStatistics, newStats);
+      if (newScan.tableMetadata != null && rowGroups != null && newScan.rowGroups.size() != rowGroups.size()) {
+        newScan.tableMetadata = ParquetTableMetadataUtils.updateRowCount(newScan.tableMetadata, rowGroups);
       }
       newScan.partitions = partitions != null ? partitions : Collections.emptyList();
       newScan.files = files != null ? files : Collections.emptyList();

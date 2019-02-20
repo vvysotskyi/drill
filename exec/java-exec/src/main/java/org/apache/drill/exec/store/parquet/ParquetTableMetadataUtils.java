@@ -35,6 +35,7 @@ import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
+import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatistics;
 import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
@@ -641,5 +642,24 @@ public class ParquetTableMetadataUtils {
       }
     }
     return columns;
+  }
+
+  /**
+   * Updates row cont and column nulls count for specified table metadata and returns new {@link TableMetadata} instance with updated statistics.
+   *
+   * @param tableMetadata table statistics to update
+   * @param statistics    list of statistics whose row count should be considered
+   * @return new {@link TableMetadata} instance with updated statistics
+   */
+  public static TableMetadata updateRowCount(TableMetadata tableMetadata, List<? extends BaseMetadata> statistics) {
+    Map<String, Object> newStats = new HashMap<>();
+
+    newStats.put(TableStatistics.ROW_COUNT.getName(), TableStatistics.ROW_COUNT.mergeStatistic(statistics));
+
+    Map<SchemaPath, ColumnStatistic> columnStatistics =
+      mergeColumnStatistics(statistics, tableMetadata.getColumnStatistics().keySet(),
+        ImmutableList.of(ColumnStatisticsKind.NULLS_COUNT));
+
+    return tableMetadata.cloneWithStats(columnStatistics, newStats);
   }
 }
