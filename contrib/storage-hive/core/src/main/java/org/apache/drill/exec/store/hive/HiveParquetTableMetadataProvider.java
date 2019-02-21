@@ -48,13 +48,9 @@ public class HiveParquetTableMetadataProvider extends BaseParquetTableMetadataPr
                                          HiveStoragePlugin hiveStoragePlugin,
                                          ParquetReaderConfig readerConfig,
                                          Set<String> fileSet) throws IOException {
-    super(entries, readerConfig, fileSet);
+    super(entries, readerConfig, fileSet, null, null);
     this.hiveStoragePlugin = hiveStoragePlugin;
     this.hivePartitionHolder = hivePartitionHolder;
-
-    // TODO: pass correct name and location here and in constructor below
-    this.tableName = null;
-    this.tableLocation = null;
 
     init();
   }
@@ -62,7 +58,7 @@ public class HiveParquetTableMetadataProvider extends BaseParquetTableMetadataPr
   public HiveParquetTableMetadataProvider(HiveStoragePlugin hiveStoragePlugin,
                                           List<HiveMetadataProvider.LogicalInputSplit> logicalInputSplits,
                                           ParquetReaderConfig readerConfig) throws IOException {
-    super(readerConfig, null);
+    super(readerConfig, null, null, null);
     this.hiveStoragePlugin = hiveStoragePlugin;
     this.hivePartitionHolder = new HivePartitionHolder();
 

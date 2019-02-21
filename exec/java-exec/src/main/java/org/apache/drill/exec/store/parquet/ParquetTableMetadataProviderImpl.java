@@ -58,14 +58,12 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
                                           ParquetReaderConfig readerConfig,
                                           DrillFileSystem fs,
                                           boolean autoCorrectCorruptedDates) throws IOException {
-    super(entries, readerConfig, fileSet);
+    super(entries, readerConfig, fileSet, selectionRoot, selectionRoot);
     this.fs = fs;
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
     this.metaContext = new MetadataContext();
 
-    this.tableName = selectionRoot;
-    this.tableLocation = selectionRoot;
     this.corruptDatesAutoCorrected = autoCorrectCorruptedDates;
 
     init();
@@ -75,7 +73,7 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
                                           ParquetReaderConfig readerConfig,
                                           DrillFileSystem fs,
                                           boolean autoCorrectCorruptedDates) throws IOException {
-    super(readerConfig, new ArrayList<>());
+    super(readerConfig, new ArrayList<>(), selection.getSelectionRoot(), selection.getSelectionRoot());
 
     this.fs = fs;
     this.selectionRoot = selection.getSelectionRoot();
@@ -84,8 +82,6 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
     MetadataContext metadataContext = selection.getMetaContext();
     this.metaContext = metadataContext != null ? metadataContext : new MetadataContext();
 
-    this.tableName = selectionRoot;
-    this.tableLocation = selectionRoot;
     this.corruptDatesAutoCorrected = autoCorrectCorruptedDates;
 
     FileSelection fileSelection = expandIfNecessary(selection);
@@ -110,55 +106,56 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
 
   @Override
   protected void initInternal() throws IOException {
-    FileSystem processUserFileSystem = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), fs.getConf());
-    Path metaPath = null;
-    if (entries.size() == 1 && parquetTableMetadata == null) {
-      Path p = Path.getPathWithoutSchemeAndAuthority(new Path(entries.get(0).getPath()));
-      if (fs.isDirectory(p)) {
-        // Using the metadata file makes sense when querying a directory; otherwise
-        // if querying a single file we can look up the metadata directly from the file
-        metaPath = new Path(p, Metadata.METADATA_FILENAME);
-      }
-      if (!metaContext.isMetadataCacheCorrupted() && metaPath != null && fs.exists(metaPath)) {
-        parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
-        if (parquetTableMetadata != null) {
-          usedMetadataCache = true;
+    try (FileSystem processUserFileSystem = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), fs.getConf())) {
+      Path metaPath = null;
+      if (entries.size() == 1 && parquetTableMetadata == null) {
+        Path p = Path.getPathWithoutSchemeAndAuthority(new Path(entries.get(0).getPath()));
+        if (fs.isDirectory(p)) {
+          // Using the metadata file makes sense when querying a directory; otherwise
+          // if querying a single file we can look up the metadata directly from the file
+          metaPath = new Path(p, Metadata.METADATA_FILENAME);
         }
-      }
-      if (!usedMetadataCache) {
-        parquetTableMetadata = Metadata.getParquetTableMetadata(processUserFileSystem, p.toString(), readerConfig);
-      }
-    } else {
-      Path p = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot));
-      metaPath = new Path(p, Metadata.METADATA_FILENAME);
-      if (!metaContext.isMetadataCacheCorrupted() && fs.isDirectory(new Path(selectionRoot))
-          && fs.exists(metaPath)) {
-        if (parquetTableMetadata == null) {
+        if (!metaContext.isMetadataCacheCorrupted() && metaPath != null && fs.exists(metaPath)) {
           parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
-        }
-        if (parquetTableMetadata != null) {
-          usedMetadataCache = true;
-          if (fileSet != null) {
-            parquetTableMetadata = removeUnneededRowGroups(parquetTableMetadata);
+          if (parquetTableMetadata != null) {
+            usedMetadataCache = true;
           }
         }
-      }
-      if (!usedMetadataCache) {
-        final List<FileStatus> fileStatuses = new ArrayList<>();
-        for (ReadEntryWithPath entry : entries) {
-          fileStatuses.addAll(
-              DrillFileSystemUtil.listFiles(fs, Path.getPathWithoutSchemeAndAuthority(new Path(entry.getPath())), true));
+        if (!usedMetadataCache) {
+          parquetTableMetadata = Metadata.getParquetTableMetadata(processUserFileSystem, p.toString(), readerConfig);
         }
+      } else {
+        Path p = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot));
+        metaPath = new Path(p, Metadata.METADATA_FILENAME);
+        if (!metaContext.isMetadataCacheCorrupted() && fs.isDirectory(new Path(selectionRoot))
+            && fs.exists(metaPath)) {
+          if (parquetTableMetadata == null) {
+            parquetTableMetadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
+          }
+          if (parquetTableMetadata != null) {
+            usedMetadataCache = true;
+            if (fileSet != null) {
+              parquetTableMetadata = removeUnneededRowGroups(parquetTableMetadata);
+            }
+          }
+        }
+        if (!usedMetadataCache) {
+          final List<FileStatus> fileStatuses = new ArrayList<>();
+          for (ReadEntryWithPath entry : entries) {
+            fileStatuses.addAll(
+                DrillFileSystemUtil.listFiles(fs, Path.getPathWithoutSchemeAndAuthority(new Path(entry.getPath())), true));
+          }
 
-        Map<FileStatus, FileSystem> statusMap = fileStatuses.stream()
-            .collect(
+          Map<FileStatus, FileSystem> statusMap = fileStatuses.stream()
+              .collect(
                 Collectors.toMap(
-                    Function.identity(),
-                    s -> processUserFileSystem,
-                    (oldFs, newFs) -> newFs,
-                    LinkedHashMap::new));
+                  Function.identity(),
+                  s -> processUserFileSystem,
+                  (oldFs, newFs) -> newFs,
+                  LinkedHashMap::new));
 
-        parquetTableMetadata = Metadata.getParquetTableMetadata(statusMap, readerConfig);
+          parquetTableMetadata = Metadata.getParquetTableMetadata(statusMap, readerConfig);
+        }
       }
     }
   }
@@ -201,7 +198,6 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
    * @return true if entries should be initialized with selection root, false otherwise
    */
   private boolean checkForInitializingEntriesWithSelectionRoot() {
-    // TODO: at some point we should examine whether the list of entries is absolutely needed.
     return metaContext.isMetadataCacheCorrupted() || (parquetTableMetadata != null &&
         (metaContext.getPruneStatus() == MetadataContext.PruneStatus.NOT_STARTED || metaContext.getPruneStatus() == MetadataContext.PruneStatus.NOT_PRUNED));
   }

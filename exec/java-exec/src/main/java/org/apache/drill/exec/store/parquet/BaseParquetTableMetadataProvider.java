@@ -78,15 +78,21 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
   private boolean collectMetadata = true;
 
   public BaseParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
-                                  ParquetReaderConfig readerConfig,
-                                  Set<String> fileSet) {
-    this(readerConfig, entries);
+                                          ParquetReaderConfig readerConfig,
+                                          Set<String> fileSet,
+                                          String tableName,
+                                          String tableLocation) {
+    this(readerConfig, entries, tableName, tableLocation);
     this.fileSet = fileSet;
   }
 
-  public BaseParquetTableMetadataProvider(ParquetReaderConfig readerConfig, List<ReadEntryWithPath> entries) {
+  public BaseParquetTableMetadataProvider(ParquetReaderConfig readerConfig, List<ReadEntryWithPath> entries,
+                                          String tableName,
+                                          String tableLocation) {
     this.entries = entries == null ? new ArrayList<>() : entries;
     this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
+    this.tableName = tableName;
+    this.tableLocation = tableLocation;
   }
 
   protected void init() throws IOException {

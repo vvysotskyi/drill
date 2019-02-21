@@ -80,15 +80,13 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     DrillFileSystem fs =
         ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
 
-    this.metadataProvider = new ParquetTableMetadataProviderImpl(entries, selectionRoot, cacheFileRoot, null,
+    this.metadataProvider = new ParquetTableMetadataProviderImpl(this.entries, selectionRoot, cacheFileRoot, null,
         readerConfig, fs, this.formatConfig.areCorruptDatesAutoCorrected());
     this.selectionRoot = metadataProvider.getSelectionRoot();
     this.fileSet = metadataProvider.getFileSet();
-    this.partitionColumns = metadataProvider.getPartitionColumns();
 
     ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
-    this.entries = metadataProvider.getEntries();
 
     init();
   }
@@ -118,7 +116,6 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
         formatConfig.areCorruptDatesAutoCorrected());
     this.selectionRoot = metadataProvider.getSelectionRoot();
 
-    this.partitionColumns = metadataProvider.getPartitionColumns();
     this.fileSet = metadataProvider.getFileSet();
 
     ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
@@ -148,7 +145,6 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.selectionRoot = that.selectionRoot;
     this.cacheFileRoot = selection == null ? that.cacheFileRoot : selection.getCacheFileRoot();
     this.usedMetadataCache = that.usedMetadataCache;
-    this.partitionColumns = that.partitionColumns;
   }
 
   // getters for serialization / deserialization start
@@ -193,7 +189,6 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
   @Override
   public ParquetGroupScan clone(FileSelection selection) throws IOException {
-    // TODO: rewrite in accordance to the new logic
     ParquetGroupScan newScan = new ParquetGroupScan(this, selection);
     newScan.modifyFileSelection(selection);
     newScan.init();
@@ -244,8 +239,8 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected RowGroupScanBuilder getBuilder() {
-    return new ParquetGroupScanBuilder(this);
+  protected RowGroupScanFilterer getFilterer() {
+    return new ParquetGroupScanFilterer(this);
   }
 
   @Override
@@ -264,10 +259,14 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
   // overridden protected methods block end
 
-  private static class ParquetGroupScanBuilder extends RowGroupScanBuilder {
+  private class ParquetGroupScanFilterer extends RowGroupScanFilterer {
 
-    public ParquetGroupScanBuilder(ParquetGroupScan source) {
-      this.newScan = new ParquetGroupScan(source);
+    public ParquetGroupScanFilterer(ParquetGroupScan source) {
+      super(source);
+    }
+
+    protected AbstractParquetGroupScan getNewScan() {
+      return new ParquetGroupScan((ParquetGroupScan) source);
     }
   }
 }

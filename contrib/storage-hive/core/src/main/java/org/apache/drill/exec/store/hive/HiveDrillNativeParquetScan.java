@@ -69,13 +69,8 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
     this.metadataProvider = new HiveParquetTableMetadataProvider(entries, hivePartitionHolder, hiveStoragePlugin, readerConfig, null);
 
-//    String tableLocation = null; // TODO: initialize properly
-//    String tableName = null; // TODO: initialize properly
-
-    HiveParquetTableMetadataProvider metadataProvider = (HiveParquetTableMetadataProvider) this.metadataProvider;
-    this.partitionColumns = metadataProvider.getPartitionColumns();
-    this.hivePartitionHolder = metadataProvider.getHivePartitionHolder();
-    this.entries = metadataProvider.getEntries();
+    HiveParquetTableMetadataProvider hiveMetadataProvider = (HiveParquetTableMetadataProvider) this.metadataProvider;
+    this.hivePartitionHolder = hiveMetadataProvider.getHivePartitionHolder();
 
     init();
   }
@@ -101,11 +96,11 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.hiveStoragePlugin = hiveStoragePlugin;
     this.confProperties = confProperties;
 
-    HiveParquetTableMetadataProvider metadataCreator = new HiveParquetTableMetadataProvider(hiveStoragePlugin, logicalInputSplits, readerConfig);
+    this.metadataProvider = new HiveParquetTableMetadataProvider(hiveStoragePlugin, logicalInputSplits, readerConfig);
 
-    this.entries = metadataCreator.getEntries();
-    this.partitionColumns = metadataCreator.getPartitionColumns();
-    this.hivePartitionHolder = metadataCreator.getHivePartitionHolder();
+    HiveParquetTableMetadataProvider hiveMetadataProvider = (HiveParquetTableMetadataProvider) metadataProvider;
+    this.entries = hiveMetadataProvider.getEntries();
+    this.hivePartitionHolder = hiveMetadataProvider.getHivePartitionHolder();
 
     init();
   }
@@ -190,8 +185,8 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected RowGroupScanBuilder getBuilder() {
-    return new HiveDrillNativeParquetScanBuilder(this);
+  protected RowGroupScanFilterer getFilterer() {
+    return new HiveDrillNativeParquetScanFilterer(this);
   }
 
   @Override
@@ -215,10 +210,14 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     return hivePartitionHolder.get(rowGroupInfo.getLocation());
   }
 
-  private static class HiveDrillNativeParquetScanBuilder extends RowGroupScanBuilder {
+  private class HiveDrillNativeParquetScanFilterer extends RowGroupScanFilterer {
 
-    public HiveDrillNativeParquetScanBuilder(HiveDrillNativeParquetScan source) {
-      this.newScan = new HiveDrillNativeParquetScan(source);
+    public HiveDrillNativeParquetScanFilterer(HiveDrillNativeParquetScan source) {
+      super(source);
+    }
+
+    protected AbstractParquetGroupScan getNewScan() {
+      return new HiveDrillNativeParquetScan((HiveDrillNativeParquetScan) source);
     }
   }
 }
