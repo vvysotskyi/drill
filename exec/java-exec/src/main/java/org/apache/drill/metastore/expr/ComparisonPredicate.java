@@ -23,7 +23,7 @@ import org.apache.drill.common.expression.visitors.ExprVisitor;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
 import org.apache.drill.exec.expr.stat.RowsMatch;
-import org.apache.drill.metastore.ColumnStatistic;
+import org.apache.drill.metastore.ColumnStatistics;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 
 import java.math.BigDecimal;
@@ -48,12 +48,12 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
   private final LogicalExpression left;
   private final LogicalExpression right;
 
-  private final BiFunction<ColumnStatistic<C>, ColumnStatistic<C>, RowsMatch> predicate;
+  private final BiFunction<ColumnStatistics<C>, ColumnStatistics<C>, RowsMatch> predicate;
 
   private ComparisonPredicate(
     LogicalExpression left,
     LogicalExpression right,
-    BiFunction<ColumnStatistic<C>, ColumnStatistic<C>, RowsMatch> predicate
+    BiFunction<ColumnStatistics<C>, ColumnStatistics<C>, RowsMatch> predicate
   ) {
     super(left.getPosition());
     this.left = left;
@@ -94,11 +94,11 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    */
   @Override
   public RowsMatch matches(StatisticsProvider<C> evaluator) {
-    ColumnStatistic<C> leftStat = left.accept(evaluator, null);
+    ColumnStatistics<C> leftStat = left.accept(evaluator, null);
     if (isNullOrEmpty(leftStat)) {
       return RowsMatch.SOME;
     }
-    ColumnStatistic<C> rightStat = right.accept(evaluator, null);
+    ColumnStatistics<C> rightStat = right.accept(evaluator, null);
     if (isNullOrEmpty(rightStat)) {
       return RowsMatch.SOME;
     }
@@ -134,7 +134,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    * @return adjusted statistics
    */
   @SuppressWarnings("unchecked")
-  private ColumnStatistic<C> adjustDecimalStatistics(ColumnStatistic<C> statistics, int scale) {
+  private ColumnStatistics<C> adjustDecimalStatistics(ColumnStatistics<C> statistics, int scale) {
     BigInteger min = new BigDecimal((BigInteger) statistics.getStatistic(ColumnStatisticsKind.MIN_VALUE))
         .setScale(scale, RoundingMode.HALF_UP).unscaledValue();
     BigInteger max = new BigDecimal((BigInteger) statistics.getStatistic(ColumnStatisticsKind.MAX_VALUE))
@@ -146,7 +146,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
   /**
    * If one rowgroup contains some null values, change the RowsMatch.ALL into RowsMatch.SOME (null values should be discarded by filter)
    */
-  private static RowsMatch checkNull(ColumnStatistic leftStat, ColumnStatistic rightStat) {
+  private static RowsMatch checkNull(ColumnStatistics leftStat, ColumnStatistics rightStat) {
     return !hasNoNulls(leftStat) || !hasNoNulls(rightStat) ? RowsMatch.SOME : RowsMatch.ALL;
   }
 
@@ -198,11 +198,11 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
     });
   }
 
-  static <C> C getMaxValue(ColumnStatistic<C> leftStat) {
+  static <C> C getMaxValue(ColumnStatistics<C> leftStat) {
     return leftStat.getValueStatistic(ColumnStatisticsKind.MAX_VALUE);
   }
 
-  static <C> C getMinValue(ColumnStatistic<C> leftStat) {
+  static <C> C getMinValue(ColumnStatistics<C> leftStat) {
     return leftStat.getValueStatistic(ColumnStatisticsKind.MIN_VALUE);
   }
 

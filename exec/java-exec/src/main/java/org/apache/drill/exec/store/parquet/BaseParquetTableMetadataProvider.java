@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.parquet;
 
 import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
 import org.apache.drill.metastore.BaseMetadata;
+import org.apache.drill.metastore.ColumnStatisticsImpl;
 import org.apache.drill.metastore.TableStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
@@ -32,8 +33,7 @@ import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
-import org.apache.drill.metastore.ColumnStatistic;
-import org.apache.drill.metastore.ColumnStatisticImpl;
+import org.apache.drill.metastore.ColumnStatistics;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
@@ -121,16 +121,16 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
         SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
       }
 
-      Map<SchemaPath, ColumnStatistic> columnStatistics;
+      Map<SchemaPath, ColumnStatistics> columnsStatistics;
       if (collectMetadata) {
         List<? extends BaseMetadata> metadata = getFilesMetadata();
         if (metadata == null || metadata.isEmpty()) {
           metadata = getRowGroupsMeta();
         }
-        tableStatistics.put(TableStatisticsKind.ROW_COUNT.getName(), TableStatisticsKind.ROW_COUNT.mergeStatistic(metadata));
-        columnStatistics = ParquetTableMetadataUtils.mergeColumnStatistics(metadata, fields.keySet(), ParquetTableMetadataUtils.PARQUET_STATISTICS);
+        tableStatistics.put(TableStatisticsKind.ROW_COUNT.getName(), TableStatisticsKind.ROW_COUNT.mergeStatistics(metadata));
+        columnsStatistics = ParquetTableMetadataUtils.mergeColumnsStatistics(metadata, fields.keySet(), ParquetTableMetadataUtils.PARQUET_STATISTICS);
       } else {
-        columnStatistics = new HashMap<>();
+        columnsStatistics = new HashMap<>();
         tableStatistics.put(TableStatisticsKind.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
 
         for (SchemaPath partitionColumn : fields.keySet()) {
@@ -138,10 +138,10 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
           ImmutableMap<String, Long> stats = ImmutableMap.of(
               TableStatisticsKind.ROW_COUNT.getName(), columnValueCount,
               ColumnStatisticsKind.NULLS_COUNT.getName(), getParquetGroupScanStatistics().getRowCount() - columnValueCount);
-          columnStatistics.put(partitionColumn, new ColumnStatisticImpl(stats, ParquetTableMetadataUtils.getNaturalNullsFirstComparator()));
+          columnsStatistics.put(partitionColumn, new ColumnStatisticsImpl(stats, ParquetTableMetadataUtils.getNaturalNullsFirstComparator()));
         }
       }
-      tableMetadata = new TableMetadata(tableName, tableLocation, schema, columnStatistics, tableStatistics,
+      tableMetadata = new TableMetadata(tableName, tableLocation, schema, columnsStatistics, tableStatistics,
           -1, "root", partitionKeys);
     }
 
@@ -206,7 +206,7 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
           }
 
           for (Map.Entry<Object, Collection<String>> valueLocationsEntry : partitionsForValue.asMap().entrySet()) {
-            HashMap<SchemaPath, ColumnStatistic> columnStatistics = new HashMap<>();
+            HashMap<SchemaPath, ColumnStatistics> columnsStatistics = new HashMap<>();
 
             Map<String, Object> statistics = new HashMap<>();
             Object partitionKey = valueLocationsEntry.getKey();
@@ -216,12 +216,12 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
             // incorrect row count, but it is ok, since nulls count is set here.
             statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), partitionKey != null ? 0 : getParquetGroupScanStatistics().getRowCount());
             statistics.put(TableStatisticsKind.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
-            columnStatistics.put(partitionColumn,
-                new ColumnStatisticImpl<>(statistics,
+            columnsStatistics.put(partitionColumn,
+                new ColumnStatisticsImpl<>(statistics,
                     ParquetTableMetadataUtils.getComparator(getParquetGroupScanStatistics().getTypeForColumn(partitionColumn).getMinorType())));
 
             partitions.add(new PartitionMetadata(partitionColumn, getTableMetadata().getSchema(),
-                columnStatistics, statistics, (Set<String>) valueLocationsEntry.getValue(), tableName, -1));
+                columnsStatistics, statistics, (Set<String>) valueLocationsEntry.getValue(), tableName, -1));
           }
         }
       }

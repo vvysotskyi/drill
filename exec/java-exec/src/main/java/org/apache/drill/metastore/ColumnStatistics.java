@@ -20,25 +20,25 @@ package org.apache.drill.metastore;
 import java.util.Comparator;
 
 /**
- * Represents collection of statistic values for specific column.
+ * Represents collection of statistics values for specific column.
  *
  * @param <T> type of column values
  */
-public interface ColumnStatistic<T> {
+public interface ColumnStatistics<T> {
 
   /**
-   * Returns statistic value which corresponds to specified {@link StatisticsKind}.
+   * Returns statistics value which corresponds to specified {@link StatisticsKind}.
    *
-   * @param statisticsKind kind of statistic which value should be returned
-   * @return statistic value
+   * @param statisticsKind kind of statistics which value should be returned
+   * @return statistics value
    */
   Object getStatistic(StatisticsKind statisticsKind);
 
   /**
-   * Checks whether specified statistic kind is set in this column statistics.
+   * Checks whether specified statistics kind is set in this column statistics.
    *
-   * @param statisticsKind statistic kind to check
-   * @return true if specified statistic kind is set
+   * @param statisticsKind statistics kind to check
+   * @return true if specified statistics kind is set
    */
   boolean containsStatistic(StatisticsKind statisticsKind);
 
@@ -50,10 +50,10 @@ public interface ColumnStatistic<T> {
   Comparator<T> getValueComparator();
 
   /**
-   * Returns statistic associated with value type, like a min or max value etc.
+   * Returns statistics value associated with value type, like a min or max value etc.
    *
-   * @param statisticsKind kind of statistic
-   * @return statistic value for specified statistic kind
+   * @param statisticsKind kind of statistics
+   * @return statistics value for specified statistics kind
    */
   @SuppressWarnings("unchecked")
   default T getValueStatistic(StatisticsKind statisticsKind) {
@@ -64,10 +64,10 @@ public interface ColumnStatistic<T> {
   }
 
   /**
-   * Returns new {@link ColumnStatistic} instance with overridden statistics taken from specified {@link ColumnStatistic}.
+   * Returns new {@link ColumnStatistics} instance with overridden statistics taken from specified {@link ColumnStatistics}.
    *
-   * @param statistic source of statistics to override
-   * @return new {@link ColumnStatistic} instance with overridden statistics
+   * @param statistics source of statistics to override
+   * @return new {@link ColumnStatistics} instance with overridden statistics
    */
-  ColumnStatistic<T> cloneWithStats(ColumnStatistic statistic);
+  ColumnStatistics<T> cloneWithStats(ColumnStatistics statistics);
 }

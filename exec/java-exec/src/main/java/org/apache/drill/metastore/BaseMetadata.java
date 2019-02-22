@@ -30,11 +30,11 @@ public interface BaseMetadata {
 
   /**
    * Returns statistics stored in current metadata represented
-   * as Map of column {@code SchemaPath}s and corresponding {@code ColumnStatistic}s.
+   * as Map of column {@code SchemaPath}s and corresponding {@code ColumnStatistics}.
    *
    * @return statistics stored in current metadata
    */
-  Map<SchemaPath, ColumnStatistic> getColumnStatistics();
+  Map<SchemaPath, ColumnStatistics> getColumnsStatistics();
 
   /**
    * Returns schema stored in current metadata represented as
@@ -45,20 +45,20 @@ public interface BaseMetadata {
   TupleSchema getSchema();
 
   /**
-   * Returns value of non-column statistic which corresponds to specified {@link StatisticsKind}.
+   * Returns value of non-column statistics which corresponds to specified {@link StatisticsKind}.
    *
-   * @param statisticsKind statistic kind whose value should be returned
-   * @return value of non-column statistic
+   * @param statisticsKind statistics kind whose value should be returned
+   * @return value of non-column statistics
    */
   Object getStatistic(StatisticsKind statisticsKind);
 
   /**
-   * Returns value of column statistic which corresponds to specified {@link StatisticsKind}
+   * Returns value of column statistics which corresponds to specified {@link StatisticsKind}
    * for column with specified {@code columnName}.
    *
    * @param columnName     name of the column
-   * @param statisticsKind statistic kind whose value should be returned
-   * @return value of column statistic
+   * @param statisticsKind statistics kind whose value should be returned
+   * @return value of column statistics
    */
   Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind);
 

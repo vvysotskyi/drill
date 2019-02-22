@@ -38,8 +38,8 @@ import org.apache.drill.exec.expr.holders.IntHolder;
 import org.apache.drill.exec.expr.holders.TimeStampHolder;
 import org.apache.drill.exec.expr.holders.ValueHolder;
 import org.apache.drill.exec.vector.ValueHolderHelper;
-import org.apache.drill.metastore.ColumnStatistic;
-import org.apache.drill.metastore.ColumnStatisticImpl;
+import org.apache.drill.metastore.ColumnStatistics;
+import org.apache.drill.metastore.ColumnStatisticsImpl;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.StatisticsKind;
 
@@ -54,12 +54,12 @@ import static org.apache.drill.metastore.expr.ComparisonPredicate.getMaxValue;
 import static org.apache.drill.metastore.expr.ComparisonPredicate.getMinValue;
 import static org.apache.drill.metastore.expr.IsPredicate.isNullOrEmpty;
 
-public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVisitor<ColumnStatistic, Void, RuntimeException> {
+public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVisitor<ColumnStatistics, Void, RuntimeException> {
 
-  private final Map<SchemaPath, ColumnStatistic> columnStatMap;
+  private final Map<SchemaPath, ColumnStatistics> columnStatMap;
   private final long rowCount;
 
-  public StatisticsProvider(final Map<SchemaPath, ColumnStatistic> columnStatMap, long rowCount) {
+  public StatisticsProvider(final Map<SchemaPath, ColumnStatistics> columnStatMap, long rowCount) {
     this.columnStatMap = columnStatMap;
     this.rowCount = rowCount;
   }
@@ -69,16 +69,16 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
   }
 
   @Override
-  public ColumnStatisticImpl visitUnknown(LogicalExpression e, Void value) {
+  public ColumnStatisticsImpl visitUnknown(LogicalExpression e, Void value) {
     // do nothing for the unknown expression
     return null;
   }
 
   @Override
-  public ColumnStatistic visitTypedFieldExpr(TypedFieldExpr typedFieldExpr, Void value) {
-    final ColumnStatistic columnStatistic = columnStatMap.get(typedFieldExpr.getPath().getUnIndexed());
-    if (columnStatistic != null) {
-      return columnStatistic;
+  public ColumnStatistics visitTypedFieldExpr(TypedFieldExpr typedFieldExpr, Void value) {
+    final ColumnStatistics columnStatistics = columnStatMap.get(typedFieldExpr.getPath().getUnIndexed());
+    if (columnStatistics != null) {
+      return columnStatistics;
     } else if (typedFieldExpr.getMajorType().equals(Types.OPTIONAL_INT)) {
       // field does not exist.
       MinMaxStatistics<Integer> statistics = new MinMaxStatistics<>(null, null, Integer::compareTo);
@@ -89,61 +89,61 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
   }
 
   @Override
-  public ColumnStatistic<Integer> visitIntConstant(ValueExpressions.IntExpression expr, Void value) {
+  public ColumnStatistics<Integer> visitIntConstant(ValueExpressions.IntExpression expr, Void value) {
     int exprValue = expr.getInt();
     return new MinMaxStatistics<>(exprValue, exprValue, Integer::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Boolean> visitBooleanConstant(ValueExpressions.BooleanExpression expr, Void value) {
+  public ColumnStatistics<Boolean> visitBooleanConstant(ValueExpressions.BooleanExpression expr, Void value) {
     boolean exprValue = expr.getBoolean();
     return new MinMaxStatistics<>(exprValue, exprValue, Boolean::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Long> visitLongConstant(ValueExpressions.LongExpression expr, Void value) {
+  public ColumnStatistics<Long> visitLongConstant(ValueExpressions.LongExpression expr, Void value) {
     long exprValue = expr.getLong();
     return new MinMaxStatistics<>(exprValue, exprValue, Long::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Float> visitFloatConstant(ValueExpressions.FloatExpression expr, Void value) {
+  public ColumnStatistics<Float> visitFloatConstant(ValueExpressions.FloatExpression expr, Void value) {
     float exprValue = expr.getFloat();
     return new MinMaxStatistics<>(exprValue, exprValue, Float::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Double> visitDoubleConstant(ValueExpressions.DoubleExpression expr, Void value) {
+  public ColumnStatistics<Double> visitDoubleConstant(ValueExpressions.DoubleExpression expr, Void value) {
     double exprValue = expr.getDouble();
     return new MinMaxStatistics<>(exprValue, exprValue, Double::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Long> visitDateConstant(ValueExpressions.DateExpression expr, Void value) {
+  public ColumnStatistics<Long> visitDateConstant(ValueExpressions.DateExpression expr, Void value) {
     long exprValue = expr.getDate();
     return new MinMaxStatistics<>(exprValue, exprValue, Long::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Long> visitTimeStampConstant(ValueExpressions.TimeStampExpression tsExpr, Void value) {
+  public ColumnStatistics<Long> visitTimeStampConstant(ValueExpressions.TimeStampExpression tsExpr, Void value) {
     long exprValue = tsExpr.getTimeStamp();
     return new MinMaxStatistics<>(exprValue, exprValue, Long::compareTo);
   }
 
   @Override
-  public ColumnStatistic<Integer> visitTimeConstant(ValueExpressions.TimeExpression timeExpr, Void value) {
+  public ColumnStatistics<Integer> visitTimeConstant(ValueExpressions.TimeExpression timeExpr, Void value) {
     int exprValue = timeExpr.getTime();
     return new MinMaxStatistics<>(exprValue, exprValue, Integer::compareTo);
   }
 
   @Override
-  public ColumnStatistic<String> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) {
+  public ColumnStatistics<String> visitQuotedStringConstant(ValueExpressions.QuotedString quotedString, Void value) {
     String binary = quotedString.getString();
     return new MinMaxStatistics<>(binary, binary, Comparator.nullsFirst(Comparator.naturalOrder()));
   }
 
   @Override
-  public ColumnStatistic<BigInteger> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) {
+  public ColumnStatistics<BigInteger> visitVarDecimalConstant(ValueExpressions.VarDecimalExpression decExpr, Void value) {
     BigInteger unscaled = decExpr.getBigDecimal().unscaledValue();
     return new MinMaxStatistics<>(
         unscaled,
@@ -153,7 +153,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
 
   @Override
   @SuppressWarnings("unchecked")
-  public ColumnStatistic visitFunctionHolderExpression(FunctionHolderExpression holderExpr, Void value) {
+  public ColumnStatistics visitFunctionHolderExpression(FunctionHolderExpression holderExpr, Void value) {
     FuncHolder funcHolder = holderExpr.getHolder();
 
     if (!(funcHolder instanceof DrillSimpleFuncHolder)) {
@@ -164,7 +164,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     final String funcName = ((DrillSimpleFuncHolder) funcHolder).getRegisteredNames()[0];
 
     if (FunctionReplacementUtils.isCastFunction(funcName)) {
-      ColumnStatistic<T> stat = holderExpr.args.get(0).accept(this, null);
+      ColumnStatistics<T> stat = holderExpr.args.get(0).accept(this, null);
       if (!isNullOrEmpty(stat)) {
         return evalCastFunc(holderExpr, stat);
       }
@@ -173,7 +173,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
   }
 
   @SuppressWarnings("unchecked")
-  private ColumnStatistic<T> evalCastFunc(FunctionHolderExpression holderExpr, ColumnStatistic<T> input) {
+  private ColumnStatistics<T> evalCastFunc(FunctionHolderExpression holderExpr, ColumnStatistics<T> input) {
     try {
       DrillSimpleFuncHolder funcHolder = (DrillSimpleFuncHolder) holderExpr.getHolder();
 
@@ -250,7 +250,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     }
   }
 
-  public static class MinMaxStatistics<V> implements ColumnStatistic<V> {
+  public static class MinMaxStatistics<V> implements ColumnStatistics<V> {
     private V minVal;
     private V maxVal;
     private long nullsCount;
@@ -265,11 +265,11 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     @Override
     public Object getStatistic(StatisticsKind statisticsKind) {
       switch (statisticsKind.getName()) {
-        case StatisticName.MIN_VALUE:
+        case StatisticsConstants.MIN_VALUE:
           return minVal;
-        case StatisticName.MAX_VALUE:
+        case StatisticsConstants.MAX_VALUE:
           return maxVal;
-        case StatisticName.NULLS_COUNT:
+        case StatisticsConstants.NULLS_COUNT:
           return nullsCount;
         default:
           return null;
@@ -279,9 +279,9 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     @Override
     public boolean containsStatistic(StatisticsKind statisticsKind) {
       switch (statisticsKind.getName()) {
-        case StatisticName.MIN_VALUE:
-        case StatisticName.MAX_VALUE:
-        case StatisticName.NULLS_COUNT:
+        case StatisticsConstants.MIN_VALUE:
+        case StatisticsConstants.MAX_VALUE:
+        case StatisticsConstants.NULLS_COUNT:
           return true;
         default:
           return false;
@@ -294,7 +294,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     }
 
     @Override
-    public ColumnStatistic<V> cloneWithStats(ColumnStatistic statistic) {
+    public ColumnStatistics<V> cloneWithStats(ColumnStatistics statistics) {
       throw new UnsupportedOperationException("MinMaxStatistics does not support cloneWithStats");
     }
 

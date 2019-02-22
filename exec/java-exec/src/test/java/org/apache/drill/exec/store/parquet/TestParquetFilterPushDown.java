@@ -27,7 +27,7 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.BitControl;
 import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
-import org.apache.drill.metastore.ColumnStatistic;
+import org.apache.drill.metastore.ColumnStatistics;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.expr.IsPredicate;
 import org.apache.drill.metastore.expr.StatisticsProvider;
@@ -582,7 +582,7 @@ public class TestParquetFilterPushDown extends PlanTestBase {
   @Test // testing min=false, max=true, min/max set, no nulls
   public void testMinFalseMaxTrue() {
     LogicalExpression le = Mockito.mock(LogicalExpression.class);
-    ColumnStatistic<Boolean> booleanStatistics = Mockito.mock(ColumnStatistic.class);
+    ColumnStatistics<Boolean> booleanStatistics = Mockito.mock(ColumnStatistics.class);
     Mockito.doReturn(booleanStatistics).when(le).accept(ArgumentMatchers.any(), ArgumentMatchers.any());
     StatisticsProvider<Boolean> re = Mockito.mock(StatisticsProvider.class);
     Mockito.when(re.getRowCount()).thenReturn(2L); // 2 rows
@@ -606,7 +606,7 @@ public class TestParquetFilterPushDown extends PlanTestBase {
   @Test // testing min=false, max=false, min/max set, no nulls
   public void testMinFalseMaxFalse() {
     LogicalExpression le = Mockito.mock(LogicalExpression.class);
-    ColumnStatistic<Boolean> booleanStatistics = Mockito.mock(ColumnStatistic.class);
+    ColumnStatistics<Boolean> booleanStatistics = Mockito.mock(ColumnStatistics.class);
     Mockito.doReturn(booleanStatistics).when(le).accept(ArgumentMatchers.any(), ArgumentMatchers.any());
     StatisticsProvider<Boolean> re = Mockito.mock(StatisticsProvider.class);
     Mockito.when(re.getRowCount()).thenReturn(2L); // 2 rows
@@ -630,7 +630,7 @@ public class TestParquetFilterPushDown extends PlanTestBase {
   @Test // testing min=true, max=true, min/max set, no nulls
   public void testMinTrueMaxTrue() {
     LogicalExpression le = Mockito.mock(LogicalExpression.class);
-    ColumnStatistic<Boolean> booleanStatistics = Mockito.mock(ColumnStatistic.class);
+    ColumnStatistics<Boolean> booleanStatistics = Mockito.mock(ColumnStatistics.class);
     Mockito.doReturn(booleanStatistics).when(le).accept(ArgumentMatchers.any(), ArgumentMatchers.any());
     StatisticsProvider<Boolean> re = Mockito.mock(StatisticsProvider.class);
     Mockito.when(re.getRowCount()).thenReturn(Long.valueOf(2)); // 2 rows

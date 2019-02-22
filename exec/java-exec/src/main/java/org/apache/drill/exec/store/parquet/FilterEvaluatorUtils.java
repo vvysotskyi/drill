@@ -38,7 +38,7 @@ import org.apache.drill.exec.expr.stat.RowsMatch;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.UdfUtilities;
 import org.apache.drill.exec.server.options.OptionManager;
-import org.apache.drill.metastore.ColumnStatistic;
+import org.apache.drill.metastore.ColumnStatistics;
 import org.apache.drill.metastore.expr.FilterPredicate;
 import org.apache.drill.metastore.expr.StatisticsProvider;
 
@@ -59,15 +59,15 @@ public class FilterEvaluatorUtils {
     List<SchemaPath> schemaPathsInExpr = new ArrayList<>(expr.accept(new FieldReferenceFinder(), null));
 
     RowGroupMetadata rowGroupMetadata = ParquetTableMetadataUtils.getRowGroupsMetadata(footer).get(rowGroupIndex);
-    Map<SchemaPath, ColumnStatistic> columnStatisticsMap = rowGroupMetadata.getColumnStatistics();
-    columnStatisticsMap = ParquetTableMetadataUtils.addImplicitColumnsStatistic(columnStatisticsMap,
+    Map<SchemaPath, ColumnStatistics> columnsStatistics = rowGroupMetadata.getColumnsStatistics();
+    columnsStatistics = ParquetTableMetadataUtils.addImplicitColumnsStatistics(columnsStatistics,
         schemaPathsInExpr, Collections.emptyList(), options, rowGroupMetadata.getLocation(), true);
 
-    return matches(expr, columnStatisticsMap, rowGroupMetadata.getSchema(), (Long) TableStatisticsKind.ROW_COUNT.getValue(rowGroupMetadata),
+    return matches(expr, columnsStatistics, rowGroupMetadata.getSchema(), (Long) TableStatisticsKind.ROW_COUNT.getValue(rowGroupMetadata),
         fragmentContext, fragmentContext.getFunctionRegistry());
   }
 
-  public static RowsMatch matches(LogicalExpression expr, Map<SchemaPath, ColumnStatistic> columnStatisticsMap,
+  public static RowsMatch matches(LogicalExpression expr, Map<SchemaPath, ColumnStatistics> columnsStatistics,
       TupleSchema schema, long rowCount, UdfUtilities udfUtilities, FunctionLookupContext functionImplementationRegistry) {
     ErrorCollector errorCollector = new ErrorCollectorImpl();
 
@@ -86,20 +86,19 @@ public class FilterEvaluatorUtils {
     FilterPredicate parquetPredicate = FilterBuilder.buildFilterPredicate(
         materializedFilter, constantBoundaries, udfUtilities, true);
 
-    return matches(parquetPredicate, columnStatisticsMap, rowCount);
+    return matches(parquetPredicate, columnsStatistics, rowCount);
   }
 
   public static RowsMatch matches(FilterPredicate parquetPredicate,
-                                  Map<SchemaPath, ColumnStatistic> columnStatisticsMap,
+                                  Map<SchemaPath, ColumnStatistics> columnsStatistics,
                                   long rowCount, TupleSchema fileMetadata, Set<SchemaPath> schemaPathsInExpr) {
-    RowsMatch temp = matches(parquetPredicate, columnStatisticsMap, rowCount);
+    RowsMatch temp = matches(parquetPredicate, columnsStatistics, rowCount);
     return temp == RowsMatch.ALL && isRepeated(schemaPathsInExpr, fileMetadata) ? RowsMatch.SOME : temp;
   }
 
-  public static RowsMatch matches(FilterPredicate predicate, Map<SchemaPath,
-    ColumnStatistic> columnStatisticsMap, long rowCount) {
+  public static RowsMatch matches(FilterPredicate predicate, Map<SchemaPath, ColumnStatistics> columnsStatistics, long rowCount) {
     if (predicate != null) {
-      StatisticsProvider rangeExprEvaluator = new StatisticsProvider(columnStatisticsMap, rowCount);
+      StatisticsProvider rangeExprEvaluator = new StatisticsProvider(columnsStatistics, rowCount);
       return predicate.matches(rangeExprEvaluator);
     }
     return RowsMatch.SOME;

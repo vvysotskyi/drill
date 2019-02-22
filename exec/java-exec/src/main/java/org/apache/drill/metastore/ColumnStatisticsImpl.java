@@ -22,17 +22,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Base implementation of {@link ColumnStatistic} which is not bound
+ * Base implementation of {@link ColumnStatistics} which is not bound
  * to the specific list of column statistic kinds.
  *
  * @param <T> type of column values
  */
-public class ColumnStatisticImpl<T> implements ColumnStatistic<T> {
+public class ColumnStatisticsImpl<T> implements ColumnStatistics<T> {
 
   private Map<String, Object> statistics;
   private Comparator<T> valueComparator;
 
-  public ColumnStatisticImpl(Map<String, Object> statistics, Comparator<T> valueComparator) {
+  public ColumnStatisticsImpl(Map<String, Object> statistics, Comparator<T> valueComparator) {
     this.statistics = statistics;
     this.valueComparator = valueComparator;
   }
@@ -53,15 +53,15 @@ public class ColumnStatisticImpl<T> implements ColumnStatistic<T> {
   }
 
   @Override
-  public ColumnStatistic<T> cloneWithStats(ColumnStatistic statistic) {
+  public ColumnStatistics<T> cloneWithStats(ColumnStatistics statistics) {
     Map<String, Object> newStats = new HashMap<>(this.statistics);
-    for (String statisticKey : statistics.keySet()) {
-      Object statisticValue = statistic.getStatistic(() -> statisticKey);
-      if (statisticValue != null) {
-        newStats.put(statisticKey, statisticValue);
+    for (String statisticsKey : this.statistics.keySet()) {
+      Object statisticsValue = statistics.getStatistic(() -> statisticsKey);
+      if (statisticsValue != null) {
+        newStats.put(statisticsKey, statisticsValue);
       }
     }
 
-    return new ColumnStatisticImpl<>(newStats, valueComparator);
+    return new ColumnStatisticsImpl<>(newStats, valueComparator);
   }
 }

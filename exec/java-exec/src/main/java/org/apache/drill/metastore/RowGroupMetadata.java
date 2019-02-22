@@ -30,16 +30,16 @@ import java.util.Map;
 public class RowGroupMetadata implements BaseMetadata, LocationProvider {
 
   private final TupleSchema schema;
-  private final Map<SchemaPath, ColumnStatistic> columnStatistics;
+  private final Map<SchemaPath, ColumnStatistics> columnsStatistics;
   private final Map<String, Object> rowGroupStatistics;
   private Map<String, Float> hostAffinity;
   private int rowGroupIndex;
   private String location;
 
-  public RowGroupMetadata(TupleSchema schema, Map<SchemaPath, ColumnStatistic> columnStatistics,
+  public RowGroupMetadata(TupleSchema schema, Map<SchemaPath, ColumnStatistics> columnsStatistics,
       Map<String, Object> rowGroupStatistics, Map<String, Float> hostAffinity, int rowGroupIndex, String location) {
     this.schema = schema;
-    this.columnStatistics = columnStatistics;
+    this.columnsStatistics = columnsStatistics;
     this.rowGroupStatistics = rowGroupStatistics;
     this.hostAffinity = hostAffinity;
     this.rowGroupIndex = rowGroupIndex;
@@ -47,8 +47,8 @@ public class RowGroupMetadata implements BaseMetadata, LocationProvider {
   }
 
   @Override
-  public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {
-    return columnStatistics;
+  public Map<SchemaPath, ColumnStatistics> getColumnsStatistics() {
+    return columnsStatistics;
   }
 
   @Override
@@ -73,7 +73,7 @@ public class RowGroupMetadata implements BaseMetadata, LocationProvider {
 
   @Override
   public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
-    return columnStatistics.get(columnName).getStatistic(statisticsKind);
+    return columnsStatistics.get(columnName).getStatistic(statisticsKind);
   }
 
   /**

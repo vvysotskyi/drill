@@ -19,6 +19,7 @@ package org.apache.drill.metastore.expr;
 
 import org.apache.drill.exec.expr.stat.RowsMatch;
 import org.apache.drill.exec.physical.base.GroupScan;
+import org.apache.drill.metastore.ColumnStatistics;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -26,7 +27,6 @@ import org.apache.drill.common.expression.LogicalExpressionBase;
 import org.apache.drill.common.expression.TypedFieldExpr;
 import org.apache.drill.common.expression.visitors.ExprVisitor;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
-import org.apache.drill.metastore.ColumnStatistic;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -37,10 +37,10 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
 
   private final LogicalExpression expr;
 
-  private final BiFunction<ColumnStatistic<C>, StatisticsProvider<C>, RowsMatch> predicate;
+  private final BiFunction<ColumnStatistics<C>, StatisticsProvider<C>, RowsMatch> predicate;
 
   private IsPredicate(LogicalExpression expr,
-                      BiFunction<ColumnStatistic<C>, StatisticsProvider<C>, RowsMatch> predicate) {
+                      BiFunction<ColumnStatistics<C>, StatisticsProvider<C>, RowsMatch> predicate) {
     super(expr.getPosition());
     this.expr = expr;
     this.predicate = predicate;
@@ -63,7 +63,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
    */
   @Override
   public RowsMatch matches(StatisticsProvider<C> evaluator) {
-    ColumnStatistic<C> exprStat = expr.accept(evaluator, null);
+    ColumnStatistics<C> exprStat = expr.accept(evaluator, null);
     return isNullOrEmpty(exprStat) ? RowsMatch.SOME : predicate.apply(exprStat, evaluator);
   }
 
@@ -71,7 +71,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
    * @param stat statistics object
    * @return <tt>true</tt> if the input stat object has valid statistics; false otherwise
    */
-  static boolean isNullOrEmpty(ColumnStatistic stat) {
+  static boolean isNullOrEmpty(ColumnStatistics stat) {
     return stat == null
         || !stat.containsStatistic(ColumnStatisticsKind.MIN_VALUE)
         || !stat.containsStatistic(ColumnStatisticsKind.MAX_VALUE)
@@ -85,7 +85,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
    * If it contains some null values, then we change the RowsMatch.ALL into RowsMatch.SOME, which sya that maybe
    * some values (the null ones) should be disgarded.
    */
-  private static RowsMatch checkNull(ColumnStatistic exprStat) {
+  private static RowsMatch checkNull(ColumnStatistics exprStat) {
     return hasNoNulls(exprStat) ? RowsMatch.ALL : RowsMatch.SOME;
   }
 
@@ -95,7 +95,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
    * @param stat parquet column statistics
    * @return <tt>true</tt> if the parquet file does not have nulls and <tt>false</tt> otherwise
    */
-  static boolean hasNoNulls(ColumnStatistic stat) {
+  static boolean hasNoNulls(ColumnStatistics stat) {
     return (long) stat.getStatistic(ColumnStatisticsKind.NULLS_COUNT) == 0;
   }
 
@@ -127,12 +127,12 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
    * @param rowCount number of rows in the parquet file
    * @return <tt>true</tt> if all rows are null in the parquet file and <tt>false</tt> otherwise
    */
-  static boolean isAllNulls(ColumnStatistic stat, long rowCount) {
+  static boolean isAllNulls(ColumnStatistics stat, long rowCount) {
     Preconditions.checkArgument(rowCount >= 0, String.format("negative rowCount %d is not valid", rowCount));
     return (long) stat.getStatistic(ColumnStatisticsKind.NULLS_COUNT) == rowCount;
   }
 
-  static boolean hasNonNullValues(ColumnStatistic stat, long rowCount) {
+  static boolean hasNonNullValues(ColumnStatistics stat, long rowCount) {
     return rowCount > (long) stat.getStatistic(ColumnStatisticsKind.NULLS_COUNT)
       && stat.getValueStatistic(ColumnStatisticsKind.MIN_VALUE) != null
       && stat.getValueStatistic(ColumnStatisticsKind.MAX_VALUE) != null;

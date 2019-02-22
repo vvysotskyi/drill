@@ -22,7 +22,6 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,47 +31,33 @@ public class TableMetadata implements BaseMetadata {
   private final String tableName;
   private final String location;
   private final TupleSchema schema;
-  private final Map<SchemaPath, ColumnStatistic> columnStatistics;
+  private final Map<SchemaPath, ColumnStatistics> columnsStatistics;
   private final Map<String, Object> tableStatistics;
   private final long lastModifiedTime;
   private final String owner;
   private final Set<String> partitionKeys;
   private List<FileMetadata> files;
-//  private List<FileMetadata> partitions;
-//  private boolean supportsGroupScan;
-
-  public static final TableMetadata EMPTY = new TableMetadata();
 
   public TableMetadata(String tableName, String location, TupleSchema schema,
-                       Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> tableStatistics, long lastModifiedTime, String owner, Set<String> partitionKeys) {
+      Map<SchemaPath, ColumnStatistics> columnsStatistics, Map<String, Object> tableStatistics,
+      long lastModifiedTime, String owner, Set<String> partitionKeys) {
     this.tableName = tableName;
     this.location = location;
     this.schema = schema;
-    this.columnStatistics = columnStatistics;
+    this.columnsStatistics = columnsStatistics;
     this.tableStatistics = tableStatistics;
     this.lastModifiedTime = lastModifiedTime;
     this.owner = owner;
     this.partitionKeys = partitionKeys;
   }
 
-  private TableMetadata() {
-    tableName = null;
-    location = null;
-    schema = new TupleSchema();
-    columnStatistics = Collections.emptyMap();
-    tableStatistics = Collections.emptyMap();
-    lastModifiedTime = -1;
-    owner = null;
-    partitionKeys = Collections.emptySet();
-  }
-
   @Override
   public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
-    return columnStatistics.get(columnName).getStatistic(statisticsKind);
+    return columnsStatistics.get(columnName).getStatistic(statisticsKind);
   }
 
-  public ColumnStatistic getColumnStats(SchemaPath columnName) {
-    return columnStatistics.get(columnName);
+  public ColumnStatistics getColumnStatistics(SchemaPath columnName) {
+    return columnsStatistics.get(columnName);
   }
 
   @Override
@@ -118,20 +103,20 @@ public class TableMetadata implements BaseMetadata {
     return files;
   }
 
-  public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {
-    return columnStatistics;
+  public Map<SchemaPath, ColumnStatistics> getColumnsStatistics() {
+    return columnsStatistics;
   }
 
-  public TableMetadata cloneWithStats(Map<SchemaPath, ColumnStatistic> columnStatistics, Map<String, Object> tableStatistics) {
+  public TableMetadata cloneWithStats(Map<SchemaPath, ColumnStatistics> columnStatistics, Map<String, Object> tableStatistics) {
     Map<String, Object> mergedTableStatistics = new HashMap<>(this.tableStatistics);
     mergedTableStatistics.putAll(tableStatistics);
 
-    Map<SchemaPath, ColumnStatistic> newColumnStatistics = new HashMap<>(this.columnStatistics);
-    for (Map.Entry<SchemaPath, ColumnStatistic> columnStatisticEntry : this.columnStatistics.entrySet()) {
+    Map<SchemaPath, ColumnStatistics> newColumnsStatistics = new HashMap<>(this.columnsStatistics);
+    for (Map.Entry<SchemaPath, ColumnStatistics> columnStatisticEntry : this.columnsStatistics.entrySet()) {
       SchemaPath columnName = columnStatisticEntry.getKey();
-      newColumnStatistics.put(columnName, columnStatisticEntry.getValue().cloneWithStats(columnStatistics.get(columnName)));
+      newColumnsStatistics.put(columnName, columnStatisticEntry.getValue().cloneWithStats(columnStatistics.get(columnName)));
     }
 
-    return new TableMetadata(tableName, location, schema, newColumnStatistics, mergedTableStatistics, lastModifiedTime, owner, partitionKeys);
+    return new TableMetadata(tableName, location, schema, newColumnsStatistics, mergedTableStatistics, lastModifiedTime, owner, partitionKeys);
   }
 }

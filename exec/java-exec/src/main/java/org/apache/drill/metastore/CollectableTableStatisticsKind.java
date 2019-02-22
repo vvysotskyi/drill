@@ -20,17 +20,17 @@ package org.apache.drill.metastore;
 import java.util.List;
 
 /**
- * This class represents kinds of column statistics which may be received as a union
- * of other statistics, for example column nulls count may be received as a sum of nulls counts
+ * This class represents kinds of table statistics which may be received as a union
+ * of other statistics, for example row count may be received as a sum of row counts
  * of underlying metadata parts.
  */
-public interface CollectableColumnStatisticKind extends StatisticsKind {
+public interface CollectableTableStatisticsKind extends StatisticsKind {
 
   /**
-   * Returns column statistic value received by collecting specified {@link ColumnStatistic}s.
+   * Returns table statistics value received by collecting specified {@link ColumnStatistics}.
    *
-   * @param statistics list of {@link ColumnStatistic} instances to be collected
-   * @return column statistic value received by collecting specified {@link ColumnStatistic}s
+   * @param statistics list of {@link ColumnStatistics} instances to be collected
+   * @return column statistics value received by collecting specified {@link ColumnStatistics}
    */
-  Object mergeStatistic(List<? extends ColumnStatistic> statistics);
+  Object mergeStatistics(List<? extends BaseMetadata> statistics);
 }

@@ -35,7 +35,7 @@ public class PartitionMetadata implements BaseMetadata {
   // TODO: currently it is impossible to obtain statistics for the concrete partition.
   // Refactor this code to allow that.
   private final TupleSchema schema;
-  private final Map<SchemaPath, ColumnStatistic> columnStatistics;
+  private final Map<SchemaPath, ColumnStatistics> columnStatistics;
   private final Map<String, Object> partitionStatistics;
   // TODO: decide which of these: fileName or location should be left.
   private final Set<String> location;
@@ -46,7 +46,7 @@ public class PartitionMetadata implements BaseMetadata {
   public PartitionMetadata(SchemaPath column,
 //      Map<String, Object> values,
                            TupleSchema schema,
-      Map<SchemaPath, ColumnStatistic> columnStatistics,
+      Map<SchemaPath, ColumnStatistics> columnsStatistics,
       Map<String, Object> partitionStatistics,
       Set<String> location,
       String tableName,
@@ -54,7 +54,7 @@ public class PartitionMetadata implements BaseMetadata {
     this.column = column;
 //    this.values = values;
     this.schema = schema;
-    this.columnStatistics = columnStatistics;
+    this.columnStatistics = columnsStatistics;
     this.partitionStatistics = partitionStatistics;
     this.location = location;
     this.tableName = tableName;
@@ -92,7 +92,7 @@ public class PartitionMetadata implements BaseMetadata {
   }
 
   @Override
-  public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {
+  public Map<SchemaPath, ColumnStatistics> getColumnsStatistics() {
     return columnStatistics;
   }
 

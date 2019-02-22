@@ -18,25 +18,25 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.metastore.expr.StatisticName;
+import org.apache.drill.metastore.expr.StatisticsConstants;
 
 import java.util.List;
 
 /**
- * Implementation of {@link CollectableColumnStatisticKind} which contain base
- * column statistic kinds with implemented {@code mergeStatistic()} method.
+ * Implementation of {@link CollectableColumnStatisticsKind} which contain base
+ * column statistics kinds with implemented {@code mergeStatistics()} method.
  */
-public enum ColumnStatisticsKind implements CollectableColumnStatisticKind {
+public enum ColumnStatisticsKind implements CollectableColumnStatisticsKind {
 
   /**
-   * Column statistic kind which represents nulls count for the specific column.
+   * Column statistics kind which represents nulls count for the specific column.
    */
-  NULLS_COUNT(StatisticName.NULLS_COUNT) {
+  NULLS_COUNT(StatisticsConstants.NULLS_COUNT) {
     @Override
-    public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {
+    public Object mergeStatistics(List<? extends ColumnStatistics> statisticsList) {
       long nullsCount = 0;
-      for (ColumnStatistic statistic : statistics) {
-        Long statNullsCount = (Long) statistic.getStatistic(this);
+      for (ColumnStatistics statistics : statisticsList) {
+        Long statNullsCount = (Long) statistics.getStatistic(this);
         if (statNullsCount == null || statNullsCount == GroupScan.NO_COLUMN_STATS) {
           return GroupScan.NO_COLUMN_STATS;
         } else {
@@ -48,16 +48,16 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticKind {
   },
 
   /**
-   * Column statistic kind which represents min value of the specific column.
+   * Column statistics kind which represents min value of the specific column.
    */
-  MIN_VALUE(StatisticName.MIN_VALUE) {
+  MIN_VALUE(StatisticsConstants.MIN_VALUE) {
     @Override
     @SuppressWarnings("unchecked")
-    public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {
+    public Object mergeStatistics(List<? extends ColumnStatistics> statisticsList) {
       Object minValue = null;
-      for (ColumnStatistic statistic : statistics) {
-        Object statMinValue = statistic.getValueStatistic(this);
-        if (statMinValue != null && (statistic.getValueComparator().compare(minValue, statMinValue) > 0 || minValue == null)) {
+      for (ColumnStatistics statistics : statisticsList) {
+        Object statMinValue = statistics.getValueStatistic(this);
+        if (statMinValue != null && (statistics.getValueComparator().compare(minValue, statMinValue) > 0 || minValue == null)) {
           minValue = statMinValue;
         }
       }
@@ -71,16 +71,16 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticKind {
   },
 
   /**
-   * Column statistic kind which represents max value of the specific column.
+   * Column statistics kind which represents max value of the specific column.
    */
-  MAX_VALUE(StatisticName.MAX_VALUE) {
+  MAX_VALUE(StatisticsConstants.MAX_VALUE) {
     @Override
     @SuppressWarnings("unchecked")
-    public Object mergeStatistic(List<? extends ColumnStatistic> statistics) {
+    public Object mergeStatistics(List<? extends ColumnStatistics> statisticsList) {
       Object maxValue = null;
-      for (ColumnStatistic statistic : statistics) {
-        Object statMaxValue = statistic.getValueStatistic(this);
-        if (statMaxValue != null && statistic.getValueComparator().compare(maxValue, statMaxValue) < 0) {
+      for (ColumnStatistics statistics : statisticsList) {
+        Object statMaxValue = statistics.getValueStatistic(this);
+        if (statMaxValue != null && statistics.getValueComparator().compare(maxValue, statMaxValue) < 0) {
           maxValue = statMaxValue;
         }
       }

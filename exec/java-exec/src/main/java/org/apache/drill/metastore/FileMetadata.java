@@ -31,16 +31,15 @@ public class FileMetadata implements BaseMetadata, LocationProvider {
 
   private final String location;
   private final TupleSchema schema;
-  private final Map<SchemaPath, ColumnStatistic> columnStatistics;
+  private final Map<SchemaPath, ColumnStatistics> columnsStatistics;
   private final Map<String, Object> fileStatistics;
   private final String tableName;
   private final long lastModifiedTime;
 
-  public FileMetadata(String location, TupleSchema schema, Map<SchemaPath,
-      ColumnStatistic> columnStatistics, Map<String, Object> fileStatistics,
-      String tableName, long lastModifiedTime) {
+  public FileMetadata(String location, TupleSchema schema, Map<SchemaPath, ColumnStatistics> columnsStatistics,
+                      Map<String, Object> fileStatistics, String tableName, long lastModifiedTime) {
     this.schema = schema;
-    this.columnStatistics = columnStatistics;
+    this.columnsStatistics = columnsStatistics;
     this.fileStatistics = fileStatistics;
     this.location = location;
     this.tableName = tableName;
@@ -49,7 +48,7 @@ public class FileMetadata implements BaseMetadata, LocationProvider {
 
   @Override
   public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
-    return columnStatistics.get(columnName).getStatistic(statisticsKind);
+    return columnsStatistics.get(columnName).getStatistic(statisticsKind);
   }
 
   @Override
@@ -73,8 +72,8 @@ public class FileMetadata implements BaseMetadata, LocationProvider {
   }
 
   @Override
-  public Map<SchemaPath, ColumnStatistic> getColumnStatistics() {
-    return columnStatistics;
+  public Map<SchemaPath, ColumnStatistics> getColumnsStatistics() {
+    return columnsStatistics;
   }
 
   /**

@@ -43,7 +43,7 @@ import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.parquet.FilterEvaluatorUtils;
 import org.apache.drill.exec.store.parquet.ParquetTableMetadataUtils;
 import org.apache.drill.metastore.BaseMetadata;
-import org.apache.drill.metastore.ColumnStatistic;
+import org.apache.drill.metastore.ColumnStatistics;
 import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.LocationProvider;
@@ -141,7 +141,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   @Override
   public long getColumnValueCount(SchemaPath column) {
     long tableRowCount = (long) TableStatisticsKind.ROW_COUNT.getValue(getTableMetadata());
-    ColumnStatistic columnStats = getTableMetadata().getColumnStats(column);
+    ColumnStatistics columnStats = getTableMetadata().getColumnStatistics(column);
     long colNulls;
     if (columnStats != null) {
       Long nulls = (Long) columnStats.getStatistic(ColumnStatisticsKind.NULLS_COUNT);
@@ -393,7 +393,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       return getPartitionsMetadata().stream()
           .filter(partition -> partition.getColumn().equals(column) && partition.getLocations().contains(path))
           .findAny()
-          .map(metadata -> clazz.cast(metadata.getColumnStatistics().get(column).getStatistic(ColumnStatisticsKind.MAX_VALUE)))
+          .map(metadata -> clazz.cast(metadata.getColumnsStatistics().get(column).getStatistic(ColumnStatisticsKind.MAX_VALUE)))
           .orElse(null);
     }
     return null;
@@ -559,18 +559,18 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       List<T> qualifiedFiles = new ArrayList<>();
 
       for (T metadata : metadataList) {
-        Map<SchemaPath, ColumnStatistic> columnStatistics = metadata.getColumnStatistics();
+        Map<SchemaPath, ColumnStatistics> columnsStatistics = metadata.getColumnsStatistics();
 
         // adds partition (dir) column statistics if it may be used during filter evaluation
         if (metadata instanceof LocationProvider && optionManager != null) {
           LocationProvider locationProvider = (LocationProvider) metadata;
-          columnStatistics = ParquetTableMetadataUtils.addImplicitColumnsStatistic(columnStatistics,
+          columnsStatistics = ParquetTableMetadataUtils.addImplicitColumnsStatistics(columnsStatistics,
               source.columns, source.getPartitionValues(locationProvider), optionManager,
               locationProvider.getLocation(), source.supportsFileImplicitColumns());
         }
 
         RowsMatch match = FilterEvaluatorUtils.matches(filterPredicate,
-            columnStatistics, (long) metadata.getStatistic(TableStatisticsKind.ROW_COUNT),
+            columnsStatistics, (long) metadata.getStatistic(TableStatisticsKind.ROW_COUNT),
             metadata.getSchema(), schemaPathsInExpr);
         if (match == RowsMatch.NONE) {
           continue; // No file comply to the filter => drop the file
