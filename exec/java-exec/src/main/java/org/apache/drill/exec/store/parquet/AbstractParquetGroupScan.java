@@ -253,7 +253,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
 
     if (!builder.isMatchAllRowGroups()
         // filter returns empty result using table metadata
-        && (((builder.getTableMetadata() == null || builder.getTableMetadata().isEmpty()) && getTableMetadata() != null)
+        && ((builder.getTableMetadata() == null && getTableMetadata() != null)
             // all partitions pruned if partition metadata is available
             || unchangedMetadata(getPartitionsMetadata(), builder.getPartitions())
             // all files are pruned if file metadata is available
@@ -267,7 +267,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       }
       logger.debug("All row groups have been filtered out. Add back one to get schema from scanner");
       builder.withRowGroups(getNextOrEmpty(getRowGroupsMetadata()))
-          .withTable(getTableMetadata() != null ? Collections.singletonList(getTableMetadata()) : Collections.emptyList())
+          .withTable(getTableMetadata())
           .withPartitions(getNextOrEmpty(getPartitionsMetadata()))
           .withFiles(getNextOrEmpty(getFilesMetadata()))
           .withMatching(false);
@@ -401,6 +401,9 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
   protected abstract AbstractParquetGroupScan cloneWithFileSelection(Collection<String> filePaths) throws IOException;
   // abstract methods block end
 
+  /**
+   * This class is responsible for filtering different metadata levels including row group level.
+   */
   protected abstract static class RowGroupScanFilterer extends GroupScanWithMetadataFilterer {
     protected List<RowGroupMetadata> rowGroups;
 
@@ -413,10 +416,22 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       return this;
     }
 
+    /**
+     * Returns new {@link AbstractParquetGroupScan} instance to be populated with filtered metadata
+     * from this {@link RowGroupScanFilterer} instance.
+     *
+     * @return new {@link AbstractParquetGroupScan} instance
+     */
+    protected abstract AbstractParquetGroupScan getNewScan();
+
+    public List<RowGroupMetadata> getRowGroups() {
+      return rowGroups;
+    }
+
     @Override
     public AbstractGroupScanWithMetadata build() {
       AbstractParquetGroupScan newScan = getNewScan();
-      newScan.tableMetadata = tableMetadata != null && !tableMetadata.isEmpty() ? tableMetadata.get(0) : null;
+      newScan.tableMetadata = tableMetadata;
       // updates common row count and nulls counts for every column
       if (newScan.getTableMetadata() != null && rowGroups != null && newScan.getRowGroupsMetadata().size() != rowGroups.size()) {
         newScan.tableMetadata = ParquetTableMetadataUtils.updateRowCount(newScan.getTableMetadata(), rowGroups);
@@ -451,12 +466,6 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       return newScan;
     }
 
-    protected abstract AbstractParquetGroupScan getNewScan();
-
-    public List<RowGroupMetadata> getRowGroups() {
-      return rowGroups;
-    }
-
     @Override
     protected RowGroupScanFilterer getFiltered(OptionManager optionManager, FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr) {
       super.getFiltered(optionManager, filterPredicate, schemaPathsInExpr);
@@ -467,6 +476,13 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       return this;
     }
 
+    /**
+     * Produces filtering of metadata at row group level.
+     *
+     * @param optionManager     option manager
+     * @param filterPredicate   filter expression
+     * @param schemaPathsInExpr columns used in filter expression
+     */
     protected void filterRowGroupMetadata(OptionManager optionManager, FilterPredicate filterPredicate,
                                           Set<SchemaPath> schemaPathsInExpr) {
       AbstractParquetGroupScan abstractParquetGroupScan = (AbstractParquetGroupScan) source;
@@ -498,7 +514,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       } else {
         this.rowGroups = prunedRowGroups;
         matchAllRowGroups = false;
-        overflowLevel = MetadataLevel.FILE;
+        overflowLevel = MetadataLevel.ROW_GROUP;
       }
     }
   }

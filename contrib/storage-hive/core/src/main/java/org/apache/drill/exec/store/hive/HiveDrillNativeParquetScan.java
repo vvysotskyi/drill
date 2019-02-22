@@ -210,12 +210,17 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     return hivePartitionHolder.get(rowGroupInfo.getLocation());
   }
 
+  /**
+   * Implementation of RowGroupScanFilterer which uses {@link HiveDrillNativeParquetScanFilterer} as source and
+   * builds {@link HiveDrillNativeParquetScanFilterer} instance with filtered metadata.
+   */
   private class HiveDrillNativeParquetScanFilterer extends RowGroupScanFilterer {
 
     public HiveDrillNativeParquetScanFilterer(HiveDrillNativeParquetScan source) {
       super(source);
     }
 
+    @Override
     protected AbstractParquetGroupScan getNewScan() {
       return new HiveDrillNativeParquetScan((HiveDrillNativeParquetScan) source);
     }

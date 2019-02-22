@@ -259,12 +259,17 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
   // overridden protected methods block end
 
+  /**
+   * Implementation of RowGroupScanFilterer which uses {@link ParquetGroupScan} as source and
+   * builds {@link ParquetGroupScan} instance with filtered metadata.
+   */
   private class ParquetGroupScanFilterer extends RowGroupScanFilterer {
 
     public ParquetGroupScanFilterer(ParquetGroupScan source) {
       super(source);
     }
 
+    @Override
     protected AbstractParquetGroupScan getNewScan() {
       return new ParquetGroupScan((ParquetGroupScan) source);
     }
