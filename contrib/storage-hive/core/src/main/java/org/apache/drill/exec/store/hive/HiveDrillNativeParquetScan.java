@@ -67,7 +67,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.hiveStoragePlugin = (HiveStoragePlugin) engineRegistry.getPlugin(hiveStoragePluginConfig);
     this.confProperties = confProperties;
 
-    this.metadataProvider = new HiveParquetTableMetadataProvider(entries, hivePartitionHolder, hiveStoragePlugin, readerConfig, null);
+    this.metadataProvider = new HiveParquetTableMetadataProvider(entries, hivePartitionHolder, hiveStoragePlugin, readerConfig);
 
     HiveParquetTableMetadataProvider hiveMetadataProvider = (HiveParquetTableMetadataProvider) this.metadataProvider;
     this.hivePartitionHolder = hiveMetadataProvider.getHivePartitionHolder();
@@ -114,7 +114,6 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.hiveStoragePlugin = that.hiveStoragePlugin;
     this.hivePartitionHolder = that.hivePartitionHolder;
     this.confProperties = that.confProperties;
-    this.partitionColumns = that.partitionColumns;
   }
 
   @JsonProperty
@@ -202,6 +201,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
   @Override
   protected boolean supportsFileImplicitColumns() {
+    // current group scan should populate directory partition values
     return true;
   }
 

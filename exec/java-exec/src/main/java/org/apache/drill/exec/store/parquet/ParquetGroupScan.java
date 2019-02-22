@@ -82,11 +82,11 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
     this.metadataProvider = new ParquetTableMetadataProviderImpl(this.entries, selectionRoot, cacheFileRoot, null,
         readerConfig, fs, this.formatConfig.areCorruptDatesAutoCorrected());
-    this.selectionRoot = metadataProvider.getSelectionRoot();
-    this.fileSet = metadataProvider.getFileSet();
 
     ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
+    this.selectionRoot = metadataProvider.getSelectionRoot();
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
+    this.fileSet = metadataProvider.getFileSet();
 
     init();
   }
@@ -114,13 +114,12 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
     metadataProvider = new ParquetTableMetadataProviderImpl(selection, readerConfig, fs,
         formatConfig.areCorruptDatesAutoCorrected());
-    this.selectionRoot = metadataProvider.getSelectionRoot();
-
-    this.fileSet = metadataProvider.getFileSet();
 
     ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.usedMetadataCache = metadataProvider.isUsedMetadataCache();
+    this.selectionRoot = metadataProvider.getSelectionRoot();
     this.entries = metadataProvider.getEntries();
+    this.fileSet = metadataProvider.getFileSet();
 
     init();
   }

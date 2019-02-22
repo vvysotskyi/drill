@@ -23,27 +23,61 @@ import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.TableMetadata;
 
 import java.util.List;
-import java.util.Set;
 
 /**
- * The main Drill Metastore API for obtaining TableMetadata Base interface for providing table, partition, file etc. metadata.
+ * Base interface for providing table, partition, file etc. metadata for specific table.
  */
 public interface TableMetadataProvider {
+
+  /**
+   * Returns {@link TableMetadata} instance which provides metadata for table and columns metadata.
+   *
+   * @return {@link TableMetadata} instance
+   */
   TableMetadata getTableMetadata();
 
+  /**
+   * Returns list of partition columns for table from this {@link TableMetadataProvider}.
+   *
+   * @return list of partition columns
+   */
   List<SchemaPath> getPartitionColumns();
 
+  /**
+   * Returns list of {@link PartitionMetadata} instances which provides metadata for specific partitions and its columns.
+   *
+   * @return list of {@link PartitionMetadata} instances
+   */
   List<PartitionMetadata> getPartitionsMetadata();
 
+  /**
+   * Returns list of {@link PartitionMetadata} instances which corresponds to partitions for specified column
+   * and provides metadata for specific partitions and its columns.
+   *
+   * @return list of {@link PartitionMetadata} instances which corresponds to partitions for specified column
+   */
   List<PartitionMetadata> getPartitionMetadata(SchemaPath columnName);
 
-  FileMetadata getFileMetadata();
-
-  List<FileMetadata> getFilesForPartition(PartitionMetadata partition);
-
+  /**
+   * Returns list of {@link FileMetadata} instances which provides metadata for specific file and its columns.
+   *
+   * @return list of {@link FileMetadata} instances
+   */
   List<FileMetadata> getFilesMetadata();
 
-  String getSelectionRoot();
+  /**
+   * Returns {@link FileMetadata} instance which corresponds to metadata of file for specified location.
+   *
+   * @param location folacion of the file
+   * @return {@link FileMetadata} instance which corresponds to metadata of file for specified location
+   */
+  FileMetadata getFileMetadata(String location);
 
-  Set<String> getFileSet();
+  /**
+   * Returns list of {@link FileMetadata} instances which belongs to specified partitions.
+   *
+   * @param partition partition which
+   * @return list of {@link FileMetadata} instances which belongs to specified partitions
+   */
+  List<FileMetadata> getFilesForPartition(PartitionMetadata partition);
 }

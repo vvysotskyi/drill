@@ -22,7 +22,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.drill.common.expression.ExpressionStringBuilder;
 import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
-import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
+import org.apache.drill.exec.physical.base.ParquetMetadataProvider;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.metastore.LocationProvider;
 import org.apache.drill.metastore.PartitionMetadata;
@@ -273,6 +273,13 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
           .withMatching(false);
     }
 
+    if (builder.getOverflowLevel() != MetadataLevel.NONE) {
+      logger.warn("applyFilter {} wasn't able to do pruning for  all metadata levels filter condition, since metadata count for " +
+            "{} level exceeds `planner.store.parquet.rowgroup.filter.pushdown.threshold` value.\n" +
+            "But underlying metadata was pruned without filter expression according to the metadata with above level.",
+          ExpressionStringBuilder.toString(filterExpr), builder.getOverflowLevel());
+    }
+
     logger.debug("applyFilter {} reduce row groups # from {} to {}",
         ExpressionStringBuilder.toString(filterExpr), getRowGroupsMetadata().size(), builder.getRowGroups().size());
 
@@ -391,7 +398,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
 
   protected List<RowGroupMetadata> getRowGroupsMetadata() {
     if (rowGroups == null) {
-      rowGroups = ((ParquetTableMetadataProvider) metadataProvider).getRowGroupsMeta();
+      rowGroups = ((ParquetMetadataProvider) metadataProvider).getRowGroupsMeta();
     }
     return rowGroups;
   }
@@ -429,7 +436,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     }
 
     @Override
-    public AbstractGroupScanWithMetadata build() {
+    public AbstractParquetGroupScan build() {
       AbstractParquetGroupScan newScan = getNewScan();
       newScan.tableMetadata = tableMetadata;
       // updates common row count and nulls counts for every column

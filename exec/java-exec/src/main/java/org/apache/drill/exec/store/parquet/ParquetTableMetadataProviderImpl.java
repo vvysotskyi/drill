@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.MetadataContext;
@@ -39,7 +40,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataProvider {
+public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvider implements ParquetTableMetadataProvider {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ParquetTableMetadataProviderImpl.class);
 
@@ -49,7 +50,8 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
   private String selectionRoot;
   private String cacheFileRoot;
   private final boolean corruptDatesAutoCorrected;
-
+  private boolean usedMetadataCache; // false by default
+  private Set<String> fileSet;
 
   public ParquetTableMetadataProviderImpl(List<ReadEntryWithPath> entries,
                                           String selectionRoot,
@@ -58,11 +60,12 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
                                           ParquetReaderConfig readerConfig,
                                           DrillFileSystem fs,
                                           boolean autoCorrectCorruptedDates) throws IOException {
-    super(entries, readerConfig, fileSet, selectionRoot, selectionRoot);
+    super(entries, readerConfig, selectionRoot, selectionRoot);
     this.fs = fs;
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
     this.metaContext = new MetadataContext();
+    this.fileSet = fileSet;
 
     this.corruptDatesAutoCorrected = autoCorrectCorruptedDates;
 
@@ -100,8 +103,30 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
   }
 
   @Override
+  public boolean isUsedMetadataCache() {
+    return usedMetadataCache;
+  }
+
+  @Override
   public String getSelectionRoot() {
     return selectionRoot;
+  }
+
+  @Override
+  public Set<String> getFileSet() {
+    return fileSet;
+  }
+
+  @Override
+  protected void init() throws IOException {
+    super.init();
+
+    if (fileSet == null) {
+      fileSet = new HashSet<>();
+      fileSet.addAll(parquetTableMetadata.getFiles().stream()
+        .map(MetadataBase.ParquetFileMetadata::getPath)
+        .collect(Collectors.toSet()));
+    }
   }
 
   @Override
@@ -257,11 +282,11 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
     } else {
       // we need to expand the files from fileStatuses
       for (FileStatus status : fileStatuses) {
-        Path cacheFileRoot = status.getPath();
+        Path currentCacheFileRoot = status.getPath();
         if (status.isDirectory()) {
           //TODO [DRILL-4496] read the metadata cache files in parallel
-          final Path metaPath = new Path(cacheFileRoot, Metadata.METADATA_FILENAME);
-          final MetadataBase.ParquetTableMetadataBase metadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
+          Path metaPath = new Path(currentCacheFileRoot, Metadata.METADATA_FILENAME);
+          MetadataBase.ParquetTableMetadataBase metadata = Metadata.readBlockMeta(processUserFileSystem, metaPath, metaContext, readerConfig);
           if (ignoreExpandingSelection(metadata)) {
             return selection;
           }
@@ -269,7 +294,7 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
             fileSet.add(file.getPath());
           }
         } else {
-          final Path path = Path.getPathWithoutSchemeAndAuthority(cacheFileRoot);
+          final Path path = Path.getPathWithoutSchemeAndAuthority(currentCacheFileRoot);
           fileSet.add(path.toString());
         }
       }
@@ -287,7 +312,7 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetTableMetadataPr
     // The reason is that the file names above have been created in the form
     // /a/b/c.parquet and the format of the selection root must match that of the file names
     // otherwise downstream operations such as partition pruning can break.
-    final Path metaRootPath = Path.getPathWithoutSchemeAndAuthority(new Path(selection.getSelectionRoot()));
+    Path metaRootPath = Path.getPathWithoutSchemeAndAuthority(new Path(selection.getSelectionRoot()));
     this.selectionRoot = metaRootPath.toString();
 
     // Use the FileSelection constructor directly here instead of the FileSelection.create() method

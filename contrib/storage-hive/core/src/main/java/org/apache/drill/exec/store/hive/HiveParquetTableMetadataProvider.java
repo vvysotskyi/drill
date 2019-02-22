@@ -18,7 +18,7 @@
 package org.apache.drill.exec.store.hive;
 
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
-import org.apache.drill.exec.store.parquet.BaseParquetTableMetadataProvider;
+import org.apache.drill.exec.store.parquet.BaseParquetMetadataProvider;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.exec.store.parquet.metadata.Metadata;
 import org.apache.hadoop.conf.Configuration;
@@ -36,9 +36,8 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-public class HiveParquetTableMetadataProvider extends BaseParquetTableMetadataProvider {
+public class HiveParquetTableMetadataProvider extends BaseParquetMetadataProvider {
 
   private final HiveStoragePlugin hiveStoragePlugin;
   private final HivePartitionHolder hivePartitionHolder;
@@ -46,9 +45,8 @@ public class HiveParquetTableMetadataProvider extends BaseParquetTableMetadataPr
   public HiveParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
                                          HivePartitionHolder hivePartitionHolder,
                                          HiveStoragePlugin hiveStoragePlugin,
-                                         ParquetReaderConfig readerConfig,
-                                         Set<String> fileSet) throws IOException {
-    super(entries, readerConfig, fileSet, null, null);
+                                         ParquetReaderConfig readerConfig) throws IOException {
+    super(entries, readerConfig, null, null);
     this.hiveStoragePlugin = hiveStoragePlugin;
     this.hivePartitionHolder = hivePartitionHolder;
 
@@ -99,10 +97,5 @@ public class HiveParquetTableMetadataProvider extends BaseParquetTableMetadataPr
       fileStatusConfMap.put(fs.getFileStatus(Path.getPathWithoutSchemeAndAuthority(path)), fs);
     }
     parquetTableMetadata = Metadata.getParquetTableMetadata(fileStatusConfMap, readerConfig);
-  }
-
-  @Override
-  public String getSelectionRoot() {
-    return null; // TODO: get the path from HMS if neeeded
   }
 }

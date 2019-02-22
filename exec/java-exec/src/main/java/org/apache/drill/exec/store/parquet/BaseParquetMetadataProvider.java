@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store.parquet;
 
-import org.apache.drill.exec.physical.base.ParquetTableMetadataProvider;
+import org.apache.drill.exec.physical.base.ParquetMetadataProvider;
 import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.ColumnStatisticsImpl;
 import org.apache.drill.metastore.TableStatisticsKind;
@@ -52,7 +52,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class BaseParquetTableMetadataProvider implements ParquetTableMetadataProvider {
+public abstract class BaseParquetMetadataProvider implements ParquetMetadataProvider {
 
   static final Object NULL_VALUE = new Object();
 
@@ -62,7 +62,6 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
   protected final ParquetReaderConfig readerConfig;
 
   protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
-  protected Set<String> fileSet;
 
   private List<SchemaPath> partitionColumns;
   protected String tableName;
@@ -72,23 +71,20 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
   private TableMetadata tableMetadata;
   private List<PartitionMetadata> partitions; // replace with Map, to obtain PartitionMetadata with a partitionColumnName
   private List<FileMetadata> files;
-  protected boolean usedMetadataCache; // false by default
 
   // for testing purposes, will be set to false
   private boolean collectMetadata = true;
 
-  public BaseParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
-                                          ParquetReaderConfig readerConfig,
-                                          Set<String> fileSet,
-                                          String tableName,
-                                          String tableLocation) {
+  public BaseParquetMetadataProvider(List<ReadEntryWithPath> entries,
+                                     ParquetReaderConfig readerConfig,
+                                     String tableName,
+                                     String tableLocation) {
     this(readerConfig, entries, tableName, tableLocation);
-    this.fileSet = fileSet;
   }
 
-  public BaseParquetTableMetadataProvider(ParquetReaderConfig readerConfig, List<ReadEntryWithPath> entries,
-                                          String tableName,
-                                          String tableLocation) {
+  public BaseParquetMetadataProvider(ParquetReaderConfig readerConfig, List<ReadEntryWithPath> entries,
+                                     String tableName,
+                                     String tableLocation) {
     this.entries = entries == null ? new ArrayList<>() : entries;
     this.readerConfig = readerConfig == null ? ParquetReaderConfig.getDefaultInstance() : readerConfig;
     this.tableName = tableName;
@@ -99,13 +95,6 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
     initInternal();
 
     assert parquetTableMetadata != null;
-
-    if (fileSet == null) {
-      fileSet = new HashSet<>();
-      fileSet.addAll(parquetTableMetadata.getFiles().stream()
-          .map(MetadataBase.ParquetFileMetadata::getPath)
-          .collect(Collectors.toSet()));
-    }
   }
 
   @Override
@@ -238,13 +227,24 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
   }
 
   @Override
-  public FileMetadata getFileMetadata() {
-    throw new UnsupportedOperationException("This mechanism should be implemented");
+  public FileMetadata getFileMetadata(String location) {
+    return getFilesMetadata().stream()
+        .filter(Objects::nonNull)
+        .filter(fileMetadata -> location.equals(fileMetadata.getLocation()))
+        .findAny()
+        .orElse(null);
   }
 
   @Override
   public List<FileMetadata> getFilesForPartition(PartitionMetadata partition) {
-    return null;
+    List<FileMetadata> prunedFiles = new ArrayList<>();
+    for (FileMetadata file : getFilesMetadata()) {
+      if (partition.getLocations().contains(file.getLocation())) {
+        prunedFiles.add(file);
+      }
+    }
+
+    return prunedFiles;
   }
 
   @Override
@@ -276,16 +276,6 @@ public abstract class BaseParquetTableMetadataProvider implements ParquetTableMe
       }
     }
     return files;
-  }
-
-  @Override
-  public Set<String> getFileSet() {
-    return fileSet;
-  }
-
-  @Override
-  public boolean isUsedMetadataCache() {
-    return usedMetadataCache;
   }
 
   @Override

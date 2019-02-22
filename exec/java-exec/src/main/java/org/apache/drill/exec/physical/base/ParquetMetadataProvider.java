@@ -17,31 +17,27 @@
  */
 package org.apache.drill.exec.physical.base;
 
-import java.util.Set;
+import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
+import org.apache.drill.metastore.RowGroupMetadata;
+
+import java.util.List;
 
 /**
- * Interface for providing table, partition, file etc. metadata for specific parquet table.
+ * Interface for providing table, partition, file etc. metadata for specific table with parquet files.
  */
-public interface ParquetTableMetadataProvider extends ParquetMetadataProvider {
+public interface ParquetMetadataProvider extends TableMetadataProvider {
 
   /**
-   * Whether metadata cache files are used for table which belongs to current metadata provider.
+   * Returns list of {@link ReadEntryWithPath} instances which represents paths to files to be scanned.
    *
-   * @return true if metadata cache files are used
+   * @return list of {@link ReadEntryWithPath} instances whith file paths
    */
-  boolean isUsedMetadataCache();
+  List<ReadEntryWithPath> getEntries();
 
   /**
-   * Returns root table path.
+   * Returns list of {@link RowGroupMetadata} instances which provides metadata for specific row group and its columns.
    *
-   * @return root path of the table
+   * @return list of {@link RowGroupMetadata} instances
    */
-  String getSelectionRoot();
-
-  /**
-   * Returns list of file locations for table.
-   *
-   * @return list of file locations for table
-   */
-  Set<String> getFileSet();
+  List<RowGroupMetadata> getRowGroupsMeta();
 }
