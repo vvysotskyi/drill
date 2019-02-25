@@ -52,28 +52,35 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Implementation of {@link ParquetMetadataProvider} which contains base methods for obtaining metadata from
+ * parquet statistics.
+ */
 public abstract class BaseParquetMetadataProvider implements ParquetMetadataProvider {
 
+  /**
+   * {@link HashBasedTable} cannot contain nulls, used this object to represent null values.
+   */
   static final Object NULL_VALUE = new Object();
-
-  private ParquetGroupScanStatistics<? extends BaseMetadata> parquetGroupScanStatistics;
 
   protected final List<ReadEntryWithPath> entries;
   protected final ParquetReaderConfig readerConfig;
 
+  protected final String tableName;
+  protected final String tableLocation;
+
+  private ParquetGroupScanStatistics<? extends BaseMetadata> parquetGroupScanStatistics;
   protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
 
   private List<SchemaPath> partitionColumns;
-  protected String tableName;
-  protected String tableLocation;
 
   private List<RowGroupMetadata> rowGroups;
   private TableMetadata tableMetadata;
-  private List<PartitionMetadata> partitions; // replace with Map, to obtain PartitionMetadata with a partitionColumnName
+  private List<PartitionMetadata> partitions;
   private List<FileMetadata> files;
 
-  // for testing purposes, will be set to false
-  private boolean collectMetadata = true;
+  // whether metadata for row groups should be collected to create files, partitions and table metadata
+  private final boolean collectMetadata = true;
 
   public BaseParquetMetadataProvider(List<ReadEntryWithPath> entries,
                                      ParquetReaderConfig readerConfig,
@@ -82,7 +89,8 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
     this(readerConfig, entries, tableName, tableLocation);
   }
 
-  public BaseParquetMetadataProvider(ParquetReaderConfig readerConfig, List<ReadEntryWithPath> entries,
+  public BaseParquetMetadataProvider(ParquetReaderConfig readerConfig,
+                                     List<ReadEntryWithPath> entries,
                                      String tableName,
                                      String tableLocation) {
     this.entries = entries == null ? new ArrayList<>() : entries;
@@ -107,7 +115,7 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
 
       TupleSchema schema = new TupleSchema();
       for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : fields.entrySet()) {
-        SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+        SchemaPathUtils.addColumnMetadata(schema, pathTypePair.getKey(), pathTypePair.getValue());
       }
 
       Map<SchemaPath, ColumnStatistics> columnsStatistics;

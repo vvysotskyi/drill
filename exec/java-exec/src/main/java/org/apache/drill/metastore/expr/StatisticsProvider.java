@@ -52,14 +52,13 @@ import java.util.Set;
 
 import static org.apache.drill.metastore.expr.ComparisonPredicate.getMaxValue;
 import static org.apache.drill.metastore.expr.ComparisonPredicate.getMinValue;
-import static org.apache.drill.metastore.expr.IsPredicate.isNullOrEmpty;
 
 public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVisitor<ColumnStatistics, Void, RuntimeException> {
 
   private final Map<SchemaPath, ColumnStatistics> columnStatMap;
   private final long rowCount;
 
-  public StatisticsProvider(final Map<SchemaPath, ColumnStatistics> columnStatMap, long rowCount) {
+  public StatisticsProvider(Map<SchemaPath, ColumnStatistics> columnStatMap, long rowCount) {
     this.columnStatMap = columnStatMap;
     this.rowCount = rowCount;
   }
@@ -76,7 +75,7 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
 
   @Override
   public ColumnStatistics visitTypedFieldExpr(TypedFieldExpr typedFieldExpr, Void value) {
-    final ColumnStatistics columnStatistics = columnStatMap.get(typedFieldExpr.getPath().getUnIndexed());
+    ColumnStatistics columnStatistics = columnStatMap.get(typedFieldExpr.getPath().getUnIndexed());
     if (columnStatistics != null) {
       return columnStatistics;
     } else if (typedFieldExpr.getMajorType().equals(Types.OPTIONAL_INT)) {
@@ -161,11 +160,11 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
       return null;
     }
 
-    final String funcName = ((DrillSimpleFuncHolder) funcHolder).getRegisteredNames()[0];
+    String funcName = ((DrillSimpleFuncHolder) funcHolder).getRegisteredNames()[0];
 
     if (FunctionReplacementUtils.isCastFunction(funcName)) {
       ColumnStatistics<T> stat = holderExpr.args.get(0).accept(this, null);
-      if (!isNullOrEmpty(stat)) {
+      if (!IsPredicate.isNullOrEmpty(stat)) {
         return evalCastFunc(holderExpr, stat);
       }
     }
@@ -217,11 +216,11 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
           return null;
       }
 
-      final ValueHolder[] args1 = {minHolder};
-      final ValueHolder[] args2 = {maxHolder};
+      ValueHolder[] args1 = {minHolder};
+      ValueHolder[] args2 = {maxHolder};
 
-      final ValueHolder minFuncHolder = InterpreterEvaluator.evaluateFunction(interpreter, args1, holderExpr.getName());
-      final ValueHolder maxFuncHolder = InterpreterEvaluator.evaluateFunction(interpreter, args2, holderExpr.getName());
+      ValueHolder minFuncHolder = InterpreterEvaluator.evaluateFunction(interpreter, args1, holderExpr.getName());
+      ValueHolder maxFuncHolder = InterpreterEvaluator.evaluateFunction(interpreter, args2, holderExpr.getName());
 
       MinMaxStatistics statistics;
       switch (destType) {

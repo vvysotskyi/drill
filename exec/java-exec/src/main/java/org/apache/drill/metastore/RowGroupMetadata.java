@@ -36,8 +36,12 @@ public class RowGroupMetadata implements BaseMetadata, LocationProvider {
   private int rowGroupIndex;
   private String location;
 
-  public RowGroupMetadata(TupleSchema schema, Map<SchemaPath, ColumnStatistics> columnsStatistics,
-      Map<String, Object> rowGroupStatistics, Map<String, Float> hostAffinity, int rowGroupIndex, String location) {
+  public RowGroupMetadata(TupleSchema schema,
+                          Map<SchemaPath, ColumnStatistics> columnsStatistics,
+                          Map<String, Object> rowGroupStatistics,
+                          Map<String, Float> hostAffinity,
+                          int rowGroupIndex,
+                          String location) {
     this.schema = schema;
     this.columnsStatistics = columnsStatistics;
     this.rowGroupStatistics = rowGroupStatistics;

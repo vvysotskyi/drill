@@ -181,7 +181,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
           partitionColTypeMap.remove(schemaPath);
           return false;
         }
-        if (!type.equals(partitionColTypeMap.get(schemaPath))) {
+        if (!partitionColTypeMap.get(schemaPath).equals(type)) {
           partitionColTypeMap.remove(schemaPath);
           return false;
         }

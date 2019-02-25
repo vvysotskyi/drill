@@ -25,60 +25,32 @@ import org.apache.drill.exec.record.metadata.TupleSchema;
 import java.util.Map;
 import java.util.Set;
 
-// actually this class represents not a partition metadata,
-// but a metadata for table part which corresponds to the concrete partition key.
-// Therefore such schema as Map<String, Object> values should be removed.
+/**
+ * Represents a metadata for table part which corresponds to the concrete partition key.
+ */
 public class PartitionMetadata implements BaseMetadata {
   private final SchemaPath column;
-  // part location -> part column value
-//  private final Map<String, Object> values;
-  // TODO: currently it is impossible to obtain statistics for the concrete partition.
-  // Refactor this code to allow that.
   private final TupleSchema schema;
   private final Map<SchemaPath, ColumnStatistics> columnStatistics;
   private final Map<String, Object> partitionStatistics;
-  // TODO: decide which of these: fileName or location should be left.
   private final Set<String> location;
-  // TODO: decide whether this field is required
   private final String tableName;
   private final long lastModifiedTime;
 
   public PartitionMetadata(SchemaPath column,
-//      Map<String, Object> values,
                            TupleSchema schema,
-      Map<SchemaPath, ColumnStatistics> columnsStatistics,
-      Map<String, Object> partitionStatistics,
-      Set<String> location,
-      String tableName,
-      long lastModifiedTime) {
+                           Map<SchemaPath, ColumnStatistics> columnsStatistics,
+                           Map<String, Object> partitionStatistics,
+                           Set<String> location,
+                           String tableName,
+                           long lastModifiedTime) {
     this.column = column;
-//    this.values = values;
     this.schema = schema;
     this.columnStatistics = columnsStatistics;
     this.partitionStatistics = partitionStatistics;
     this.location = location;
     this.tableName = tableName;
     this.lastModifiedTime = lastModifiedTime;
-  }
-
-  public SchemaPath getColumn() {
-    return column;
-  }
-
-//  public Map<String, Object> getValues() {
-//    return values;
-//  }
-
-  public Set<String> getLocations() {
-    return location;
-  }
-
-  public String getTableName() {
-    return tableName;
-  }
-
-  public long getLastModifiedTime() {
-    return lastModifiedTime;
   }
 
   @Override
@@ -105,4 +77,21 @@ public class PartitionMetadata implements BaseMetadata {
   public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
     return columnStatistics.get(columnName).getStatistic(statisticsKind);
   }
+
+  public SchemaPath getColumn() {
+    return column;
+  }
+
+  public Set<String> getLocations() {
+    return location;
+  }
+
+  public String getTableName() {
+    return tableName;
+  }
+
+  public long getLastModifiedTime() {
+    return lastModifiedTime;
+  }
+
 }

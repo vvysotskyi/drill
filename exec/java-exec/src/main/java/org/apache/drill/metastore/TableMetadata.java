@@ -23,10 +23,12 @@ import org.apache.drill.exec.record.metadata.SchemaPathUtils;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Metadata which corresponds to the table level.
+ */
 public class TableMetadata implements BaseMetadata {
   private final String tableName;
   private final String location;
@@ -36,11 +38,15 @@ public class TableMetadata implements BaseMetadata {
   private final long lastModifiedTime;
   private final String owner;
   private final Set<String> partitionKeys;
-  private List<FileMetadata> files;
 
-  public TableMetadata(String tableName, String location, TupleSchema schema,
-      Map<SchemaPath, ColumnStatistics> columnsStatistics, Map<String, Object> tableStatistics,
-      long lastModifiedTime, String owner, Set<String> partitionKeys) {
+  public TableMetadata(String tableName,
+                       String location,
+                       TupleSchema schema,
+                       Map<SchemaPath,ColumnStatistics> columnsStatistics,
+                       Map<String, Object> tableStatistics,
+                       long lastModifiedTime,
+                       String owner,
+                       Set<String> partitionKeys) {
     this.tableName = tableName;
     this.location = location;
     this.schema = schema;
@@ -97,10 +103,6 @@ public class TableMetadata implements BaseMetadata {
 
   public String getOwner() {
     return owner;
-  }
-
-  public List<FileMetadata> getFiles() {
-    return files;
   }
 
   public Map<SchemaPath, ColumnStatistics> getColumnsStatistics() {

@@ -37,6 +37,7 @@ import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
+import org.apache.drill.metastore.expr.StatisticsConstants;
 import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
@@ -65,6 +66,7 @@ import java.util.Set;
  */
 @SuppressWarnings("WeakerAccess")
 public class ParquetTableMetadataUtils {
+
   private static final Comparator<byte[]> UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR = Comparator.nullsFirst((b1, b2) ->
       PrimitiveComparator.UNSIGNED_LEXICOGRAPHICAL_BINARY_COMPARATOR.compare(Binary.fromReusedByteArray(b1), Binary.fromReusedByteArray(b2)));
 
@@ -82,7 +84,7 @@ public class ParquetTableMetadataUtils {
    * Creates new map based on specified {@code columnStatistics} with added statistics
    * for implicit and partition (dir) columns.
    *
-   * @param columnsStatistics            map of column statistics to expand
+   * @param columnsStatistics           map of column statistics to expand
    * @param columns                     list of all columns including implicit or partition ones
    * @param partitionValues             list of partition values
    * @param optionManager               option manager
@@ -139,14 +141,14 @@ public class ParquetTableMetadataUtils {
     Map<SchemaPath, ColumnStatistics> columnsStatistics = getRowGroupColumnStatistics(tableMetadata, rowGroupMetadata);
     Map<String, Object> rowGroupStatistics = new HashMap<>();
     rowGroupStatistics.put(TableStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
-    rowGroupStatistics.put("start", rowGroupMetadata.getStart());
-    rowGroupStatistics.put("length", rowGroupMetadata.getLength());
+    rowGroupStatistics.put(StatisticsConstants.START, rowGroupMetadata.getStart());
+    rowGroupStatistics.put(StatisticsConstants.LENGTH, rowGroupMetadata.getLength());
 
     Map<SchemaPath, TypeProtos.MajorType> columns = getRowGroupFields(tableMetadata, rowGroupMetadata);
 
     TupleSchema schema = new TupleSchema();
     for (Map.Entry<SchemaPath, TypeProtos.MajorType> pathTypePair : columns.entrySet()) {
-      SchemaPathUtils.addColumnMetadata(pathTypePair.getKey(), schema, pathTypePair.getValue());
+      SchemaPathUtils.addColumnMetadata(schema, pathTypePair.getKey(), pathTypePair.getValue());
     }
 
     return new RowGroupMetadata(
@@ -505,7 +507,6 @@ public class ParquetTableMetadataUtils {
       case UINT1:
         return Comparator.nullsFirst(UnsignedBytes::compare);
       case UINT2:
-        // TODO: check whether it will work for Integer::compareUnsigned
       case UINT4:
         return Comparator.nullsFirst(Integer::compareUnsigned);
       case UINT8:

@@ -22,4 +22,7 @@ public interface StatisticsConstants {
   String MAX_VALUE = "maxValue";
   String ROW_COUNT = "rowCount";
   String NULLS_COUNT = "nullsCount";
+
+  String START = "start";
+  String LENGTH = "length";
 }

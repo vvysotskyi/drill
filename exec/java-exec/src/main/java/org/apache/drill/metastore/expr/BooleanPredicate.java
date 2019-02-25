@@ -25,8 +25,7 @@ import org.apache.drill.exec.expr.stat.RowsMatch;
 
 import java.util.List;
 
-public abstract class BooleanPredicate<C extends Comparable<C>> extends BooleanOperator
-    implements FilterPredicate<C> {
+public abstract class BooleanPredicate<C extends Comparable<C>> extends BooleanOperator implements FilterPredicate<C> {
 
   private BooleanPredicate(String name, List<LogicalExpression> args, ExpressionPosition pos) {
     super(name, args, pos);
@@ -39,10 +38,7 @@ public abstract class BooleanPredicate<C extends Comparable<C>> extends BooleanO
 
   @SuppressWarnings("unchecked")
   private static <C extends Comparable<C>> LogicalExpression createAndPredicate(
-    String name,
-    List<LogicalExpression> args,
-    ExpressionPosition pos
-  ) {
+      String name, List<LogicalExpression> args, ExpressionPosition pos) {
     return new BooleanPredicate<C>(name, args, pos) {
       /**
        * Evaluates a compound "AND" filter on the statistics of a RowGroup (the filter reads "filterA and filterB").
@@ -73,10 +69,7 @@ public abstract class BooleanPredicate<C extends Comparable<C>> extends BooleanO
 
   @SuppressWarnings("unchecked")
   private static <C extends Comparable<C>> LogicalExpression createOrPredicate(
-    String name,
-    List<LogicalExpression> args,
-    ExpressionPosition pos
-  ) {
+      String name, List<LogicalExpression> args, ExpressionPosition pos) {
     return new BooleanPredicate<C>(name, args, pos) {
       /**
        * Evaluates a compound "OR" filter on the statistics of a RowGroup (the filter reads "filterA or filterB").
@@ -106,11 +99,7 @@ public abstract class BooleanPredicate<C extends Comparable<C>> extends BooleanO
   }
 
   public static <C extends Comparable<C>> LogicalExpression createBooleanPredicate(
-    String function,
-    String name,
-    List<LogicalExpression> args,
-    ExpressionPosition pos
-  ) {
+      String function, String name, List<LogicalExpression> args, ExpressionPosition pos) {
     switch (function) {
       case "booleanOr":
         return BooleanPredicate.<C>createOrPredicate(name, args, pos);

@@ -253,8 +253,8 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected List<String> getPartitionValues(LocationProvider rowGroupInfo) {
-    return ColumnExplorer.listPartitionValues(rowGroupInfo.getLocation(), selectionRoot);
+  protected List<String> getPartitionValues(LocationProvider locationProvider) {
+    return ColumnExplorer.listPartitionValues(locationProvider.getLocation(), selectionRoot);
   }
   // overridden protected methods block end
 

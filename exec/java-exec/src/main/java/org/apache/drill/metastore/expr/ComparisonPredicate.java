@@ -50,11 +50,9 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
 
   private final BiFunction<ColumnStatistics<C>, ColumnStatistics<C>, RowsMatch> predicate;
 
-  private ComparisonPredicate(
-    LogicalExpression left,
-    LogicalExpression right,
-    BiFunction<ColumnStatistics<C>, ColumnStatistics<C>, RowsMatch> predicate
-  ) {
+  private ComparisonPredicate(LogicalExpression left,
+                              LogicalExpression right,
+                              BiFunction<ColumnStatistics<C>, ColumnStatistics<C>, RowsMatch> predicate) {
     super(left.getPosition());
     this.left = left;
     this.right = right;
@@ -154,9 +152,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    * EQ (=) predicate
    */
   private static <C extends Comparable<C>> LogicalExpression createEqualPredicate(
-    LogicalExpression left,
-    LogicalExpression right
-  ) {
+      LogicalExpression left, LogicalExpression right) {
     return new ComparisonPredicate<C>(left, right, (leftStat, rightStat) -> {
       Comparator<C> valueComparator = leftStat.getValueComparator();
 
@@ -186,9 +182,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    * GT (>) predicate.
    */
   private static <C extends Comparable<C>> LogicalExpression createGTPredicate(
-    LogicalExpression left,
-    LogicalExpression right
-  ) {
+      LogicalExpression left, LogicalExpression right) {
     return new ComparisonPredicate<C>(left, right, (leftStat, rightStat) -> {
       Comparator<C> valueComparator = leftStat.getValueComparator();
       if (valueComparator.compare(getMaxValue(leftStat), getMinValue(rightStat)) <= 0) {
@@ -210,9 +204,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    * GE (>=) predicate.
    */
   private static <C extends Comparable<C>> LogicalExpression createGEPredicate(
-    LogicalExpression left,
-    LogicalExpression right
-  ) {
+    LogicalExpression left, LogicalExpression right) {
     return new ComparisonPredicate<C>(left, right, (leftStat, rightStat) -> {
       Comparator<C> valueComparator = leftStat.getValueComparator();
       if (valueComparator.compare(getMaxValue(leftStat), getMinValue(rightStat)) < 0) {
@@ -226,9 +218,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    * LT (<) predicate.
    */
   private static <C extends Comparable<C>> LogicalExpression createLTPredicate(
-    LogicalExpression left,
-    LogicalExpression right
-  ) {
+      LogicalExpression left, LogicalExpression right) {
     return new ComparisonPredicate<C>(left, right, (leftStat, rightStat) -> {
       Comparator<C> valueComparator = leftStat.getValueComparator();
       if (valueComparator.compare(getMaxValue(rightStat), getMinValue(leftStat)) <= 0) {
@@ -242,8 +232,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    * LE (<=) predicate.
    */
   private static <C extends Comparable<C>> LogicalExpression createLEPredicate(
-    LogicalExpression left, LogicalExpression right
-  ) {
+      LogicalExpression left, LogicalExpression right) {
     return new ComparisonPredicate<C>(left, right, (leftStat, rightStat) -> {
       Comparator<C> valueComparator = leftStat.getValueComparator();
       if (valueComparator.compare(getMaxValue(rightStat), getMinValue(leftStat)) < 0) {
@@ -257,9 +246,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    * NE (!=) predicate.
    */
   private static <C extends Comparable<C>> LogicalExpression createNEPredicate(
-    LogicalExpression left,
-    LogicalExpression right
-  ) {
+      LogicalExpression left, LogicalExpression right) {
     return new ComparisonPredicate<C>(left, right, (leftStat, rightStat) -> {
       Comparator<C> valueComparator = leftStat.getValueComparator();
       if (valueComparator.compare(getMaxValue(leftStat), getMinValue(rightStat)) < 0
@@ -272,10 +259,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
   }
 
   public static <C extends Comparable<C>> LogicalExpression createComparisonPredicate(
-    String function,
-    LogicalExpression left,
-    LogicalExpression right
-  ) {
+      String function, LogicalExpression left, LogicalExpression right) {
     switch (function) {
       case FunctionGenerationHelper.EQ:
         return ComparisonPredicate.<C>createEqualPredicate(left, right);

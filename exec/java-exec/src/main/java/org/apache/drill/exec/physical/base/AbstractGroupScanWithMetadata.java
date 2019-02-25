@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.base;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
@@ -85,8 +86,8 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   // set of the files to be handled
   protected Set<String> fileSet;
 
-  // whether all row groups of this group scan fully match the filter
-  protected boolean matchAllRowGroups = false;
+  // whether all files, partitions or row groups of this group scan fully match the filter
+  protected boolean matchAllMetadata = false;
 
   protected AbstractGroupScanWithMetadata(String userName, List<SchemaPath> columns, LogicalExpression filter) {
     super(userName);
@@ -98,7 +99,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     super(that.getUserName());
     this.columns = that.columns;
     this.filter = that.filter;
-    this.matchAllRowGroups = that.matchAllRowGroups;
+    this.matchAllMetadata = that.matchAllMetadata;
 
     this.metadataProvider = that.metadataProvider;
     this.tableMetadata = that.tableMetadata;
@@ -126,8 +127,8 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   }
 
   @JsonIgnore
-  public boolean isMatchAllRowGroups() {
-    return matchAllRowGroups;
+  public boolean isMatchAllMetadata() {
+    return matchAllMetadata;
   }
 
   /**
@@ -200,7 +201,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       if (filteredMetadata.getFiles() != null && getFilesMetadata().size() == filteredMetadata.getFiles().size()) {
         // There is no reduction of files, but filter may be omitted.
         logger.debug("applyFilter() does not have any pruning since GroupScan fully matches filter");
-        matchAllRowGroups = filteredMetadata.isMatchAllRowGroups();
+        matchAllMetadata = filteredMetadata.isMatchAllMetadata();
         return null;
       }
     } else if (getPartitionsMetadata() != null) {
@@ -208,26 +209,26 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       if (filteredMetadata.getPartitions() != null && getPartitionsMetadata().size() == filteredMetadata.getPartitions().size()) {
         // There is no reduction of partitions, but filter may be omitted.
         logger.debug("applyFilter() does not have any pruning since GroupScan fully matches filter");
-        matchAllRowGroups = filteredMetadata.isMatchAllRowGroups();
+        matchAllMetadata = filteredMetadata.isMatchAllMetadata();
         return null;
       }
     } else if (getTableMetadata() != null) {
-      // There is no reduction of files, but filter may be omitted.
+      // There is no reduction of files or partitions, but filter may be omitted.
       logger.debug("applyFilter() does not have any pruning since GroupScan fully matches filter");
-      matchAllRowGroups = filteredMetadata.isMatchAllRowGroups();
+      matchAllMetadata = filteredMetadata.isMatchAllMetadata();
       return null;
     }
 
-    if (!filteredMetadata.isMatchAllRowGroups()
+    if (!filteredMetadata.isMatchAllMetadata()
       // filter returns empty result using table metadata
       && ((filteredMetadata.getTableMetadata() == null && getTableMetadata() != null)
-          // all partitions pruned if partition metadata is available
-          || unchangedMetadata(getPartitionsMetadata(), filteredMetadata.getPartitions())
+          // all partitions are pruned if partition metadata is available
+          || CollectionUtils.isEmpty(filteredMetadata.getPartitions()) && CollectionUtils.isNotEmpty(getPartitionsMetadata())
           // all files are pruned if file metadata is available
-          || unchangedMetadata(getFilesMetadata(), filteredMetadata.getFiles()))) {
+          || CollectionUtils.isEmpty(filteredMetadata.getFiles()) && CollectionUtils.isNotEmpty(getFilesMetadata()))) {
       if (getFilesMetadata().size() == 1) {
         // For the case when group scan has single file and it was filtered,
-        // no need to create new group scan with the same row group.
+        // no need to create new group scan with the same file.
         return null;
       }
       logger.debug("All files have been filtered out. Add back one to get schema from scanner");
@@ -240,19 +241,21 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     return filteredMetadata.build();
   }
 
-  protected static <T> boolean unchangedMetadata(List<T> partitions, List<T> newPartitions) {
-    return (newPartitions == null || newPartitions.isEmpty()) && partitions != null && !partitions.isEmpty();
-  }
-
-  /** Javadoc javadoc javadoc.
-   * @param inputList param javadoc
-   * @param <T> type javadoc
-   * @return return javadoc
+  /**
+   * Returns list with the first element of input list or empty list if input one was empty.
+   *
+   * @param inputList the source of the first element
+   * @param <T>       type of values in the list
+   * @return list with the first element of input list
    */
   protected <T> List<T> getNextOrEmpty(List<T> inputList) {
-    return inputList != null && !inputList.isEmpty() ? Collections.singletonList(inputList.iterator().next()) : Collections.emptyList();
+    return CollectionUtils.isNotEmpty(inputList) ? Collections.singletonList(inputList.iterator().next()) : Collections.emptyList();
   }
 
+  /**
+   * Returns holder for metadata values which provides API to filter metadata
+   * and build new group scan instance using filtered metadata.
+   */
   protected abstract GroupScanWithMetadataFilterer getFilterer();
 
   /**
@@ -266,9 +269,10 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
    * @return parquet filter predicate
    */
   public FilterPredicate getFilterPredicate(LogicalExpression filterExpr,
-                                            UdfUtilities udfUtilities, FunctionImplementationRegistry functionImplementationRegistry,
-                                            OptionManager optionManager, boolean omitUnsupportedExprs) {
-
+                                            UdfUtilities udfUtilities,
+                                            FunctionImplementationRegistry functionImplementationRegistry,
+                                            OptionManager optionManager,
+                                            boolean omitUnsupportedExprs) {
     TupleMetadata types = getColumnMetadata();
     if (types == null) {
       throw new UnsupportedOperationException("At least one schema source should be available.");
@@ -312,26 +316,34 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
 
   @Override
   public GroupScan applyLimit(int maxRecords) {
-    maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
+    maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 file.
     GroupScanWithMetadataFilterer prunedMetadata = limitFiles(maxRecords);
     if (getTableMetadata() != null && prunedMetadata.getTableMetadata() == null) {
       logger.debug("limit push down does not apply, since table has less rows.");
       return null;
     }
-    if (getFilesMetadata() != null && !getFilesMetadata().isEmpty() && (prunedMetadata.getFiles() == null || getFilesMetadata().size() == prunedMetadata.getFiles().size() || prunedMetadata.getFiles().isEmpty())) {
+    if (CollectionUtils.isNotEmpty(getFilesMetadata())
+        && (CollectionUtils.isEmpty(prunedMetadata.getFiles()) || getFilesMetadata().size() == prunedMetadata.getFiles().size())) {
       logger.debug("limit push down does not apply, since number of files was not reduced.");
       return null;
     }
-    if (getPartitionsMetadata() != null && !getPartitionsMetadata().isEmpty() && (prunedMetadata.getPartitions() == null || getPartitionsMetadata().size() == prunedMetadata.getPartitions().size() || prunedMetadata.getPartitions().isEmpty())) {
+    if (CollectionUtils.isNotEmpty(getPartitionsMetadata())
+        && (CollectionUtils.isEmpty(prunedMetadata.getPartitions()) || getPartitionsMetadata().size() == prunedMetadata.getPartitions().size())) {
       logger.debug("limit push down does not apply, since number of partitions was not reduced.");
       return null;
     }
     return prunedMetadata.build();
   }
 
+  /**
+   * Prunes list of files considering table row count and returns {@link GroupScanWithMetadataFilterer}
+   * instance with pruned files.
+   *
+   * @param maxRecords target rows count for files
+   * @return {@link GroupScanWithMetadataFilterer} instance with pruned files
+   */
   protected GroupScanWithMetadataFilterer limitFiles(int maxRecords) {
     GroupScanWithMetadataFilterer prunedMetadata = getFilterer();
-    // further optimization : minimize # of files chosen, or the affinity of files chosen.
 
     if (getTableMetadata() != null) {
       long tableRowCount = (long) getTableMetadata().getStatistic(TableStatisticsKind.ROW_COUNT);
@@ -344,12 +356,12 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
 
     List<PartitionMetadata> qualifiedPartitions = limitMetadata(getPartitionsMetadata() != null ? getPartitionsMetadata() : Collections.emptyList(), maxRecords);
 
-    List<FileMetadata> partFiles = getPartitionsMetadata() != null && !getPartitionsMetadata().isEmpty()
+    List<FileMetadata> partFiles = CollectionUtils.isNotEmpty(getPartitionsMetadata())
         ? pruneForPartitions(getFilesMetadata(), qualifiedPartitions)
         : getFilesMetadata();
 
     // Calculate number of files to read based on maxRecords and update
-    // number of records to read for each of those rowGroups.
+    // number of records to read for each of those files.
     List<FileMetadata> qualifiedFiles = limitMetadata(partFiles != null ? partFiles : Collections.emptyList(), maxRecords);
 
     return prunedMetadata
@@ -460,7 +472,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   }
 
   protected abstract boolean supportsFileImplicitColumns();
-  protected abstract List<String> getPartitionValues(LocationProvider rowGroupInfo);
+  protected abstract List<String> getPartitionValues(LocationProvider locationProvider);
 
   protected boolean isImplicitOrPartCol(SchemaPath schemaPath, OptionManager optionManager) {
     Set<String> implicitColNames = ColumnExplorer.initImplicitFileColumns(optionManager).keySet();
@@ -495,7 +507,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   protected abstract static class GroupScanWithMetadataFilterer {
     protected final AbstractGroupScanWithMetadata source;
 
-    protected boolean matchAllRowGroups = false;
+    protected boolean matchAllMetadata = false;
 
     protected TableMetadata tableMetadata;
     protected List<PartitionMetadata> partitions;
@@ -532,8 +544,8 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       return this;
     }
 
-    public GroupScanWithMetadataFilterer withMatching(boolean matchAllRowGroups) {
-      this.matchAllRowGroups = matchAllRowGroups;
+    public GroupScanWithMetadataFilterer withMatching(boolean matchAllMetadata) {
+      this.matchAllMetadata = matchAllMetadata;
       return this;
     }
 
@@ -542,8 +554,8 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       return this;
     }
 
-    public boolean isMatchAllRowGroups() {
-      return matchAllRowGroups;
+    public boolean isMatchAllMetadata() {
+      return matchAllMetadata;
     }
 
     public TableMetadata getTableMetadata() {
@@ -597,9 +609,10 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     protected void filterTableMetadata(FilterPredicate filterPredicate, Set<SchemaPath> schemaPathsInExpr) {
       // Filters table metadata. If resulting list is empty, should be used single minimum entity of metadata.
       // If table matches fully, nothing is pruned and pruning of underlying metadata is stopped.
-      matchAllRowGroups = true;
-      List<TableMetadata> filteredTableMetadata = filterAndGetMetadata(schemaPathsInExpr, Collections.singletonList(source.getTableMetadata()), filterPredicate, null);
-      if (filteredTableMetadata!= null && !filteredTableMetadata.isEmpty()) {
+      matchAllMetadata = true;
+      List<TableMetadata> filteredTableMetadata = filterAndGetMetadata(schemaPathsInExpr,
+          Collections.singletonList(source.getTableMetadata()), filterPredicate, null);
+      if (CollectionUtils.isNotEmpty(filteredTableMetadata)) {
         this.tableMetadata = filteredTableMetadata.get(0);
       }
     }
@@ -614,14 +627,14 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     protected void filterPartitionMetadata(OptionManager optionManager,
                                            FilterPredicate filterPredicate,
                                            Set<SchemaPath> schemaPathsInExpr) {
-      if (!matchAllRowGroups) {
+      if (!matchAllMetadata) {
         if (!source.getPartitionsMetadata().isEmpty()) {
           if (source.getPartitionsMetadata().size() <= optionManager.getOption(
             PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
-            matchAllRowGroups = true;
+            matchAllMetadata = true;
             partitions = filterAndGetMetadata(schemaPathsInExpr, source.getPartitionsMetadata(), filterPredicate, optionManager);
           } else {
-            matchAllRowGroups = false;
+            matchAllMetadata = false;
             overflowLevel = MetadataLevel.PARTITION;
           }
         }
@@ -641,7 +654,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
                                       FilterPredicate filterPredicate,
                                       Set<SchemaPath> schemaPathsInExpr) {
       List<FileMetadata> prunedFiles;
-      if (source.getPartitionsMetadata() == null || source.getPartitionsMetadata().isEmpty()
+      if (CollectionUtils.isEmpty(source.getPartitionsMetadata())
           || source.getPartitionsMetadata().size() == getPartitions().size()) {
         // no partition pruning happened, no need to prune initial files list
         prunedFiles = source.getFilesMetadata();
@@ -650,7 +663,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
         prunedFiles = pruneForPartitions(source.getFilesMetadata(), partitions);
       }
 
-      if (matchAllRowGroups) {
+      if (matchAllMetadata) {
         files = prunedFiles;
         return;
       }
@@ -660,11 +673,11 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       if (prunedFiles.size() <= optionManager.getOption(
         PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
 
-        matchAllRowGroups = true;
+        matchAllMetadata = true;
         files = filterAndGetMetadata(schemaPathsInExpr, prunedFiles, filterPredicate, optionManager);
 
       } else {
-        matchAllRowGroups = false;
+        matchAllMetadata = false;
         files = prunedFiles;
         overflowLevel = MetadataLevel.FILE;
       }
@@ -703,13 +716,13 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
         if (match == RowsMatch.NONE) {
           continue; // No file comply to the filter => drop the file
         }
-        if (matchAllRowGroups) {
-          matchAllRowGroups = match == RowsMatch.ALL;
+        if (matchAllMetadata) {
+          matchAllMetadata = match == RowsMatch.ALL;
         }
         qualifiedFiles.add(metadata);
       }
       if (qualifiedFiles.isEmpty()) {
-        matchAllRowGroups = false;
+        matchAllMetadata = false;
       }
       return qualifiedFiles;
     }

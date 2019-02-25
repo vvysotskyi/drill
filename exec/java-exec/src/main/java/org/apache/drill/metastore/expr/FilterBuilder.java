@@ -73,8 +73,10 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
    *
    * @return metadata filter predicate
    */
-  public static FilterPredicate buildFilterPredicate(LogicalExpression expr, Set<LogicalExpression> constantBoundaries,
-                                                     UdfUtilities udfUtilities, boolean omitUnsupportedExprs) {
+  public static FilterPredicate buildFilterPredicate(LogicalExpression expr,
+                                                     Set<LogicalExpression> constantBoundaries,
+                                                     UdfUtilities udfUtilities,
+                                                     boolean omitUnsupportedExprs) {
     LogicalExpression logicalExpression = expr.accept(new FilterBuilder(udfUtilities, omitUnsupportedExprs), constantBoundaries);
     if (logicalExpression instanceof FilterPredicate) {
       return (FilterPredicate) logicalExpression;
@@ -196,10 +198,10 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
       case VARDECIMAL:
         VarDecimalHolder decimalHolder = (VarDecimalHolder) holder;
         return ValueExpressions.getVarDecimal(
-          DecimalUtility.getBigDecimalFromDrillBuf(decimalHolder.buffer,
-            decimalHolder.start, decimalHolder.end - decimalHolder.start, decimalHolder.scale),
-          decimalHolder.precision,
-          decimalHolder.scale);
+            DecimalUtility.getBigDecimalFromDrillBuf(decimalHolder.buffer,
+                decimalHolder.start, decimalHolder.end - decimalHolder.start, decimalHolder.scale),
+            decimalHolder.precision,
+            decimalHolder.scale);
       case DATE:
         return ValueExpressions.getDate(((DateHolder) holder).value);
       case TIMESTAMP:
@@ -221,7 +223,7 @@ public class FilterBuilder extends AbstractExprVisitor<LogicalExpression, Set<Lo
   public LogicalExpression visitFunctionHolderExpression(FunctionHolderExpression funcHolderExpr, Set<LogicalExpression> value) {
     FuncHolder holder = funcHolderExpr.getHolder();
 
-    if (! (holder instanceof DrillSimpleFuncHolder)) {
+    if (!(holder instanceof DrillSimpleFuncHolder)) {
       return null;
     }
 

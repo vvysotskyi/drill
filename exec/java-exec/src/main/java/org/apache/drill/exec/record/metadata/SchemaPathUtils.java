@@ -25,6 +25,17 @@ import org.apache.drill.exec.record.MaterializedField;
 
 public class SchemaPathUtils {
 
+  private SchemaPathUtils() {
+  }
+
+  /**
+   * Returns {@link ColumnMetadata} instance obtained from specified {@code TupleMetadata schema} which corresponds to
+   * the specified column schema path.
+   *
+   * @param schemaPath schema path of the column which should be obtained
+   * @param schema     tuple schema where column should be searched
+   * @return {@link ColumnMetadata} instance which corresponds to the specified column schema path
+   */
   public static ColumnMetadata getColumnMetadata(SchemaPath schemaPath, TupleMetadata schema) {
     PathSegment.NameSegment colPath = schemaPath.getUnIndexed().getRootSegment();
     ColumnMetadata colMetadata = schema.metadata(colPath.getPath());
@@ -39,7 +50,14 @@ public class SchemaPathUtils {
     return colMetadata;
   }
 
-  public static void addColumnMetadata(SchemaPath schemaPath, TupleMetadata schema, TypeProtos.MajorType type) {
+  /**
+   * Adds column with specified schema path and type into specified {@code TupleMetadata schema}.
+   *
+   * @param schema     tuple schema where column should be added
+   * @param schemaPath schema path of the column which should be added
+   * @param type       type of the column which should be added
+   */
+  public static void addColumnMetadata(TupleMetadata schema, SchemaPath schemaPath, TypeProtos.MajorType type) {
     PathSegment.NameSegment colPath = schemaPath.getUnIndexed().getRootSegment();
     ColumnMetadata colMetadata;
 

@@ -206,8 +206,8 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected List<String> getPartitionValues(LocationProvider rowGroupInfo) {
-    return hivePartitionHolder.get(rowGroupInfo.getLocation());
+  protected List<String> getPartitionValues(LocationProvider locationProvider) {
+    return hivePartitionHolder.get(locationProvider.getLocation());
   }
 
   /**

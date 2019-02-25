@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.parquet;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.drill.common.expression.ExpressionStringBuilder;
 import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
 import org.apache.drill.exec.physical.base.ParquetMetadataProvider;
@@ -27,6 +28,7 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.metastore.LocationProvider;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
+import org.apache.drill.metastore.expr.StatisticsConstants;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ListMultimap;
@@ -153,8 +155,8 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       rowGroupInfos = new ArrayList<>();
       for (RowGroupMetadata rowGroupMetadata : getRowGroupsMetadata()) {
         RowGroupInfo rowGroupInfo = new RowGroupInfo(rowGroupMetadata.getLocation(),
-            (long) rowGroupMetadata.getStatistic(() -> "start"),
-            (long) rowGroupMetadata.getStatistic(() -> "length"),
+            (long) rowGroupMetadata.getStatistic(() -> StatisticsConstants.START),
+            (long) rowGroupMetadata.getStatistic(() -> StatisticsConstants.LENGTH),
             rowGroupMetadata.getRowGroupIndex(),
             (long) rowGroupMetadata.getStatistic(TableStatisticsKind.ROW_COUNT));
         rowGroupInfo.setNumRecordsToRead(rowGroupInfo.getRowCount());
@@ -227,39 +229,39 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       if (builder.getRowGroups() != null && getRowGroupsMetadata().size() == builder.getRowGroups().size()) {
         // There is no reduction of files
         logger.debug("applyFilter() does not have any pruning");
-        matchAllRowGroups = builder.isMatchAllRowGroups();
+        matchAllMetadata = builder.isMatchAllMetadata();
         return null;
       }
     } else if (getFilesMetadata() != null) {
       if (builder.getFiles() != null && getFilesMetadata().size() == builder.getFiles().size()) {
         // There is no reduction of files
         logger.debug("applyFilter() does not have any pruning");
-        matchAllRowGroups = builder.isMatchAllRowGroups();
+        matchAllMetadata = builder.isMatchAllMetadata();
         return null;
       }
     } else if (getPartitionsMetadata() != null) {
       if (builder.getPartitions() != null && getPartitionsMetadata().size() == builder.getPartitions().size()) {
         // There is no reduction of partitions
         logger.debug("applyFilter() does not have any pruning ");
-        matchAllRowGroups = builder.isMatchAllRowGroups();
+        matchAllMetadata = builder.isMatchAllMetadata();
         return null;
       }
     } else if (getTableMetadata() != null) {
       // There is no reduction
       logger.debug("applyFilter() does not have any pruning");
-      matchAllRowGroups = builder.isMatchAllRowGroups();
+      matchAllMetadata = builder.isMatchAllMetadata();
       return null;
     }
 
-    if (!builder.isMatchAllRowGroups()
+    if (!builder.isMatchAllMetadata()
         // filter returns empty result using table metadata
         && ((builder.getTableMetadata() == null && getTableMetadata() != null)
             // all partitions pruned if partition metadata is available
-            || unchangedMetadata(getPartitionsMetadata(), builder.getPartitions())
+            || CollectionUtils.isEmpty(builder.getPartitions()) && CollectionUtils.isNotEmpty(getPartitionsMetadata())
             // all files are pruned if file metadata is available
-            || unchangedMetadata(getFilesMetadata(), builder.getFiles())
+            || CollectionUtils.isEmpty(builder.getFiles()) && CollectionUtils.isNotEmpty(getFilesMetadata())
             // all row groups are pruned if row group metadata is available
-            || unchangedMetadata(getRowGroupsMetadata(), builder.getRowGroups()))) {
+            || CollectionUtils.isEmpty(builder.getRowGroups()) && CollectionUtils.isNotEmpty(getRowGroupsMetadata()))) {
       if (getRowGroupsMetadata().size() == 1) {
         // For the case when group scan has single row group and it was filtered,
         // no need to create new group scan with the same row group.
@@ -289,7 +291,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
   @Override
   protected TupleMetadata getColumnMetadata() {
     TupleMetadata columnMetadata = super.getColumnMetadata();
-    if (columnMetadata == null && getRowGroupsMetadata() != null && !getRowGroupsMetadata().isEmpty()) {
+    if (columnMetadata == null && CollectionUtils.isNotEmpty(getRowGroupsMetadata())) {
       return getRowGroupsMetadata().iterator().next().getSchema();
     }
     return columnMetadata;
@@ -374,15 +376,15 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     }
 
     if (getPartitionsMetadata() != null) {
-      Set<PartitionMetadata> newPartitions = new HashSet<>();
+      partitions = new ArrayList<>();
       for (PartitionMetadata entry : getPartitionsMetadata()) {
         for (String partLocation : entry.getLocations()) {
           if (fileSet.contains(partLocation)) {
-            newPartitions.add(entry);
+            partitions.add(entry);
+            break;
           }
         }
       }
-      partitions = new ArrayList<>(newPartitions);
     }
     rowGroupInfos = null;
   }
@@ -446,7 +448,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       newScan.partitions = partitions != null ? partitions : Collections.emptyList();
       newScan.files = files != null ? files : Collections.emptyList();
       newScan.rowGroups = rowGroups != null ? rowGroups : Collections.emptyList();
-      newScan.matchAllRowGroups = matchAllRowGroups;
+      newScan.matchAllMetadata = matchAllMetadata;
       // since builder is used when pruning happens, entries and fileSet should be expanded
       if (!newScan.getFilesMetadata().isEmpty()) {
         newScan.entries = newScan.getFilesMetadata().stream()
@@ -490,24 +492,25 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
      * @param filterPredicate   filter expression
      * @param schemaPathsInExpr columns used in filter expression
      */
-    protected void filterRowGroupMetadata(OptionManager optionManager, FilterPredicate filterPredicate,
+    protected void filterRowGroupMetadata(OptionManager optionManager,
+                                          FilterPredicate filterPredicate,
                                           Set<SchemaPath> schemaPathsInExpr) {
       AbstractParquetGroupScan abstractParquetGroupScan = (AbstractParquetGroupScan) source;
       List<RowGroupMetadata> prunedRowGroups;
-      if (abstractParquetGroupScan.getFilesMetadata() != null && !abstractParquetGroupScan.getFilesMetadata().isEmpty()
+      if (CollectionUtils.isNotEmpty(abstractParquetGroupScan.getFilesMetadata())
           && abstractParquetGroupScan.getFilesMetadata().size() > getFiles().size()) {
-        // prunes files to leave only files which are contained by pruned partitions
+        // prunes row groups to leave only row groups which are contained by pruned files
         prunedRowGroups = abstractParquetGroupScan.pruneRowGroupsForFiles(getFiles());
-      } else if (abstractParquetGroupScan.getPartitionsMetadata() != null
-          && !abstractParquetGroupScan.getPartitionsMetadata().isEmpty()
+      } else if (CollectionUtils.isNotEmpty(abstractParquetGroupScan.getPartitionsMetadata())
           && abstractParquetGroupScan.getPartitionsMetadata().size() > getPartitions().size()) {
+        // prunes row groups to leave only row groups which are contained by pruned partitions
         prunedRowGroups = pruneForPartitions(abstractParquetGroupScan.getRowGroupsMetadata(), getPartitions());
       } else {
-        // no partition pruning happened, no need to prune initial files list
+        // no partition or file pruning happened, no need to prune initial row groups list
         prunedRowGroups = abstractParquetGroupScan.getRowGroupsMetadata();
       }
 
-      if (isMatchAllRowGroups()) {
+      if (isMatchAllMetadata()) {
         rowGroups = prunedRowGroups;
         return;
       }
@@ -516,11 +519,11 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
       //    -  # of row groups is beyond PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD.
       if (prunedRowGroups.size() <= optionManager.getOption(
         PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
-        matchAllRowGroups = true;
+        matchAllMetadata = true;
         this.rowGroups = filterAndGetMetadata(schemaPathsInExpr, prunedRowGroups, filterPredicate, optionManager);
       } else {
         this.rowGroups = prunedRowGroups;
-        matchAllRowGroups = false;
+        matchAllMetadata = false;
         overflowLevel = MetadataLevel.ROW_GROUP;
       }
     }
