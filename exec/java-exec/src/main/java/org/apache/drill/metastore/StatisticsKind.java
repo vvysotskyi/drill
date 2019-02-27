@@ -39,4 +39,8 @@ public interface StatisticsKind {
   default boolean isValueStatistic() {
     return false;
   }
+
+  default boolean isExact() {
+    return false;
+  }
 }

@@ -37,7 +37,7 @@ import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
-import org.apache.drill.metastore.expr.StatisticsConstants;
+import org.apache.drill.metastore.expr.ExactStatisticsConstants;
 import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
@@ -141,8 +141,8 @@ public class ParquetTableMetadataUtils {
     Map<SchemaPath, ColumnStatistics> columnsStatistics = getRowGroupColumnStatistics(tableMetadata, rowGroupMetadata);
     Map<String, Object> rowGroupStatistics = new HashMap<>();
     rowGroupStatistics.put(TableStatisticsKind.ROW_COUNT.getName(), rowGroupMetadata.getRowCount());
-    rowGroupStatistics.put(StatisticsConstants.START, rowGroupMetadata.getStart());
-    rowGroupStatistics.put(StatisticsConstants.LENGTH, rowGroupMetadata.getLength());
+    rowGroupStatistics.put(ExactStatisticsConstants.START, rowGroupMetadata.getStart());
+    rowGroupStatistics.put(ExactStatisticsConstants.LENGTH, rowGroupMetadata.getLength());
 
     Map<SchemaPath, TypeProtos.MajorType> columns = getRowGroupFields(tableMetadata, rowGroupMetadata);
 

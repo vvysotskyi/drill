@@ -18,7 +18,7 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.metastore.expr.StatisticsConstants;
+import org.apache.drill.metastore.expr.ExactStatisticsConstants;
 
 import java.util.List;
 
@@ -31,7 +31,7 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticsKind {
   /**
    * Column statistics kind which represents nulls count for the specific column.
    */
-  NULLS_COUNT(StatisticsConstants.NULLS_COUNT) {
+  NULLS_COUNT(ExactStatisticsConstants.NULLS_COUNT) {
     @Override
     public Object mergeStatistics(List<? extends ColumnStatistics> statisticsList) {
       long nullsCount = 0;
@@ -45,12 +45,17 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticsKind {
       }
       return nullsCount;
     }
+
+    @Override
+    public boolean isExact() {
+      return true;
+    }
   },
 
   /**
    * Column statistics kind which represents min value of the specific column.
    */
-  MIN_VALUE(StatisticsConstants.MIN_VALUE) {
+  MIN_VALUE(ExactStatisticsConstants.MIN_VALUE) {
     @Override
     @SuppressWarnings("unchecked")
     public Object mergeStatistics(List<? extends ColumnStatistics> statisticsList) {
@@ -68,12 +73,17 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticsKind {
     public boolean isValueStatistic() {
       return true;
     }
+
+    @Override
+    public boolean isExact() {
+      return true;
+    }
   },
 
   /**
    * Column statistics kind which represents max value of the specific column.
    */
-  MAX_VALUE(StatisticsConstants.MAX_VALUE) {
+  MAX_VALUE(ExactStatisticsConstants.MAX_VALUE) {
     @Override
     @SuppressWarnings("unchecked")
     public Object mergeStatistics(List<? extends ColumnStatistics> statisticsList) {
@@ -89,6 +99,11 @@ public enum ColumnStatisticsKind implements CollectableColumnStatisticsKind {
 
     @Override
     public boolean isValueStatistic() {
+      return true;
+    }
+
+    @Override
+    public boolean isExact() {
       return true;
     }
   };

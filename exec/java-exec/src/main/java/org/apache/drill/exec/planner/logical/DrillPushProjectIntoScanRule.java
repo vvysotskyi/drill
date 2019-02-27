@@ -49,7 +49,7 @@ public class DrillPushProjectIntoScanRule extends RelOptRule {
   public static final RelOptRule INSTANCE =
       new DrillPushProjectIntoScanRule(LogicalProject.class,
           EnumerableTableScan.class,
-          "DrillPushProjectIntoEnumerableScan") {
+          "DrillPushProjectIntoScanRule:enumerable") {
 
         @Override
         protected boolean skipScanConversion(RelDataType projectRelDataType, TableScan scan) {
@@ -61,12 +61,12 @@ public class DrillPushProjectIntoScanRule extends RelOptRule {
   public static final RelOptRule DRILL_LOGICAL_INSTANCE =
       new DrillPushProjectIntoScanRule(LogicalProject.class,
           DrillScanRel.class,
-          "DrillPushProjectIntoScanRule");
+          "DrillPushProjectIntoScanRule:logical");
 
   public static final RelOptRule DRILL_PHYSICAL_INSTANCE =
       new DrillPushProjectIntoScanRule(ProjectPrel.class,
           ScanPrel.class,
-          "DrillPushProjectIntoScanRule") {
+          "DrillPushProjectIntoScanRule:physical") {
 
         @Override
         protected ScanPrel createScan(TableScan scan, ProjectPushInfo projectPushInfo) {

@@ -31,7 +31,7 @@ import java.util.Set;
 public class PartitionMetadata implements BaseMetadata {
   private final SchemaPath column;
   private final TupleSchema schema;
-  private final Map<SchemaPath, ColumnStatistics> columnStatistics;
+  private final Map<SchemaPath, ColumnStatistics> columnsStatistics;
   private final Map<String, Object> partitionStatistics;
   private final Set<String> location;
   private final String tableName;
@@ -46,7 +46,7 @@ public class PartitionMetadata implements BaseMetadata {
                            long lastModifiedTime) {
     this.column = column;
     this.schema = schema;
-    this.columnStatistics = columnsStatistics;
+    this.columnsStatistics = columnsStatistics;
     this.partitionStatistics = partitionStatistics;
     this.location = location;
     this.tableName = tableName;
@@ -65,7 +65,12 @@ public class PartitionMetadata implements BaseMetadata {
 
   @Override
   public Map<SchemaPath, ColumnStatistics> getColumnsStatistics() {
-    return columnStatistics;
+    return columnsStatistics;
+  }
+
+  @Override
+  public ColumnStatistics getColumnStatistics(SchemaPath columnName) {
+    return columnsStatistics.get(columnName);
   }
 
   @Override
@@ -75,7 +80,7 @@ public class PartitionMetadata implements BaseMetadata {
 
   @Override
   public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
-    return columnStatistics.get(columnName).getStatistic(statisticsKind);
+    return columnsStatistics.get(columnName).getStatistic(statisticsKind);
   }
 
   public SchemaPath getColumn() {

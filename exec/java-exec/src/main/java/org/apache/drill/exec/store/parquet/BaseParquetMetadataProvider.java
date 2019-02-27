@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.parquet;
 import org.apache.drill.exec.physical.base.ParquetMetadataProvider;
 import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.ColumnStatisticsImpl;
+import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
@@ -38,7 +39,7 @@ import org.apache.drill.metastore.ColumnStatisticsKind;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
-import org.apache.drill.metastore.TableMetadata;
+import org.apache.drill.metastore.FileTableMetadata;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -138,7 +139,7 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
           columnsStatistics.put(partitionColumn, new ColumnStatisticsImpl(stats, ParquetTableMetadataUtils.getNaturalNullsFirstComparator()));
         }
       }
-      tableMetadata = new TableMetadata(tableName, tableLocation, schema, columnsStatistics, tableStatistics,
+      tableMetadata = new FileTableMetadata(tableName, tableLocation, schema, columnsStatistics, tableStatistics,
           -1, "root", partitionKeys);
     }
 

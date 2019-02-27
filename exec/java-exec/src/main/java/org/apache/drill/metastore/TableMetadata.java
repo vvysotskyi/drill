@@ -18,107 +18,17 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.SchemaPathUtils;
-import org.apache.drill.exec.record.metadata.TupleSchema;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Metadata which corresponds to the table level.
  */
-public class TableMetadata implements BaseMetadata {
-  private final String tableName;
-  private final String location;
-  private final TupleSchema schema;
-  private final Map<SchemaPath, ColumnStatistics> columnsStatistics;
-  private final Map<String, Object> tableStatistics;
-  private final long lastModifiedTime;
-  private final String owner;
-  private final Set<String> partitionKeys;
+public interface TableMetadata extends BaseMetadata {
 
-  public TableMetadata(String tableName,
-                       String location,
-                       TupleSchema schema,
-                       Map<SchemaPath,ColumnStatistics> columnsStatistics,
-                       Map<String, Object> tableStatistics,
-                       long lastModifiedTime,
-                       String owner,
-                       Set<String> partitionKeys) {
-    this.tableName = tableName;
-    this.location = location;
-    this.schema = schema;
-    this.columnsStatistics = columnsStatistics;
-    this.tableStatistics = tableStatistics;
-    this.lastModifiedTime = lastModifiedTime;
-    this.owner = owner;
-    this.partitionKeys = partitionKeys;
-  }
-
-  @Override
-  public Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind) {
-    return columnsStatistics.get(columnName).getStatistic(statisticsKind);
-  }
-
-  public ColumnStatistics getColumnStatistics(SchemaPath columnName) {
-    return columnsStatistics.get(columnName);
-  }
-
-  @Override
-  public Object getStatistic(StatisticsKind statisticsKind) {
-    return tableStatistics.get(statisticsKind.getName());
-  }
-
-  @Override
-  public ColumnMetadata getColumn(SchemaPath name) {
-    return SchemaPathUtils.getColumnMetadata(name, schema);
-  }
-
-  @Override
-  public TupleSchema getSchema() {
-    return schema;
-  }
-
-  public boolean isPartitionColumn(String fieldName) {
-    return partitionKeys.contains(fieldName);
-  }
-
-  boolean isPartitioned() {
-    return !partitionKeys.isEmpty();
-  }
-
-  public String getTableName() {
-    return tableName;
-  }
-
-  public String getLocation() {
-    return location;
-  }
-
-  public long getLastModifiedTime() {
-    return lastModifiedTime;
-  }
-
-  public String getOwner() {
-    return owner;
-  }
-
-  public Map<SchemaPath, ColumnStatistics> getColumnsStatistics() {
-    return columnsStatistics;
-  }
-
-  public TableMetadata cloneWithStats(Map<SchemaPath, ColumnStatistics> columnStatistics, Map<String, Object> tableStatistics) {
-    Map<String, Object> mergedTableStatistics = new HashMap<>(this.tableStatistics);
-    mergedTableStatistics.putAll(tableStatistics);
-
-    Map<SchemaPath, ColumnStatistics> newColumnsStatistics = new HashMap<>(this.columnsStatistics);
-    for (Map.Entry<SchemaPath, ColumnStatistics> columnStatisticEntry : this.columnsStatistics.entrySet()) {
-      SchemaPath columnName = columnStatisticEntry.getKey();
-      newColumnsStatistics.put(columnName, columnStatisticEntry.getValue().cloneWithStats(columnStatistics.get(columnName)));
-    }
-
-    return new TableMetadata(tableName, location, schema, newColumnsStatistics, mergedTableStatistics, lastModifiedTime, owner, partitionKeys);
-  }
+  String getTableName();
+  String getLocation();
+  String getOwner();
+  long getLastModifiedTime();
+  TableMetadata cloneWithStats(Map<SchemaPath, ColumnStatistics> columnStatistics, Map<String, Object> tableStatistics);
 }

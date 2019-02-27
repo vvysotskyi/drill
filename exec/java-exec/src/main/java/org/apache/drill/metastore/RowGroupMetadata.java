@@ -56,6 +56,11 @@ public class RowGroupMetadata implements BaseMetadata, LocationProvider {
   }
 
   @Override
+  public ColumnStatistics getColumnStatistics(SchemaPath columnName) {
+    return columnsStatistics.get(columnName);
+  }
+
+  @Override
   public TupleSchema getSchema() {
     return schema;
   }

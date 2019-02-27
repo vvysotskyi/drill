@@ -18,7 +18,7 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.metastore.expr.StatisticsConstants;
+import org.apache.drill.metastore.expr.ExactStatisticsConstants;
 
 import java.util.List;
 
@@ -30,7 +30,7 @@ public enum TableStatisticsKind implements CollectableTableStatisticsKind {
   /**
    * Table statistics kind which represents row count for the specific column.
    */
-  ROW_COUNT(StatisticsConstants.ROW_COUNT) {
+  ROW_COUNT(ExactStatisticsConstants.ROW_COUNT) {
     @Override
     public Long mergeStatistics(List<? extends BaseMetadata> statistics) {
       long rowCount = 0;
@@ -50,6 +50,11 @@ public enum TableStatisticsKind implements CollectableTableStatisticsKind {
     public Long getValue(BaseMetadata metadata) {
       Long rowCount = (Long) metadata.getStatistic(this);
       return rowCount != null ? rowCount : GroupScan.NO_COLUMN_STATS;
+    }
+
+    @Override
+    public boolean isExact() {
+      return true;
     }
   };
 

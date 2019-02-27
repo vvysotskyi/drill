@@ -57,6 +57,11 @@ public class FileMetadata implements BaseMetadata, LocationProvider {
   }
 
   @Override
+  public ColumnStatistics getColumnStatistics(SchemaPath columnName) {
+    return columnsStatistics.get(columnName);
+  }
+
+  @Override
   public String getLocation() {
     return location;
   }

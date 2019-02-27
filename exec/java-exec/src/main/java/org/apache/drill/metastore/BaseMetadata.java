@@ -37,6 +37,14 @@ public interface BaseMetadata {
   Map<SchemaPath, ColumnStatistics> getColumnsStatistics();
 
   /**
+   * Returns statistics for specified column stored in current metadata.
+   *
+   * @param columnName column whose statistics should be returned
+   * @return statistics for specified column
+   */
+  ColumnStatistics getColumnStatistics(SchemaPath columnName);
+
+  /**
    * Returns schema stored in current metadata represented as
    * {@link TupleSchema}.
    *
@@ -62,5 +70,11 @@ public interface BaseMetadata {
    */
   Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind);
 
+  /**
+   * Returns metadata description of column specified as an argument.
+   *
+   * @param name name of the column whose metadata type info should be returned
+   * @return {@link ColumnMetadata} metadata description of column
+   */
   ColumnMetadata getColumn(SchemaPath name);
 }

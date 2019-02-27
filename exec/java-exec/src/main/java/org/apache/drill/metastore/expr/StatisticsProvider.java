@@ -264,11 +264,11 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     @Override
     public Object getStatistic(StatisticsKind statisticsKind) {
       switch (statisticsKind.getName()) {
-        case StatisticsConstants.MIN_VALUE:
+        case ExactStatisticsConstants.MIN_VALUE:
           return minVal;
-        case StatisticsConstants.MAX_VALUE:
+        case ExactStatisticsConstants.MAX_VALUE:
           return maxVal;
-        case StatisticsConstants.NULLS_COUNT:
+        case ExactStatisticsConstants.NULLS_COUNT:
           return nullsCount;
         default:
           return null;
@@ -278,9 +278,9 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
     @Override
     public boolean containsStatistic(StatisticsKind statisticsKind) {
       switch (statisticsKind.getName()) {
-        case StatisticsConstants.MIN_VALUE:
-        case StatisticsConstants.MAX_VALUE:
-        case StatisticsConstants.NULLS_COUNT:
+        case ExactStatisticsConstants.MIN_VALUE:
+        case ExactStatisticsConstants.MAX_VALUE:
+        case ExactStatisticsConstants.NULLS_COUNT:
           return true;
         default:
           return false;

@@ -17,7 +17,7 @@
  */
 package org.apache.drill.metastore.expr;
 
-public interface StatisticsConstants {
+public interface ExactStatisticsConstants {
   String MIN_VALUE = "minValue";
   String MAX_VALUE = "maxValue";
   String ROW_COUNT = "rowCount";
