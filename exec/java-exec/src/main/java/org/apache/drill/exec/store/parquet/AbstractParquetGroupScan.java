@@ -320,30 +320,38 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
   @Override
   public GroupScan applyLimit(int maxRecords) {
     maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 rowGroup.
-    RowGroupScanFilterer builder = (RowGroupScanFilterer) limitFiles(maxRecords);
-
-    if (builder.getTableMetadata() == null && getTableMetadata() != null) {
-      logger.debug("limit push down does not apply, since table has less rows.");
-      return null;
+    if (getTableMetadata() != null) {
+      long tableRowCount = (long) TableStatisticsKind.ROW_COUNT.getValue(getTableMetadata());
+      if (tableRowCount == NO_COLUMN_STATS || tableRowCount <= maxRecords) {
+        logger.debug("limit push down does not apply, since total number of rows [{}] is less or equal to the required [{}].",
+            tableRowCount, maxRecords);
+        return null;
+      }
     }
 
-    List<FileMetadata> qualifiedFiles = builder.getFiles();
-    qualifiedFiles = qualifiedFiles != null ? qualifiedFiles : Collections.emptyList();
+    List<RowGroupMetadata> qualifiedRowGroups = limitMetadata(getRowGroupsMetadata(), maxRecords);
 
-    List<RowGroupMetadata> qualifiedRowGroups = !qualifiedFiles.isEmpty() ? pruneRowGroupsForFiles(qualifiedFiles.subList(0, qualifiedFiles.size() - 1)) : new ArrayList<>();
-
-    // get row groups of the last file to filter them or get all row groups if files metadata isn't available
-    List<RowGroupMetadata> lastFileRowGroups = !qualifiedFiles.isEmpty() ? pruneRowGroupsForFiles(qualifiedFiles.subList(qualifiedFiles.size() - 1, qualifiedFiles.size())) : getRowGroupsMetadata();
-
-    qualifiedRowGroups.addAll(limitMetadata(lastFileRowGroups, maxRecords));
-
-    if (getRowGroupsMetadata() != null && getRowGroupsMetadata().size() == qualifiedRowGroups.size()) {
+    if (qualifiedRowGroups == null || getRowGroupsMetadata().size() == qualifiedRowGroups.size()) {
       logger.debug("limit push down does not apply, since number of row groups was not reduced.");
       return null;
     }
 
-    return builder
+    List<FileMetadata> qualifiedFiles = new ArrayList<>();
+    for (RowGroupMetadata rowGroup : qualifiedRowGroups) {
+      for (FileMetadata fileMetadata : getFilesMetadata()) {
+        if (rowGroup.getLocation().equals(fileMetadata.getLocation())) {
+          qualifiedFiles.add(fileMetadata);
+          break;
+        }
+      }
+    }
+
+    return getFilterer()
         .withRowGroups(qualifiedRowGroups)
+        .withTable(getTableMetadata())
+        .withPartitions(getPartitionsMetadata())
+        .withFiles(qualifiedFiles)
+        .withMatching(matchAllMetadata)
         .build();
   }
   // limit push down methods end

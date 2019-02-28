@@ -317,57 +317,31 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   @Override
   public GroupScan applyLimit(int maxRecords) {
     maxRecords = Math.max(maxRecords, 1); // Make sure it request at least 1 row -> 1 file.
-    GroupScanWithMetadataFilterer prunedMetadata = limitFiles(maxRecords);
-    if (getTableMetadata() != null && prunedMetadata.getTableMetadata() == null) {
-      logger.debug("limit push down does not apply, since table has less rows.");
-      return null;
+    GroupScanWithMetadataFilterer prunedMetadata = getFilterer();
+    if (getTableMetadata() != null) {
+      long tableRowCount = (long) TableStatisticsKind.ROW_COUNT.getValue(getTableMetadata());
+      if (tableRowCount == NO_COLUMN_STATS || tableRowCount <= maxRecords) {
+        logger.debug("limit push down does not apply, since total number of rows [{}] is less or equal to the required [{}].",
+            tableRowCount, maxRecords);
+        return null;
+      }
     }
-    if (CollectionUtils.isNotEmpty(getFilesMetadata())
-        && (CollectionUtils.isEmpty(prunedMetadata.getFiles()) || getFilesMetadata().size() == prunedMetadata.getFiles().size())) {
+    // Calculate number of files to read based on maxRecords and update
+    // number of records to read for each of those files.
+    List<FileMetadata> qualifiedFiles = limitMetadata(getFilesMetadata(), maxRecords);
+
+    // some files does not have set row count, do not do files pruning
+    if (qualifiedFiles == null || qualifiedFiles.size() == getFilesMetadata().size()) {
       logger.debug("limit push down does not apply, since number of files was not reduced.");
       return null;
     }
-    if (CollectionUtils.isNotEmpty(getPartitionsMetadata())
-        && (CollectionUtils.isEmpty(prunedMetadata.getPartitions()) || getPartitionsMetadata().size() == prunedMetadata.getPartitions().size())) {
-      logger.debug("limit push down does not apply, since number of partitions was not reduced.");
-      return null;
-    }
-    return prunedMetadata.build();
-  }
-
-  /**
-   * Prunes list of files considering table row count and returns {@link GroupScanWithMetadataFilterer}
-   * instance with pruned files.
-   *
-   * @param maxRecords target rows count for files
-   * @return {@link GroupScanWithMetadataFilterer} instance with pruned files
-   */
-  protected GroupScanWithMetadataFilterer limitFiles(int maxRecords) {
-    GroupScanWithMetadataFilterer prunedMetadata = getFilterer();
-
-    if (getTableMetadata() != null) {
-      long tableRowCount = (long) getTableMetadata().getStatistic(TableStatisticsKind.ROW_COUNT);
-      if (tableRowCount <= maxRecords) {
-        logger.debug("limit push down does not apply, since total number of rows [{}] is less or equal to the required [{}].",
-            tableRowCount, maxRecords);
-        return prunedMetadata;
-      }
-    }
-
-    List<PartitionMetadata> qualifiedPartitions = limitMetadata(getPartitionsMetadata() != null ? getPartitionsMetadata() : Collections.emptyList(), maxRecords);
-
-    List<FileMetadata> partFiles = CollectionUtils.isNotEmpty(getPartitionsMetadata())
-        ? pruneForPartitions(getFilesMetadata(), qualifiedPartitions)
-        : getFilesMetadata();
-
-    // Calculate number of files to read based on maxRecords and update
-    // number of records to read for each of those files.
-    List<FileMetadata> qualifiedFiles = limitMetadata(partFiles != null ? partFiles : Collections.emptyList(), maxRecords);
 
     return prunedMetadata
         .withTable(getTableMetadata())
-        .withPartitions(qualifiedPartitions)
-        .withFiles(qualifiedFiles);
+        .withPartitions(getPartitionsMetadata())
+        .withFiles(qualifiedFiles)
+        .withMatching(matchAllMetadata)
+        .build();
   }
 
   /**
@@ -408,7 +382,9 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     int currentRowCount = 0;
     for (T metadata : metadataList) {
       long rowCount = (long) TableStatisticsKind.ROW_COUNT.getValue(metadata);
-      if (currentRowCount + rowCount <= maxRecords) {
+      if (rowCount == NO_COLUMN_STATS) {
+        return null;
+      } else if (currentRowCount + rowCount <= maxRecords) {
         currentRowCount += rowCount;
         qualifiedMetadata.add(metadata);
         continue;
