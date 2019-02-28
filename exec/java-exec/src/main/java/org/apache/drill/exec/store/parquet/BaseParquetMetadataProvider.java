@@ -82,7 +82,7 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
   private List<FileMetadata> files;
 
   // whether metadata for row groups should be collected to create files, partitions and table metadata
-  private final boolean collectMetadata = true;
+  private final boolean collectMetadata = false;
 
   public BaseParquetMetadataProvider(List<ReadEntryWithPath> entries,
                                      ParquetReaderConfig readerConfig,
