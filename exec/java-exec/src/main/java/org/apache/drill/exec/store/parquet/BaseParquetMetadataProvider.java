@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.ParquetMetadataProvider;
 import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.ColumnStatisticsImpl;
@@ -211,9 +212,9 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
             partitionKey = valueLocationsEntry.getKey() == NULL_VALUE ? null : partitionKey;
             statistics.put(ColumnStatisticsKind.MIN_VALUE.getName(), partitionKey);
             statistics.put(ColumnStatisticsKind.MAX_VALUE.getName(), partitionKey);
-            // incorrect row count, but it is ok, since nulls count is set here.
-            statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), partitionKey != null ? 0 : getParquetGroupScanStatistics().getRowCount());
-            statistics.put(TableStatisticsKind.ROW_COUNT.getName(), getParquetGroupScanStatistics().getRowCount());
+
+            statistics.put(ColumnStatisticsKind.NULLS_COUNT.getName(), GroupScan.NO_COLUMN_STATS);
+            statistics.put(TableStatisticsKind.ROW_COUNT.getName(), GroupScan.NO_COLUMN_STATS);
             columnsStatistics.put(partitionColumn,
                 new ColumnStatisticsImpl<>(statistics,
                     ParquetTableMetadataUtils.getComparator(getParquetGroupScanStatistics().getTypeForColumn(partitionColumn).getMinorType())));
