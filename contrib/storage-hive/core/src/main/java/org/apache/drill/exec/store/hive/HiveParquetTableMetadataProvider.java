@@ -37,6 +37,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * This is Metadata provider for Hive Parquet tables, which are read by Drill native reader
+ */
 public class HiveParquetTableMetadataProvider extends BaseParquetMetadataProvider {
 
   private final HiveStoragePlugin hiveStoragePlugin;

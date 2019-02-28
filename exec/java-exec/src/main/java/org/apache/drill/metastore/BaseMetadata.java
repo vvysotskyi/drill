@@ -71,10 +71,10 @@ public interface BaseMetadata {
   Object getStatisticsForColumn(SchemaPath columnName, StatisticsKind statisticsKind);
 
   /**
-   * Returns metadata description of column specified as an argument.
+   * Returns metadata description for the specified column
    *
-   * @param name name of the column whose metadata type info should be returned
-   * @return {@link ColumnMetadata} metadata description of column
+   * @param name column name, whose metadata type info should be returned
+   * @return {@link ColumnMetadata} schema description of the column
    */
   ColumnMetadata getColumn(SchemaPath name);
 }

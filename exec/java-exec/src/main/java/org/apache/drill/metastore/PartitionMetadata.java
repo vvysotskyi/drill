@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Represents a metadata for table part which corresponds to the concrete partition key.
+ * Represents a metadata for the table part, which corresponds to the specific partition key.
  */
 public class PartitionMetadata implements BaseMetadata {
   private final SchemaPath column;
@@ -83,18 +83,39 @@ public class PartitionMetadata implements BaseMetadata {
     return columnsStatistics.get(columnName).getStatistic(statisticsKind);
   }
 
+  /**
+   * It allows to obtain the column path for this partition
+   *
+   * @return column path
+   */
   public SchemaPath getColumn() {
     return column;
   }
 
+  /**
+   * File locations for this partition
+   *
+   *
+   * @return file locations
+   */
   public Set<String> getLocations() {
     return location;
   }
 
+  /**
+   * Table name of this partition
+   *
+   * @return table name
+   */
   public String getTableName() {
     return tableName;
   }
 
+  /**
+   * It allows to check the time, when any files were modified. It is in Unix Timestamp
+   *
+   * @return last modified time of files
+   */
   public long getLastModifiedTime() {
     return lastModifiedTime;
   }
