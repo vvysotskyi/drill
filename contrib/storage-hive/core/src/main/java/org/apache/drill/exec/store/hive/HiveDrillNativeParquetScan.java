@@ -71,6 +71,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
 
     HiveParquetTableMetadataProvider hiveMetadataProvider = (HiveParquetTableMetadataProvider) this.metadataProvider;
     this.hivePartitionHolder = hiveMetadataProvider.getHivePartitionHolder();
+    this.fileSet = hiveMetadataProvider.getFileSet();
 
     init();
   }
@@ -101,6 +102,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     HiveParquetTableMetadataProvider hiveMetadataProvider = (HiveParquetTableMetadataProvider) metadataProvider;
     this.entries = hiveMetadataProvider.getEntries();
     this.hivePartitionHolder = hiveMetadataProvider.getHivePartitionHolder();
+    this.fileSet = hiveMetadataProvider.getFileSet();
 
     init();
   }

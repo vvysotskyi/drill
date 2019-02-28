@@ -21,6 +21,7 @@ import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.metastore.RowGroupMetadata;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Interface for providing table, partition, file etc. metadata for specific table with parquet files.
@@ -40,4 +41,11 @@ public interface ParquetMetadataProvider extends TableMetadataProvider {
    * @return list of {@link RowGroupMetadata} instances
    */
   List<RowGroupMetadata> getRowGroupsMeta();
+
+  /**
+   * Returns list of file locations for table.
+   *
+   * @return list of file locations for table
+   */
+  Set<String> getFileSet();
 }

@@ -36,7 +36,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -51,12 +50,10 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
   private String cacheFileRoot;
   private final boolean corruptDatesAutoCorrected;
   private boolean usedMetadataCache; // false by default
-  private Set<String> fileSet;
 
   public ParquetTableMetadataProviderImpl(List<ReadEntryWithPath> entries,
                                           String selectionRoot,
                                           String cacheFileRoot,
-                                          Set<String> fileSet,
                                           ParquetReaderConfig readerConfig,
                                           DrillFileSystem fs,
                                           boolean autoCorrectCorruptedDates) throws IOException {
@@ -65,7 +62,6 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
     this.metaContext = new MetadataContext();
-    this.fileSet = fileSet;
 
     this.corruptDatesAutoCorrected = autoCorrectCorruptedDates;
 
@@ -110,23 +106,6 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
   @Override
   public String getSelectionRoot() {
     return selectionRoot;
-  }
-
-  @Override
-  public Set<String> getFileSet() {
-    return fileSet;
-  }
-
-  @Override
-  protected void init() throws IOException {
-    super.init();
-
-    if (fileSet == null) {
-      fileSet = new HashSet<>();
-      fileSet.addAll(parquetTableMetadata.getFiles().stream()
-        .map(MetadataBase.ParquetFileMetadata::getPath)
-        .collect(Collectors.toSet()));
-    }
   }
 
   @Override

@@ -80,7 +80,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     DrillFileSystem fs =
         ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(userName), formatPlugin.getFsConf());
 
-    this.metadataProvider = new ParquetTableMetadataProviderImpl(this.entries, selectionRoot, cacheFileRoot, null,
+    this.metadataProvider = new ParquetTableMetadataProviderImpl(this.entries, selectionRoot, cacheFileRoot,
         readerConfig, fs, this.formatConfig.areCorruptDatesAutoCorrected());
 
     ParquetTableMetadataProvider metadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;

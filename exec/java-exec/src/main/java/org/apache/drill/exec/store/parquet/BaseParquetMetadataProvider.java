@@ -73,6 +73,7 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
 
   private ParquetGroupScanStatistics<? extends BaseMetadata> parquetGroupScanStatistics;
   protected MetadataBase.ParquetTableMetadataBase parquetTableMetadata;
+  protected Set<String> fileSet;
 
   private List<SchemaPath> partitionColumns;
 
@@ -105,6 +106,13 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
     initInternal();
 
     assert parquetTableMetadata != null;
+
+    if (fileSet == null) {
+      fileSet = new HashSet<>();
+      fileSet.addAll(parquetTableMetadata.getFiles().stream()
+          .map(MetadataBase.ParquetFileMetadata::getPath)
+          .collect(Collectors.toSet()));
+    }
   }
 
   @Override
@@ -291,6 +299,11 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
   @Override
   public List<ReadEntryWithPath> getEntries() {
     return entries;
+  }
+
+  @Override
+  public Set<String> getFileSet() {
+    return fileSet;
   }
 
   @Override

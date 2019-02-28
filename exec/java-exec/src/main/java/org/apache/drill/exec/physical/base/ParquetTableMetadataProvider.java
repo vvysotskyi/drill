@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.physical.base;
 
-import java.util.Set;
-
 /**
  * Interface for providing table, partition, file etc. metadata for specific parquet table.
  */
@@ -37,11 +35,4 @@ public interface ParquetTableMetadataProvider extends ParquetMetadataProvider {
    * @return root path of the table
    */
   String getSelectionRoot();
-
-  /**
-   * Returns list of file locations for table.
-   *
-   * @return list of file locations for table
-   */
-  Set<String> getFileSet();
 }
