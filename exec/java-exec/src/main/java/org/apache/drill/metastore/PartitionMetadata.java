@@ -95,7 +95,6 @@ public class PartitionMetadata implements BaseMetadata {
   /**
    * File locations for this partition
    *
-   *
    * @return file locations
    */
   public Set<String> getLocations() {

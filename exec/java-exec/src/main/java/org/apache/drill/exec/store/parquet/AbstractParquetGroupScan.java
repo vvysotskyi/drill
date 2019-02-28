@@ -337,8 +337,8 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     }
 
     List<FileMetadata> qualifiedFiles = new ArrayList<>();
-    for (RowGroupMetadata rowGroup : qualifiedRowGroups) {
-      for (FileMetadata fileMetadata : getFilesMetadata()) {
+    for (FileMetadata fileMetadata : getFilesMetadata()) {
+      for (RowGroupMetadata rowGroup : qualifiedRowGroups) {
         if (rowGroup.getLocation().equals(fileMetadata.getLocation())) {
           qualifiedFiles.add(fileMetadata);
           break;
