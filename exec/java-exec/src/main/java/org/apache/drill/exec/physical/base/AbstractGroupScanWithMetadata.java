@@ -111,6 +111,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   }
 
   @JsonProperty("columns")
+  @Override
   public List<SchemaPath> getColumns() {
     return columns;
   }

@@ -100,12 +100,6 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
 
   }
 
-  @Override
-  @JsonProperty
-  public List<SchemaPath> getColumns() {
-    return columns;
-  }
-
   @JsonProperty
   public List<ReadEntryWithPath> getEntries() {
     return entries;
