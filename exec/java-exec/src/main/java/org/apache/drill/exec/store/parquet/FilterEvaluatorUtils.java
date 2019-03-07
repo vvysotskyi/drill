@@ -58,7 +58,7 @@ public class FilterEvaluatorUtils {
                                      int rowGroupIndex, OptionManager options, FragmentContext fragmentContext) {
     List<SchemaPath> schemaPathsInExpr = new ArrayList<>(expr.accept(new FieldReferenceFinder(), null));
 
-    RowGroupMetadata rowGroupMetadata = ParquetTableMetadataUtils.getRowGroupsMetadata(footer).get(rowGroupIndex);
+    RowGroupMetadata rowGroupMetadata = new ArrayList<>(ParquetTableMetadataUtils.getRowGroupsMetadata(footer).values()).get(rowGroupIndex);
     Map<SchemaPath, ColumnStatistics> columnsStatistics = rowGroupMetadata.getColumnsStatistics();
     columnsStatistics = ParquetTableMetadataUtils.addImplicitColumnsStatistics(columnsStatistics,
         schemaPathsInExpr, Collections.emptyList(), options, rowGroupMetadata.getLocation(), true);

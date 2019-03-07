@@ -58,10 +58,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -81,7 +83,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   protected LogicalExpression filter;
   protected List<SchemaPath> columns;
 
-  protected List<FileMetadata> files;
+  protected Map<String, FileMetadata> files;
 
   // set of the files to be handled
   protected Set<String> fileSet;
@@ -226,16 +228,19 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
           // all partitions are pruned if partition metadata is available
           || CollectionUtils.isEmpty(filteredMetadata.getPartitions()) && CollectionUtils.isNotEmpty(getPartitionsMetadata())
           // all files are pruned if file metadata is available
-          || CollectionUtils.isEmpty(filteredMetadata.getFiles()) && CollectionUtils.isNotEmpty(getFilesMetadata()))) {
+          || CollectionUtils.isEmpty(filteredMetadata.getFiles().values()) && CollectionUtils.isNotEmpty(getFilesMetadata().values()))) {
       if (getFilesMetadata().size() == 1) {
         // For the case when group scan has single file and it was filtered,
         // no need to create new group scan with the same file.
         return null;
       }
       logger.debug("All files have been filtered out. Add back one to get schema from scanner");
+      Map<String, FileMetadata> filesMap = getNextOrEmpty(getFilesMetadata().values()).stream()
+          .collect(Collectors.toMap(FileMetadata::getLocation, Function.identity()));
+
       filteredMetadata.withTable(getTableMetadata())
           .withPartitions(getNextOrEmpty(getPartitionsMetadata()))
-          .withFiles(getNextOrEmpty(getFilesMetadata()))
+          .withFiles(filesMap)
           .withMatching(false);
     }
 
@@ -249,7 +254,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
    * @param <T>       type of values in the list
    * @return list with the first element of input list
    */
-  protected <T> List<T> getNextOrEmpty(List<T> inputList) {
+  protected <T> List<T> getNextOrEmpty(Collection<T> inputList) {
     return CollectionUtils.isNotEmpty(inputList) ? Collections.singletonList(inputList.iterator().next()) : Collections.emptyList();
   }
 
@@ -329,7 +334,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     }
     // Calculate number of files to read based on maxRecords and update
     // number of records to read for each of those files.
-    List<FileMetadata> qualifiedFiles = limitMetadata(getFilesMetadata(), maxRecords);
+    List<FileMetadata> qualifiedFiles = limitMetadata(getFilesMetadata().values(), maxRecords);
 
     // some files does not have set row count, do not do files pruning
     if (qualifiedFiles == null || qualifiedFiles.size() == getFilesMetadata().size()) {
@@ -337,10 +342,13 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       return null;
     }
 
+    Map<String, FileMetadata> filesMap = qualifiedFiles.stream()
+        .collect(Collectors.toMap(FileMetadata::getLocation, Function.identity()));
+
     return prunedMetadata
         .withTable(getTableMetadata())
         .withPartitions(getPartitionsMetadata())
-        .withFiles(qualifiedFiles)
+        .withFiles(filesMap)
         .withMatching(matchAllMetadata)
         .build();
   }
@@ -353,13 +361,13 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
    * @param <T>                       type of metadata to filter
    * @return list with metadata which belongs to pruned partitions
    */
-  protected static <T extends BaseMetadata & LocationProvider> List<T> pruneForPartitions(List<T> metadataToPrune, List<PartitionMetadata> filteredPartitionMetadata) {
-    List<T> prunedFiles = new ArrayList<>();
+  protected static <T extends BaseMetadata & LocationProvider> Map<String, T> pruneForPartitions(Map<String, T> metadataToPrune, List<PartitionMetadata> filteredPartitionMetadata) {
+    Map<String, T> prunedFiles = new HashMap<>();
     if (metadataToPrune != null) {
-      for (T file : metadataToPrune) {
+      for (Map.Entry<String, T> entry : metadataToPrune.entrySet()) {
         for (PartitionMetadata filteredPartition : filteredPartitionMetadata) {
-          if (filteredPartition.getLocations().contains(file.getLocation())) {
-            prunedFiles.add(file);
+          if (filteredPartition.getLocations().contains(entry.getKey())) {
+            prunedFiles.put(entry.getKey(), entry.getValue());
             break;
           }
         }
@@ -378,7 +386,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
    * @param <T>          type of metadata to prune
    * @return pruned metadata list
    */
-  protected <T extends BaseMetadata> List<T> limitMetadata(List<T> metadataList, int maxRecords) {
+  protected <T extends BaseMetadata> List<T> limitMetadata(Collection<T> metadataList, int maxRecords) {
     List<T> qualifiedMetadata = new ArrayList<>();
     int currentRowCount = 0;
     for (T metadata : metadataList) {
@@ -437,9 +445,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   // protected methods block
   protected void init() throws IOException {
     if (fileSet == null && getFilesMetadata() != null) {
-      fileSet = getFilesMetadata().stream()
-          .map(FileMetadata::getLocation)
-          .collect(Collectors.toSet());
+      fileSet = getFilesMetadata().keySet();
     }
   }
 
@@ -457,9 +463,9 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
   }
 
   // protected methods for internal usage
-  protected List<FileMetadata> getFilesMetadata() {
+  protected Map<String, FileMetadata> getFilesMetadata() {
     if (files == null) {
-      files = metadataProvider.getFilesMetadata();
+      files = ((ParquetMetadataProvider) metadataProvider).getFilesMetadataMap();
     }
     return files;
   }
@@ -488,7 +494,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
 
     protected TableMetadata tableMetadata;
     protected List<PartitionMetadata> partitions;
-    protected List<FileMetadata> files;
+    protected Map<String, FileMetadata> files;
 
     // for the case when filtering is possible for partitions, but files count exceeds
     // PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD, new group scan with at least filtered partitions
@@ -516,7 +522,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       return this;
     }
 
-    public GroupScanWithMetadataFilterer withFiles(List<FileMetadata> files) {
+    public GroupScanWithMetadataFilterer withFiles(Map<String, FileMetadata> files) {
       this.files = files;
       return this;
     }
@@ -543,7 +549,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       return partitions;
     }
 
-    public List<FileMetadata> getFiles() {
+    public Map<String, FileMetadata> getFiles() {
       return files;
     }
 
@@ -630,7 +636,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     protected void filterFileMetadata(OptionManager optionManager,
                                       FilterPredicate filterPredicate,
                                       Set<SchemaPath> schemaPathsInExpr) {
-      List<FileMetadata> prunedFiles;
+      Map<String, FileMetadata> prunedFiles;
       if (CollectionUtils.isEmpty(source.getPartitionsMetadata())
           || source.getPartitionsMetadata().size() == getPartitions().size()) {
         // no partition pruning happened, no need to prune initial files list
@@ -651,7 +657,8 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
         PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
 
         matchAllMetadata = true;
-        files = filterAndGetMetadata(schemaPathsInExpr, prunedFiles, filterPredicate, optionManager);
+        files = filterAndGetMetadata(schemaPathsInExpr, prunedFiles.values(), filterPredicate, optionManager).stream()
+            .collect(Collectors.toMap(FileMetadata::getLocation, Function.identity()));
 
       } else {
         matchAllMetadata = false;

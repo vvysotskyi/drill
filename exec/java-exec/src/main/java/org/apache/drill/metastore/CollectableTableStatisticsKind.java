@@ -17,7 +17,7 @@
  */
 package org.apache.drill.metastore;
 
-import java.util.List;
+import java.util.Collection;
 
 /**
  * This class represents kinds of table statistics which may be received as a union
@@ -32,5 +32,5 @@ public interface CollectableTableStatisticsKind extends StatisticsKind {
    * @param statistics list of {@link ColumnStatistics} instances to be collected
    * @return column statistics value received by collecting specified {@link ColumnStatistics}
    */
-  Object mergeStatistics(List<? extends BaseMetadata> statistics);
+  Object mergeStatistics(Collection<? extends BaseMetadata> statistics);
 }

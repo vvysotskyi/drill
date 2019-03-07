@@ -18,9 +18,12 @@
 package org.apache.drill.exec.physical.base;
 
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
+import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -41,6 +44,20 @@ public interface ParquetMetadataProvider extends TableMetadataProvider {
    * @return list of {@link RowGroupMetadata} instances
    */
   List<RowGroupMetadata> getRowGroupsMeta();
+
+  /**
+   * Returns multimap of {@link RowGroupMetadata} instances which provides metadata for specific row group and its columns mapped to their locations.
+   *
+   * @return multimap of {@link RowGroupMetadata} instances
+   */
+  Multimap<String, RowGroupMetadata> getRowGroupsMetadataMap();
+
+  /**
+   * Returns list of {@link RowGroupMetadata} instances which provides metadata for specific row group and its columns.
+   *
+   * @return list of {@link RowGroupMetadata} instances
+   */
+  Map<String, FileMetadata> getFilesMetadataMap();
 
   /**
    * Returns list of file locations for table.

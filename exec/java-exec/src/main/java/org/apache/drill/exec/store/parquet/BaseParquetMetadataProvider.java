@@ -25,6 +25,7 @@ import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.collect.HashBasedTable;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimaps;
 import org.apache.drill.shaded.guava.com.google.common.collect.SetMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Table;
@@ -77,10 +78,10 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
 
   private List<SchemaPath> partitionColumns;
 
-  private List<RowGroupMetadata> rowGroups;
+  private Multimap<String, RowGroupMetadata> rowGroups;
   private TableMetadata tableMetadata;
   private List<PartitionMetadata> partitions;
-  private List<FileMetadata> files;
+  private Map<String, FileMetadata> files;
 
   // whether metadata for row groups should be collected to create files, partitions and table metadata
   private final boolean collectMetadata = false;
@@ -113,6 +114,21 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
           .map(MetadataBase.ParquetFileMetadata::getPath)
           .collect(Collectors.toSet()));
     }
+
+    initializeMetadata();
+  }
+
+  /**
+   * Method which initializes all metadata kinds to get rid of parquetTableMetadata.
+   * Once deserialization and serialization from/into metastore classes is done, this method should be removed
+   * to allow lazy initialization.
+   */
+  public void initializeMetadata() {
+    getTableMetadata();
+    getFilesMetadata();
+    getPartitionsMetadata();
+    getRowGroupsMeta();
+    parquetTableMetadata = null;
   }
 
   @Override
@@ -267,14 +283,19 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
 
   @Override
   public List<FileMetadata> getFilesMetadata() {
+    return new ArrayList<>(getFilesMetadataMap().values());
+  }
+
+  @Override
+  public Map<String, FileMetadata> getFilesMetadataMap() {
     if (files == null) {
       if (entries.isEmpty() || !collectMetadata) {
-        return Collections.emptyList();
+        return Collections.emptyMap();
       }
       boolean addRowGroups = false;
-      files = new ArrayList<>();
+      files = new HashMap<>();
       if (rowGroups == null) {
-        rowGroups = new ArrayList<>();
+        rowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
         addRowGroups = true;
       }
       for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
@@ -285,12 +306,12 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
           fileRowGroups.add(rowGroupMetadata);
 
           if (addRowGroups) {
-            rowGroups.add(rowGroupMetadata);
+            rowGroups.put(rowGroupMetadata.getLocation(), rowGroupMetadata);
           }
         }
 
         FileMetadata fileMetadata = ParquetTableMetadataUtils.getFileMetadata(fileRowGroups, tableName);
-        files.add(fileMetadata);
+        files.put(fileMetadata.getLocation(), fileMetadata);
       }
     }
     return files;
@@ -308,6 +329,11 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
 
   @Override
   public List<RowGroupMetadata> getRowGroupsMeta() {
+    return new ArrayList<>(getRowGroupsMetadataMap().values());
+  }
+
+  @Override
+  public Multimap<String, RowGroupMetadata> getRowGroupsMetadataMap() {
     if (rowGroups == null) {
       rowGroups = ParquetTableMetadataUtils.getRowGroupsMetadata(parquetTableMetadata);
     }

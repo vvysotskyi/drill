@@ -20,7 +20,7 @@ package org.apache.drill.metastore;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.metastore.expr.ExactStatisticsConstants;
 
-import java.util.List;
+import java.util.Collection;
 
 /**
  * Implementation of {@link CollectableColumnStatisticsKind} which contain base
@@ -32,7 +32,7 @@ public enum TableStatisticsKind implements CollectableTableStatisticsKind {
    */
   ROW_COUNT(ExactStatisticsConstants.ROW_COUNT) {
     @Override
-    public Long mergeStatistics(List<? extends BaseMetadata> statistics) {
+    public Long mergeStatistics(Collection<? extends BaseMetadata> statistics) {
       long rowCount = 0;
       for (BaseMetadata statistic : statistics) {
         Long statRowCount = getValue(statistic);

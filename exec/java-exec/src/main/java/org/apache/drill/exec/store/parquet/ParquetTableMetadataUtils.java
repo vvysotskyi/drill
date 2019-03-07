@@ -41,6 +41,8 @@ import org.apache.drill.metastore.expr.ExactStatisticsConstants;
 import org.apache.drill.metastore.expr.StatisticsProvider;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimaps;
 import org.apache.drill.shaded.guava.com.google.common.primitives.Longs;
 import org.apache.drill.shaded.guava.com.google.common.primitives.UnsignedBytes;
 import org.apache.parquet.io.api.Binary;
@@ -53,6 +55,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -115,12 +118,12 @@ public class ParquetTableMetadataUtils {
    * @param tableMetadata the source of row groups to be converted
    * @return list of {@link RowGroupMetadata}
    */
-  public static List<RowGroupMetadata> getRowGroupsMetadata(MetadataBase.ParquetTableMetadataBase tableMetadata) {
-    List<RowGroupMetadata> rowGroups = new ArrayList<>();
+  public static Multimap<String, RowGroupMetadata> getRowGroupsMetadata(MetadataBase.ParquetTableMetadataBase tableMetadata) {
+    Multimap<String, RowGroupMetadata> rowGroups = Multimaps.newListMultimap(new HashMap<>(), ArrayList::new);
     for (MetadataBase.ParquetFileMetadata file : tableMetadata.getFiles()) {
       int index = 0;
       for (MetadataBase.RowGroupMetadata rowGroupMetadata : file.getRowGroups()) {
-        rowGroups.add(getRowGroupMetadata(tableMetadata, rowGroupMetadata, index++, file.getPath()));
+        rowGroups.put(file.getPath(), getRowGroupMetadata(tableMetadata, rowGroupMetadata, index++, file.getPath()));
       }
     }
 
@@ -166,7 +169,7 @@ public class ParquetTableMetadataUtils {
    */
   @SuppressWarnings("unchecked")
   public static <T extends BaseMetadata> Map<SchemaPath, ColumnStatistics> mergeColumnsStatistics(
-      List<T> metadataList, Set<SchemaPath> columns, List<CollectableColumnStatisticsKind> statisticsToCollect) {
+      Collection<T> metadataList, Set<SchemaPath> columns, List<CollectableColumnStatisticsKind> statisticsToCollect) {
     Map<SchemaPath, ColumnStatistics> columnsStatistics = new HashMap<>();
 
     for (SchemaPath column : columns) {
@@ -652,7 +655,7 @@ public class ParquetTableMetadataUtils {
    * @param statistics    list of statistics whose row count should be considered
    * @return new {@link TableMetadata} instance with updated statistics
    */
-  public static TableMetadata updateRowCount(TableMetadata tableMetadata, List<? extends BaseMetadata> statistics) {
+  public static TableMetadata updateRowCount(TableMetadata tableMetadata, Collection<? extends BaseMetadata> statistics) {
     Map<String, Object> newStats = new HashMap<>();
 
     newStats.put(TableStatisticsKind.ROW_COUNT.getName(), TableStatisticsKind.ROW_COUNT.mergeStatistics(statistics));
