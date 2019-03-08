@@ -15,19 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.base;
+package org.apache.drill.metastore;
 
-import java.io.IOException;
 
-import org.apache.drill.exec.store.dfs.FileSelection;
+import com.typesafe.config.Config;
+import org.apache.drill.exec.server.options.OptionManager;
 
-/**
- * FileGroupScan operator represents all data which will be scanned from FileSystem by a given physical plan.
- */
-public interface FileGroupScan extends GroupScan {
+public abstract class MetastoreFactory {
+  private OptionManager optionManager;
+  private Config conf;
 
-  void modifyFileSelection(FileSelection selection);
-
-  FileGroupScan clone(FileSelection selection) throws IOException;
-
+  public abstract Metastore getMetastore();
 }

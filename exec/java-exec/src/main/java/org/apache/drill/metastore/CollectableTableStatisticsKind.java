@@ -15,26 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.parquet.stat;
+package org.apache.drill.metastore;
 
-import org.apache.drill.common.types.TypeProtos;
-import org.apache.parquet.column.statistics.Statistics;
+import java.util.Collection;
 
-public class ColumnStatistics<T extends Comparable<T>> {
-  private final Statistics<T> statistics;
-  private final TypeProtos.MajorType majorType;
+/**
+ * This class represents kinds of table statistics which may be received as a union
+ * of other statistics, for example row count may be received as a sum of row counts
+ * of underlying metadata parts.
+ */
+public interface CollectableTableStatisticsKind extends StatisticsKind {
 
-  public ColumnStatistics(final Statistics<T> statistics, final TypeProtos.MajorType majorType) {
-    this.statistics = statistics;
-    this.majorType = majorType;
-  }
-
-  public Statistics<T> getStatistics() {
-    return this.statistics;
-  }
-
-  public TypeProtos.MajorType getMajorType() {
-    return this.majorType;
-  }
-
+  /**
+   * Returns table statistics value received by collecting specified {@link ColumnStatistics}.
+   *
+   * @param statistics list of {@link ColumnStatistics} instances to be collected
+   * @return column statistics value received by collecting specified {@link ColumnStatistics}
+   */
+  Object mergeStatistics(Collection<? extends BaseMetadata> statistics);
 }

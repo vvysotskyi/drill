@@ -15,18 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.parquet.stat;
+package org.apache.drill.metastore.expr;
 
-import org.apache.drill.common.expression.SchemaPath;
+public interface ExactStatisticsConstants {
+  String MIN_VALUE = "minValue";
+  String MAX_VALUE = "maxValue";
+  String ROW_COUNT = "rowCount";
+  String NULLS_COUNT = "nullsCount";
 
-import java.util.Map;
-import java.util.Set;
-
-public interface ColumnStatCollector {
-  /**
-   * Given a list of fields (SchemaPath), return mapping from field to its corresponding ColumnStatistics
-   * @return
-   */
-  Map<SchemaPath, ColumnStatistics> collectColStat(Set<SchemaPath> fields);
-
+  String START = "start";
+  String LENGTH = "length";
 }
