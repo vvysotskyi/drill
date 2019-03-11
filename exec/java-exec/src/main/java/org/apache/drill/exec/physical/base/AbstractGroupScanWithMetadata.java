@@ -51,8 +51,8 @@ import org.apache.drill.metastore.LocationProvider;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.TableMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
-import org.apache.drill.metastore.expr.FilterBuilder;
-import org.apache.drill.metastore.expr.FilterPredicate;
+import org.apache.drill.exec.expr.FilterBuilder;
+import org.apache.drill.exec.expr.FilterPredicate;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;

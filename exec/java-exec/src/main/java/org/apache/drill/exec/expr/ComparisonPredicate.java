@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.metastore.expr;
+package org.apache.drill.exec.expr;
 
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.LogicalExpressionBase;
@@ -34,11 +34,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiFunction;
-
-import static org.apache.drill.metastore.expr.IsPredicate.hasNoNulls;
-import static org.apache.drill.metastore.expr.IsPredicate.hasNonNullValues;
-import static org.apache.drill.metastore.expr.IsPredicate.isAllNulls;
-import static org.apache.drill.metastore.expr.IsPredicate.isNullOrEmpty;
 
 /**
  * Comparison predicates for metadata filter pushdown.
@@ -93,17 +88,17 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
   @Override
   public RowsMatch matches(StatisticsProvider<C> evaluator) {
     ColumnStatistics<C> leftStat = left.accept(evaluator, null);
-    if (isNullOrEmpty(leftStat)) {
+    if (IsPredicate.isNullOrEmpty(leftStat)) {
       return RowsMatch.SOME;
     }
     ColumnStatistics<C> rightStat = right.accept(evaluator, null);
-    if (isNullOrEmpty(rightStat)) {
+    if (IsPredicate.isNullOrEmpty(rightStat)) {
       return RowsMatch.SOME;
     }
-    if (isAllNulls(leftStat, evaluator.getRowCount()) || isAllNulls(rightStat, evaluator.getRowCount())) {
+    if (IsPredicate.isAllNulls(leftStat, evaluator.getRowCount()) || IsPredicate.isAllNulls(rightStat, evaluator.getRowCount())) {
       return RowsMatch.NONE;
     }
-    if (!hasNonNullValues(leftStat, evaluator.getRowCount()) || !hasNonNullValues(rightStat, evaluator.getRowCount())) {
+    if (!IsPredicate.hasNonNullValues(leftStat, evaluator.getRowCount()) || !IsPredicate.hasNonNullValues(rightStat, evaluator.getRowCount())) {
       return RowsMatch.SOME;
     }
 
@@ -145,7 +140,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
    * If one rowgroup contains some null values, change the RowsMatch.ALL into RowsMatch.SOME (null values should be discarded by filter)
    */
   private static RowsMatch checkNull(ColumnStatistics leftStat, ColumnStatistics rightStat) {
-    return !hasNoNulls(leftStat) || !hasNoNulls(rightStat) ? RowsMatch.SOME : RowsMatch.ALL;
+    return !IsPredicate.hasNoNulls(leftStat) || !IsPredicate.hasNoNulls(rightStat) ? RowsMatch.SOME : RowsMatch.ALL;
   }
 
   /**
@@ -164,7 +159,7 @@ public class ComparisonPredicate<C extends Comparable<C>> extends LogicalExpress
       // if both comparison results are equal to 0 and both statistics have no nulls,
       // it means that min and max values in each statistics are the same and match each other,
       // return that all rows match the condition
-      if (leftToRightComparison == 0 && rightToLeftComparison == 0 && hasNoNulls(leftStat) && hasNoNulls(rightStat)) {
+      if (leftToRightComparison == 0 && rightToLeftComparison == 0 && IsPredicate.hasNoNulls(leftStat) && IsPredicate.hasNoNulls(rightStat)) {
         return RowsMatch.ALL;
       }
 

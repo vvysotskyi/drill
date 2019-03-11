@@ -29,7 +29,7 @@ import org.apache.drill.metastore.BaseMetadata;
 import org.apache.drill.metastore.LocationProvider;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
-import org.apache.drill.metastore.expr.ExactStatisticsConstants;
+import org.apache.drill.exec.expr.ExactStatisticsConstants;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.LinkedListMultimap;
@@ -51,7 +51,7 @@ import org.apache.drill.exec.store.schedule.EndpointByteMap;
 import org.apache.drill.exec.store.schedule.EndpointByteMapImpl;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.RowGroupMetadata;
-import org.apache.drill.metastore.expr.FilterPredicate;
+import org.apache.drill.exec.expr.FilterPredicate;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.hadoop.fs.Path;
 

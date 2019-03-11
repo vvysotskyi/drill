@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.metastore.expr;
+package org.apache.drill.exec.expr;
 
 import org.apache.drill.common.expression.BooleanOperator;
 import org.apache.drill.common.expression.ExpressionPosition;

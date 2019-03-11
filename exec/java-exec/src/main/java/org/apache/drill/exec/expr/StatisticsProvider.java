@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.metastore.expr;
+package org.apache.drill.exec.expr;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.FunctionHolderExpression;
@@ -28,7 +28,6 @@ import org.apache.drill.common.expression.fn.FunctionReplacementUtils;
 import org.apache.drill.common.expression.visitors.AbstractExprVisitor;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
-import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.fn.DrillSimpleFuncHolder;
 import org.apache.drill.exec.expr.fn.interpreter.InterpreterEvaluator;
 import org.apache.drill.exec.expr.holders.BigIntHolder;
@@ -49,9 +48,6 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
-
-import static org.apache.drill.metastore.expr.ComparisonPredicate.getMaxValue;
-import static org.apache.drill.metastore.expr.ComparisonPredicate.getMinValue;
 
 public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVisitor<ColumnStatistics, Void, RuntimeException> {
 
@@ -193,24 +189,24 @@ public class StatisticsProvider<T extends Comparable<T>> extends AbstractExprVis
 
       switch (srcType) {
         case INT :
-          minHolder = ValueHolderHelper.getIntHolder((Integer) getMinValue(input));
-          maxHolder = ValueHolderHelper.getIntHolder((Integer) getMaxValue(input));
+          minHolder = ValueHolderHelper.getIntHolder((Integer) ComparisonPredicate.getMinValue(input));
+          maxHolder = ValueHolderHelper.getIntHolder((Integer) ComparisonPredicate.getMaxValue(input));
           break;
         case BIGINT:
-          minHolder = ValueHolderHelper.getBigIntHolder((Long) getMinValue(input));
-          maxHolder = ValueHolderHelper.getBigIntHolder((Long) getMaxValue(input));
+          minHolder = ValueHolderHelper.getBigIntHolder((Long) ComparisonPredicate.getMinValue(input));
+          maxHolder = ValueHolderHelper.getBigIntHolder((Long) ComparisonPredicate.getMaxValue(input));
           break;
         case FLOAT4:
-          minHolder = ValueHolderHelper.getFloat4Holder((Float) getMinValue(input));
-          maxHolder = ValueHolderHelper.getFloat4Holder((Float) getMaxValue(input));
+          minHolder = ValueHolderHelper.getFloat4Holder((Float) ComparisonPredicate.getMinValue(input));
+          maxHolder = ValueHolderHelper.getFloat4Holder((Float) ComparisonPredicate.getMaxValue(input));
           break;
         case FLOAT8:
-          minHolder = ValueHolderHelper.getFloat8Holder((Double) getMinValue(input));
-          maxHolder = ValueHolderHelper.getFloat8Holder((Double) getMaxValue(input));
+          minHolder = ValueHolderHelper.getFloat8Holder((Double) ComparisonPredicate.getMinValue(input));
+          maxHolder = ValueHolderHelper.getFloat8Holder((Double) ComparisonPredicate.getMaxValue(input));
           break;
         case DATE:
-          minHolder = ValueHolderHelper.getDateHolder((Long) getMinValue(input));
-          maxHolder = ValueHolderHelper.getDateHolder((Long) getMaxValue(input));
+          minHolder = ValueHolderHelper.getDateHolder((Long) ComparisonPredicate.getMinValue(input));
+          maxHolder = ValueHolderHelper.getDateHolder((Long) ComparisonPredicate.getMaxValue(input));
           break;
         default:
           return null;

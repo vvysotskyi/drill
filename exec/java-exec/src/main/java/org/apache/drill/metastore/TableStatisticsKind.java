@@ -18,7 +18,7 @@
 package org.apache.drill.metastore;
 
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.metastore.expr.ExactStatisticsConstants;
+import org.apache.drill.exec.expr.ExactStatisticsConstants;
 
 import java.util.Collection;
 

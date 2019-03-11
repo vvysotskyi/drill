@@ -15,15 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.metastore;
+package org.apache.drill.exec.expr;
 
+public interface ExactStatisticsConstants {
+  String MIN_VALUE = "minValue";
+  String MAX_VALUE = "maxValue";
+  String ROW_COUNT = "rowCount";
+  String NULLS_COUNT = "nullsCount";
 
-import com.typesafe.config.Config;
-import org.apache.drill.exec.server.options.OptionManager;
-
-public abstract class MetastoreFactory {
-  private OptionManager optionManager;
-  private Config conf;
-
-  public abstract Metastore getMetastore();
+  String START = "start";
+  String LENGTH = "length";
 }

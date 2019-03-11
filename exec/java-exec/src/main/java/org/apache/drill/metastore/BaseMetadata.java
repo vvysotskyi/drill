@@ -24,7 +24,7 @@ import org.apache.drill.exec.record.metadata.TupleSchema;
 import java.util.Map;
 
 /**
- * Common statistics provider for table, partition, file or row group.
+ * Common provider of tuple schema, column metadata, and statistics for table, partition, file or row group.
  */
 public interface BaseMetadata {
 

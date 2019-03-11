@@ -15,14 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.metastore.expr;
+package org.apache.drill.exec.expr;
 
-public interface ExactStatisticsConstants {
-  String MIN_VALUE = "minValue";
-  String MAX_VALUE = "maxValue";
-  String ROW_COUNT = "rowCount";
-  String NULLS_COUNT = "nullsCount";
+import org.apache.drill.exec.expr.stat.RowsMatch;
 
-  String START = "start";
-  String LENGTH = "length";
+public interface FilterPredicate<T extends Comparable<T>> {
+  RowsMatch matches(StatisticsProvider<T> evaluator);
 }
