@@ -329,7 +329,7 @@ public class ExpressionTreeMaterializer {
     }
   }
 
-  private static abstract class AbstractMaterializeVisitor extends AbstractExprVisitor<LogicalExpression, FunctionLookupContext, RuntimeException> {
+  private abstract static class AbstractMaterializeVisitor extends AbstractExprVisitor<LogicalExpression, FunctionLookupContext, RuntimeException> {
     private ExpressionValidator validator = new ExpressionValidator();
     private ErrorCollector errorCollector;
     private Deque<ErrorCollector> errorCollectors = new ArrayDeque<>();
@@ -351,16 +351,15 @@ public class ExpressionTreeMaterializer {
       return newExpr;
     }
 
-    abstract public LogicalExpression visitSchemaPath(SchemaPath path, FunctionLookupContext functionLookupContext);
+    public abstract LogicalExpression visitSchemaPath(SchemaPath path, FunctionLookupContext functionLookupContext);
 
     @Override
-    public LogicalExpression visitUnknown(LogicalExpression e, FunctionLookupContext functionLookupContext)
-      throws RuntimeException {
+    public LogicalExpression visitUnknown(LogicalExpression e, FunctionLookupContext functionLookupContext) {
       return e;
     }
 
     @Override
-    public LogicalExpression visitFunctionHolderExpression(FunctionHolderExpression holder, FunctionLookupContext functionLookupContext) throws RuntimeException {
+    public LogicalExpression visitFunctionHolderExpression(FunctionHolderExpression holder, FunctionLookupContext functionLookupContext) {
       // a function holder is already materialized, no need to rematerialize.  generally this won't be used unless we materialize a partial tree and rematerialize the whole tree.
       return holder;
     }

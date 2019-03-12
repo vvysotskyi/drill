@@ -58,6 +58,7 @@ public class ParquetGroupScanStatistics<T extends BaseMetadata & LocationProvide
     collect(rowGroupInfos);
   }
 
+  @SuppressWarnings("unchecked")
   public ParquetGroupScanStatistics(ParquetGroupScanStatistics that) {
     this.partitionValueMap = HashBasedTable.create(that.partitionValueMap);
     this.partitionColTypeMap = new HashMap<>(that.partitionColTypeMap);

@@ -21,6 +21,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.metastore.FileMetadata;
 import org.apache.drill.metastore.PartitionMetadata;
 import org.apache.drill.metastore.TableMetadata;
+import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 
@@ -68,10 +69,10 @@ public interface TableMetadataProvider {
   /**
    * Returns {@link FileMetadata} instance which corresponds to metadata of file for specified location.
    *
-   * @param location folacion of the file
+   * @param location location of the file
    * @return {@link FileMetadata} instance which corresponds to metadata of file for specified location
    */
-  FileMetadata getFileMetadata(String location);
+  FileMetadata getFileMetadata(Path location);
 
   /**
    * Returns list of {@link FileMetadata} instances which belongs to specified partitions.

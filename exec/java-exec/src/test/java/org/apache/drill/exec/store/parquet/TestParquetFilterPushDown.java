@@ -580,6 +580,7 @@ public class TestParquetFilterPushDown extends PlanTestBase {
   }
 
   @Test // testing min=false, max=true, min/max set, no nulls
+  @SuppressWarnings("unchecked")
   public void testMinFalseMaxTrue() {
     LogicalExpression le = Mockito.mock(LogicalExpression.class);
     ColumnStatistics<Boolean> booleanStatistics = Mockito.mock(ColumnStatistics.class);
@@ -604,6 +605,7 @@ public class TestParquetFilterPushDown extends PlanTestBase {
   }
 
   @Test // testing min=false, max=false, min/max set, no nulls
+  @SuppressWarnings("unchecked")
   public void testMinFalseMaxFalse() {
     LogicalExpression le = Mockito.mock(LogicalExpression.class);
     ColumnStatistics<Boolean> booleanStatistics = Mockito.mock(ColumnStatistics.class);
@@ -628,6 +630,7 @@ public class TestParquetFilterPushDown extends PlanTestBase {
   }
 
   @Test // testing min=true, max=true, min/max set, no nulls
+  @SuppressWarnings("unchecked")
   public void testMinTrueMaxTrue() {
     LogicalExpression le = Mockito.mock(LogicalExpression.class);
     ColumnStatistics<Boolean> booleanStatistics = Mockito.mock(ColumnStatistics.class);

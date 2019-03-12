@@ -240,7 +240,7 @@ public class ParquetTableMetadataProviderImpl extends BaseParquetMetadataProvide
     }
 
     final Path first = fileStatuses.get(0).getPath();
-    if (fileStatuses.size() == 1 && selection.getSelectionRoot().equals(first.toString())) {
+    if (fileStatuses.size() == 1 && selection.getSelectionRoot().equals(first)) {
       // we are selecting all files from selection root. Expand the file list from the cache
       for (MetadataBase.ParquetFileMetadata file : parquetTableMetadata.getFiles()) {
         fileSet.add(file.getPath());

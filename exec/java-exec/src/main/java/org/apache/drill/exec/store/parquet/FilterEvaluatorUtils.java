@@ -24,7 +24,6 @@ import org.apache.drill.exec.store.parquet.metadata.MetadataBase;
 import org.apache.drill.metastore.RowGroupMetadata;
 import org.apache.drill.metastore.TableStatisticsKind;
 import org.apache.drill.exec.expr.FilterBuilder;
-import org.apache.drill.shaded.guava.com.google.common.collect.Sets;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -44,6 +43,7 @@ import org.apache.drill.exec.expr.StatisticsProvider;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -96,6 +96,7 @@ public class FilterEvaluatorUtils {
     return temp == RowsMatch.ALL && isRepeated(schemaPathsInExpr, fileMetadata) ? RowsMatch.SOME : temp;
   }
 
+  @SuppressWarnings("unchecked")
   public static RowsMatch matches(FilterPredicate predicate, Map<SchemaPath, ColumnStatistics> columnsStatistics, long rowCount) {
     if (predicate != null) {
       StatisticsProvider rangeExprEvaluator = new StatisticsProvider(columnsStatistics, rowCount);
@@ -121,14 +122,14 @@ public class FilterEvaluatorUtils {
   public static class FieldReferenceFinder extends AbstractExprVisitor<Set<SchemaPath>, Void, RuntimeException> {
     @Override
     public Set<SchemaPath> visitSchemaPath(SchemaPath path, Void value) {
-      Set<SchemaPath> set = Sets.newHashSet();
+      Set<SchemaPath> set = new HashSet<>();
       set.add(path);
       return set;
     }
 
     @Override
     public Set<SchemaPath> visitUnknown(LogicalExpression e, Void value) {
-      Set<SchemaPath> paths = Sets.newHashSet();
+      Set<SchemaPath> paths = new HashSet<>();
       for (LogicalExpression ex : e) {
         paths.addAll(ex.accept(this, null));
       }

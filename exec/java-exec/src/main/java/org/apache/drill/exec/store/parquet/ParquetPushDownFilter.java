@@ -186,7 +186,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
         RelNode child = project == null ? scan : project;
         // If current row group fully matches filter,
         // but row group pruning did not happen, remove the filter.
-        if (nonConvertedPredList.size() == 0) {
+        if (nonConvertedPredList.isEmpty()) {
           call.transformTo(child);
         } else if (nonConvertedPredList.size() == predList.size()) {
           // None of the predicates participated in filter pushdown.
@@ -212,7 +212,7 @@ public abstract class ParquetPushDownFilter extends StoragePluginOptimizerRule {
 
     if (newGroupScan.isMatchAllMetadata()) {
       // creates filter from the expressions which can't be pushed to the scan
-      if (nonConvertedPredList.size() > 0) {
+      if (!nonConvertedPredList.isEmpty()) {
         newNode = filter.copy(filter.getTraitSet(), newNode,
             RexUtil.composeConjunction(
                 filter.getCluster().getRexBuilder(),

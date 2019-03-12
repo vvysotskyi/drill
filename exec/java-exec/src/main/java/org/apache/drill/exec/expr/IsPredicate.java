@@ -69,7 +69,7 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
 
   /**
    * @param stat statistics object
-   * @return <tt>true</tt> if the input stat object has valid statistics; false otherwise
+   * @return <tt>true</tt> if the input stat object is null or has invalid statistics; false otherwise
    */
   static boolean isNullOrEmpty(ColumnStatistics stat) {
     return stat == null
@@ -92,8 +92,8 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
   /**
    * Checks that column chunk's statistics does not have nulls
    *
-   * @param stat parquet column statistics
-   * @return <tt>true</tt> if the parquet file does not have nulls and <tt>false</tt> otherwise
+   * @param stat column statistics
+   * @return <tt>true</tt> if the statistics does not have nulls and <tt>false</tt> otherwise
    */
   static boolean hasNoNulls(ColumnStatistics stat) {
     return (long) stat.getStatistic(ColumnStatisticsKind.NULLS_COUNT) == 0;
@@ -123,9 +123,9 @@ public class IsPredicate<C extends Comparable<C>> extends LogicalExpressionBase 
   /**
    * Checks that column chunk's statistics has only nulls
    *
-   * @param stat parquet column statistics
-   * @param rowCount number of rows in the parquet file
-   * @return <tt>true</tt> if all rows are null in the parquet file and <tt>false</tt> otherwise
+   * @param stat column statistics
+   * @param rowCount number of rows of the specified statistics
+   * @return <tt>true</tt> if all rows are null, <tt>false</tt> otherwise
    */
   static boolean isAllNulls(ColumnStatistics stat, long rowCount) {
     Preconditions.checkArgument(rowCount >= 0, String.format("negative rowCount %d is not valid", rowCount));

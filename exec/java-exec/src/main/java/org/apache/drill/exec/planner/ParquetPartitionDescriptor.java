@@ -87,7 +87,7 @@ public class ParquetPartitionDescriptor extends AbstractPartitionDescriptor {
 
   @Override
   public boolean isPartitionName(String name) {
-    return partitionColumns.contains(name);
+    return partitionColumns.contains(SchemaPath.getSimplePath(name));
   }
 
   @Override

@@ -264,7 +264,7 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
   }
 
   @Override
-  public FileMetadata getFileMetadata(String location) {
+  public FileMetadata getFileMetadata(Path location) {
     return getFilesMetadata().stream()
         .filter(Objects::nonNull)
         .filter(fileMetadata -> location.equals(fileMetadata.getLocation()))
