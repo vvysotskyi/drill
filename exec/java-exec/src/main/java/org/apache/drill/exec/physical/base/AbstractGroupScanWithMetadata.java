@@ -201,16 +201,16 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
 
     GroupScanWithMetadataFilterer filteredMetadata = getFilterer().getFiltered(optionManager, filterPredicate, schemaPathsInExpr);
 
-    if (getFilesMetadata() != null) {
-      if (filteredMetadata.getFiles() != null && getFilesMetadata().size() == filteredMetadata.getFiles().size()) {
+    if (!getFilesMetadata().isEmpty()) {
+      if (!filteredMetadata.getFiles().isEmpty() && getFilesMetadata().size() == filteredMetadata.getFiles().size()) {
         // There is no reduction of files, but filter may be omitted.
         logger.debug("applyFilter() does not have any pruning since GroupScan fully matches filter");
         matchAllMetadata = filteredMetadata.isMatchAllMetadata();
         return null;
       }
-    } else if (getPartitionsMetadata() != null) {
+    } else if (!getPartitionsMetadata().isEmpty()) {
       // for the case when files metadata wasn't created, check partition metadata
-      if (filteredMetadata.getPartitions() != null && getPartitionsMetadata().size() == filteredMetadata.getPartitions().size()) {
+      if (!filteredMetadata.getPartitions().isEmpty() && getPartitionsMetadata().size() == filteredMetadata.getPartitions().size()) {
         // There is no reduction of partitions, but filter may be omitted.
         logger.debug("applyFilter() does not have any pruning since GroupScan fully matches filter");
         matchAllMetadata = filteredMetadata.isMatchAllMetadata();
@@ -227,9 +227,9 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
       // filter returns empty result using table metadata
       && ((filteredMetadata.getTableMetadata() == null && getTableMetadata() != null)
           // all partitions are pruned if partition metadata is available
-          || CollectionUtils.isEmpty(filteredMetadata.getPartitions()) && CollectionUtils.isNotEmpty(getPartitionsMetadata())
+          || filteredMetadata.getPartitions().isEmpty() && !getPartitionsMetadata().isEmpty()
           // all files are pruned if file metadata is available
-          || CollectionUtils.isEmpty(filteredMetadata.getFiles().values()) && CollectionUtils.isNotEmpty(getFilesMetadata().values()))) {
+          || filteredMetadata.getFiles().isEmpty() && !getFilesMetadata().isEmpty())) {
       if (getFilesMetadata().size() == 1) {
         // For the case when group scan has single file and it was filtered,
         // no need to create new group scan with the same file.
@@ -421,14 +421,11 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
 
   @JsonIgnore
   public <T> T getPartitionValue(Path path, SchemaPath column, Class<T> clazz) {
-    if (getPartitionsMetadata() != null) {
-      return getPartitionsMetadata().stream()
-          .filter(partition -> partition.getColumn().equals(column) && partition.getLocations().contains(path))
-          .findAny()
-          .map(metadata -> clazz.cast(metadata.getColumnsStatistics().get(column).getStatistic(ColumnStatisticsKind.MAX_VALUE)))
-          .orElse(null);
-    }
-    return null;
+    return getPartitionsMetadata().stream()
+        .filter(partition -> partition.getColumn().equals(column) && partition.getLocations().contains(path))
+        .findAny()
+        .map(metadata -> clazz.cast(metadata.getColumnsStatistics().get(column).getStatistic(ColumnStatisticsKind.MAX_VALUE)))
+        .orElse(null);
   }
 
   @JsonIgnore
@@ -494,8 +491,8 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     protected boolean matchAllMetadata = false;
 
     protected TableMetadata tableMetadata;
-    protected List<PartitionMetadata> partitions;
-    protected Map<Path, FileMetadata> files;
+    protected List<PartitionMetadata> partitions = Collections.emptyList();
+    protected Map<Path, FileMetadata> files = Collections.emptyMap();
 
     // for the case when filtering is possible for partitions, but files count exceeds
     // PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD, new group scan with at least filtered partitions

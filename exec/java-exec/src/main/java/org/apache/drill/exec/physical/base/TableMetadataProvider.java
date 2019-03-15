@@ -27,6 +27,10 @@ import java.util.List;
 
 /**
  * Base interface for providing table, partition, file etc. metadata for specific table.
+ *
+ * getPartitionsMetadata(), getFilesMetadata() and other methods which return collections return
+ * empty collection instead of null for the case when required metadata level is not available,
+ * or cannot re obtained using current {@link TableMetadataProvider} instance.
  */
 public interface TableMetadataProvider {
 
