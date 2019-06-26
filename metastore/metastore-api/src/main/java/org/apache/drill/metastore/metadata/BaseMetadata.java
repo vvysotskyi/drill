@@ -148,6 +148,8 @@ public abstract class BaseMetadata implements Metadata {
 
   protected abstract void toMetadataUnitBuilder(TableMetadataUnit.Builder builder);
 
+  protected abstract BaseMetadataBuilder toBuilder();
+
   public static abstract class BaseMetadataBuilder<T extends BaseMetadataBuilder<T>> {
     protected TableInfo tableInfo;
     protected MetadataInfo metadataInfo;

@@ -657,6 +657,15 @@ public class QueryBuilder {
   }
 
   /**
+   * Submit an "EXPLAIN" statement, and return text form of the
+   * plan with all attributes.
+   * @throws Exception if the query fails
+   */
+  public String explainTextWithAllAttributes() throws Exception {
+    return explainDetailed(ClusterFixture.EXPLAIN_PLAN_TEXT);
+  }
+
+  /**
    * Submit an "EXPLAIN" statement, and return the JSON form of the
    * plan.
    *
@@ -669,6 +678,11 @@ public class QueryBuilder {
 
   public String explain(String format) throws Exception {
     queryText = "EXPLAIN PLAN FOR " + queryText;
+    return queryPlan(format);
+  }
+
+  public String explainDetailed(String format) throws Exception {
+    queryText = "EXPLAIN PLAN INCLUDING ALL ATTRIBUTES FOR " + queryText;
     return queryPlan(format);
   }
 

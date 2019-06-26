@@ -49,6 +49,17 @@ public class FileMetadata extends BaseMetadata implements LocationProvider {
     builder.location(getLocation().toUri().getPath());
   }
 
+  public FileMetadataBuilder toBuilder() {
+    return builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(metadataInfo)
+        .schema(schema)
+        .columnsStatistics(columnsStatistics)
+        .metadataStatistics(metadataStatistics.values())
+        .lastModifiedTime(lastModifiedTime)
+        .path(path);
+  }
+
   public static FileMetadataBuilder builder() {
     return new FileMetadataBuilder();
   }

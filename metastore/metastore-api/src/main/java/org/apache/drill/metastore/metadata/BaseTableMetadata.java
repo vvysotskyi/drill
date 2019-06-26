@@ -71,12 +71,18 @@ public class BaseTableMetadata extends BaseMetadata implements TableMetadata {
     // overrides statistics value for the case when new statistics is exact or existing one was estimated
     tableStatistics.stream()
         .filter(statisticsHolder -> statisticsHolder.getStatisticsKind().isExact()
+              || !this.metadataStatistics.containsKey(statisticsHolder.getStatisticsKind().getName())
               || !this.metadataStatistics.get(statisticsHolder.getStatisticsKind().getName()).getStatisticsKind().isExact())
         .forEach(statisticsHolder -> mergedTableStatistics.put(statisticsHolder.getStatisticsKind().getName(), statisticsHolder));
 
     Map<SchemaPath, ColumnStatistics> newColumnsStatistics = new HashMap<>(this.columnsStatistics);
     this.columnsStatistics.forEach(
-        (columnName, value) -> newColumnsStatistics.put(columnName, value.cloneWith(columnStatistics.get(columnName))));
+        (columnName, value) -> {
+          ColumnStatistics sourceStatistics = columnStatistics.get(columnName);
+          if (sourceStatistics != null) {
+            newColumnsStatistics.put(columnName, value.cloneWith(sourceStatistics));
+          }
+        });
 
     return BaseTableMetadata.builder()
         .tableInfo(tableInfo)
@@ -102,6 +108,19 @@ public class BaseTableMetadata extends BaseMetadata implements TableMetadata {
       .map(SchemaPath::toString)
       .collect(Collectors.toList()));
     }
+  }
+
+  public BaseTableMetadataBuilder toBuilder() {
+    return builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(metadataInfo)
+        .location(location)
+        .schema(schema)
+        .columnsStatistics(columnsStatistics)
+        .metadataStatistics(metadataStatistics.values())
+        .lastModifiedTime(lastModifiedTime)
+        .partitionKeys(partitionKeys)
+        .interestingColumns(interestingColumns);
   }
 
   public static BaseTableMetadataBuilder builder() {

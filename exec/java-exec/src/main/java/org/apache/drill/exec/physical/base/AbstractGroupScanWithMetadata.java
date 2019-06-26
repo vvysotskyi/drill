@@ -267,7 +267,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
     }
 
     final Set<SchemaPath> schemaPathsInExpr =
-        filterExpr.accept(new FilterEvaluatorUtils.FieldReferenceFinder(), null);
+        filterExpr.accept(FilterEvaluatorUtils.FieldReferenceFinder.INSTANCE, null);
 
     GroupScanWithMetadataFilterer filteredMetadata = getFilterer().getFiltered(optionManager, filterPredicate, schemaPathsInExpr);
 
@@ -373,7 +373,7 @@ public abstract class AbstractGroupScanWithMetadata extends AbstractFileGroupSca
                                             TupleMetadata schema) {
     TupleMetadata types = schema.copy();
 
-    Set<SchemaPath> schemaPathsInExpr = filterExpr.accept(new FilterEvaluatorUtils.FieldReferenceFinder(), null);
+    Set<SchemaPath> schemaPathsInExpr = filterExpr.accept(FilterEvaluatorUtils.FieldReferenceFinder.INSTANCE, null);
 
     // adds implicit or partition columns if they weren't added before.
     if (supportsFileImplicitColumns) {

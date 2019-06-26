@@ -78,6 +78,20 @@ public class SegmentMetadata extends BaseMetadata implements LocationProvider {
       .collect(Collectors.toList()));
   }
 
+  public SegmentMetadataBuilder toBuilder() {
+    return builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(metadataInfo)
+        .path(path)
+        .locations(locations)
+        .schema(schema)
+        .columnsStatistics(columnsStatistics)
+        .metadataStatistics(metadataStatistics.values())
+        .lastModifiedTime(lastModifiedTime)
+        .column(column)
+        .partitionValues(partitionValues);
+  }
+
   public static SegmentMetadataBuilder builder() {
     return new SegmentMetadataBuilder();
   }

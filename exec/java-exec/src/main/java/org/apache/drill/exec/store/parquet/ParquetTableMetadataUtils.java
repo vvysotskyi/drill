@@ -19,6 +19,9 @@ package org.apache.drill.exec.store.parquet;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.planner.common.DrillStatsTable;
+import org.apache.drill.exec.record.SchemaUtil;
+import org.apache.drill.metastore.metadata.BaseTableMetadata;
 import org.apache.drill.metastore.statistics.BaseStatisticsKind;
 import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.MetadataType;
@@ -68,6 +71,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Utility class for converting parquet metadata classes to metastore metadata classes.
@@ -133,7 +138,8 @@ public class ParquetTableMetadataUtils {
         } else {
           newIndex = index++;
         }
-        rowGroups.put(file.getPath(), getRowGroupMetadata(tableMetadata, rowGroupMetadata, newIndex, file.getPath()));
+        Path filePath = Path.getPathWithoutSchemeAndAuthority(file.getPath());
+        rowGroups.put(filePath, getRowGroupMetadata(tableMetadata, rowGroupMetadata, newIndex, filePath));
       }
     }
 
@@ -608,5 +614,25 @@ public class ParquetTableMetadataUtils {
         columns.put(columnPath, type);
       }
     }
+  }
+
+  /**
+   * Returns map with schema path and {@link ColumnStatistics} obtained from specified {@link DrillStatsTable}
+   * for all columns from specified {@link BaseTableMetadata}.
+   *
+   * @param schema     source of column names
+   * @param statistics source of column statistics
+   * @return map with schema path and {@link ColumnStatistics}
+   */
+  public static Map<SchemaPath, ColumnStatistics> getColumnStatistics(TupleMetadata schema, DrillStatsTable statistics) {
+    List<SchemaPath> schemaPaths = SchemaUtil.getSchemaPaths(schema);
+
+    return schemaPaths.stream()
+        .collect(
+            Collectors.toMap(
+                Function.identity(),
+                schemaPath -> new ColumnStatistics<>(
+                    DrillStatsTable.getEstimatedColumnStats(statistics, schemaPath),
+                    SchemaPathUtils.getColumnMetadata(schemaPath, schema).type())));
   }
 }

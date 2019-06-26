@@ -20,8 +20,13 @@ package org.apache.drill.exec.store.parquet;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import org.apache.drill.exec.exception.OutdatedMetadataException;
+import org.apache.drill.exec.metastore.MetastoreParquetTableMetadataProvider;
+import org.apache.drill.exec.metastore.analyze.FileMetadataInfoCollector;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
@@ -42,6 +47,7 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
@@ -58,10 +64,12 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   private final ParquetFormatConfig formatConfig;
 
   private boolean usedMetadataCache; // false by default
+  private boolean usedMetastore; // false by default
   // may change when filter push down / partition pruning is applied
   private Path selectionRoot;
   private Path cacheFileRoot;
 
+  @SuppressWarnings("unused")
   @JsonCreator
   public ParquetGroupScan(@JacksonInject StoragePluginRegistry engineRegistry,
                           @JsonProperty("userName") String userName,
@@ -146,11 +154,13 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
     ParquetTableMetadataProvider parquetTableMetadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.usedMetadataCache = parquetTableMetadataProvider.isUsedMetadataCache();
+    this.usedMetastore = parquetTableMetadataProvider instanceof MetastoreParquetTableMetadataProvider;
     this.selectionRoot = parquetTableMetadataProvider.getSelectionRoot();
     this.entries = parquetTableMetadataProvider.getEntries();
     this.fileSet = parquetTableMetadataProvider.getFileSet();
 
     init();
+    checkMetadataConsistency(selection);
   }
 
   /**
@@ -173,6 +183,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.selectionRoot = that.selectionRoot;
     this.cacheFileRoot = selection == null ? that.cacheFileRoot : selection.getCacheFileRoot();
     this.usedMetadataCache = that.usedMetadataCache;
+    this.usedMetastore = that.usedMetastore;
   }
 
   // getters for serialization / deserialization start
@@ -246,6 +257,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     builder.append(", numFiles=").append(getEntries().size());
     builder.append(", numRowGroups=").append(getRowGroupsMetadata().size());
     builder.append(", usedMetadataFile=").append(usedMetadataCache);
+    builder.append(", usedMetastore=").append(usedMetastore);
 
     String filterString = getFilterString();
     if (!filterString.isEmpty()) {
@@ -292,6 +304,36 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   @Override
   protected List<String> getPartitionValues(LocationProvider locationProvider) {
     return ColumnExplorer.listPartitionValues(locationProvider.getPath(), selectionRoot, false);
+  }
+
+  private void checkMetadataConsistency(FileSelection selection) throws IOException {
+    if (metadataProvider.checkMetadataVersion()) {
+      DrillFileSystem fileSystem =
+          ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(getUserName()), formatPlugin.getFsConf());
+
+      List<FileStatus> fileStatuses = FileMetadataInfoCollector.getFileStatuses(selection, fileSystem);
+
+      long lastModifiedTime = metadataProvider.getTableMetadata().getLastModifiedTime();
+
+      Set<Path> removedFiles = new HashSet<>(metadataProvider.getFilesMetadataMap().keySet());
+      Set<Path> newFiles = new HashSet<>();
+
+      boolean isChanged = false;
+
+      for (FileStatus fileStatus : fileStatuses) {
+        if (!removedFiles.remove(Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()))) {
+          newFiles.add(fileStatus.getPath());
+        }
+        if (fileStatus.getModificationTime() > lastModifiedTime) {
+          isChanged = true;
+          break;
+        }
+      }
+
+      if (isChanged || !removedFiles.isEmpty() || !newFiles.isEmpty()) {
+        throw new OutdatedMetadataException("Metastore metadata is outdated", true);
+      }
+    }
   }
 
   // overridden protected methods block end

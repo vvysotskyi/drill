@@ -25,9 +25,9 @@ import java.util.stream.Stream;
 public enum MetadataType {
 
   /**
-   * Metadata that can be applicable to any type.
+   * Metadata type which helps to indicate that there is no overflow of metadata.
    */
-  ALL,
+  NONE,
 
   /**
    * Table level metadata type.
@@ -57,9 +57,9 @@ public enum MetadataType {
   ROW_GROUP,
 
   /**
-   * Metadata type which helps to indicate that there is no overflow of metadata.
+   * Metadata that can be applicable to any type.
    */
-  NONE,
+  ALL,
 
   /**
    * Metadata type which belongs to views.

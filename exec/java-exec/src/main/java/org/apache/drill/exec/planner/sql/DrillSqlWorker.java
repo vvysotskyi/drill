@@ -31,6 +31,7 @@ import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.exception.OutdatedMetadataException;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.ops.QueryContext.SqlStatementType;
 import org.apache.drill.exec.physical.PhysicalPlan;
@@ -40,6 +41,7 @@ import org.apache.drill.exec.planner.sql.handlers.DefaultSqlHandler;
 import org.apache.drill.exec.planner.sql.handlers.DescribeSchemaHandler;
 import org.apache.drill.exec.planner.sql.handlers.DescribeTableHandler;
 import org.apache.drill.exec.planner.sql.handlers.ExplainHandler;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler;
 import org.apache.drill.exec.planner.sql.handlers.RefreshMetadataHandler;
 import org.apache.drill.exec.planner.sql.handlers.ResetOptionHandler;
 import org.apache.drill.exec.planner.sql.handlers.SchemaHandler;
@@ -56,6 +58,7 @@ import org.apache.drill.exec.testing.ControlsInjectorFactory;
 import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
+import org.apache.drill.shaded.guava.com.google.common.base.Throwables;
 import org.apache.hadoop.security.AccessControlException;
 
 public class DrillSqlWorker {
@@ -120,8 +123,9 @@ public class DrillSqlWorker {
   private static PhysicalPlan convertPlan(QueryContext context, String sql, Pointer<String> textPlan)
       throws ForemanSetupException, RelConversionException, IOException, ValidationException {
     Pointer<String> textPlanCopy = textPlan == null ? null : new Pointer<>(textPlan.value);
+    long retryAttempts = context.getOption(ExecConstants.METASTORE_RETRIEVAL_RETRY_ATTEMPTS).num_val;
     try {
-      return getQueryPlan(context, sql, textPlan);
+      return getPhysicalPlan(context, sql, textPlan, retryAttempts);
     } catch (Exception e) {
       logger.trace("There was an error during conversion into physical plan. " +
           "Will sync remote and local function registries if needed and retry " +
@@ -130,7 +134,50 @@ public class DrillSqlWorker {
           context.getDrillOperatorTable().getFunctionRegistryVersion())) {
         context.reloadDrillOperatorTable();
         logger.trace("Local function registry was synchronized with remote. Trying to find function one more time.");
-        return getQueryPlan(context, sql, textPlanCopy);
+        return getPhysicalPlan(context, sql, textPlanCopy, retryAttempts);
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Converts sql query string into query physical plan.
+   * For the case when {@link OutdatedMetadataException} was thrown during query planning,
+   * attempts to convert sql query string again, until number of attempts
+   * exceeds {@code metastore.retrieval.retry_attempts}.
+   * If number of attempts exceeds {@code metastore.retrieval.retry_attempts},
+   * query will be converted into physical plan without metastore usage.
+   *
+   * @param context       query context
+   * @param sql           sql query
+   * @param textPlan      text plan
+   * @param retryAttempts number of attempts to convert sql query string into query physical plan
+   * @return query physical plan
+   */
+  private static PhysicalPlan getPhysicalPlan(QueryContext context, String sql, Pointer<String> textPlan,
+      long retryAttempts) throws ForemanSetupException, RelConversionException, IOException, ValidationException {
+    try {
+      return getQueryPlan(context, sql, textPlan);
+    } catch (Exception e) {
+      Throwable rootCause = Throwables.getRootCause(e);
+      // Calcite wraps exceptions thrown during planning, so checks whether original exception is OutdatedMetadataException
+      if (rootCause instanceof OutdatedMetadataException) {
+        // resets SqlStatementType to avoid errors when it is set during further attempts
+        context.clearSQLStatementType();
+        if (((OutdatedMetadataException) rootCause).isOutdatedMetadata()) {
+          logger.warn("Metastore table metadata is outdated. " +
+              "Retrying to obtain query plan without metastore usage.");
+        } else if (retryAttempts > 0) {
+          logger.debug("Table metadata was changed during query planning. " +
+              "Retrying to obtain query plan using updated metadata.");
+          return getPhysicalPlan(context, sql, textPlan, --retryAttempts);
+        } else {
+          logger.warn("Table metadata was changed during query planning for all `metastore.retrieval.retry_attempts`={} attempts." +
+                  "Retrying to obtain query plan without metastore usage.",
+              context.getOption(ExecConstants.METASTORE_RETRIEVAL_RETRY_ATTEMPTS).num_val);
+        }
+        context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, false);
+        return getQueryPlan(context, sql, textPlan);
       }
       throw e;
     }
@@ -202,7 +249,7 @@ public class DrillSqlWorker {
 
         if (sqlNode instanceof DrillSqlCall) {
           handler = ((DrillSqlCall) sqlNode).getSqlHandler(config);
-          if (handler instanceof AnalyzeTableHandler) {
+          if (handler instanceof AnalyzeTableHandler || handler instanceof MetastoreAnalyzeTableHandler) {
             context.setSQLStatementType(SqlStatementType.ANALYZE);
           } else if (handler instanceof RefreshMetadataHandler) {
             context.setSQLStatementType(SqlStatementType.REFRESH);

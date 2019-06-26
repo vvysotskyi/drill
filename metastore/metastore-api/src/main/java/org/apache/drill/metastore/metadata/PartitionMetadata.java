@@ -72,6 +72,19 @@ public class PartitionMetadata extends BaseMetadata {
       .collect(Collectors.toList()));
   }
 
+  public PartitionMetadataBuilder toBuilder() {
+    return builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(metadataInfo)
+        .schema(schema)
+        .columnsStatistics(columnsStatistics)
+        .metadataStatistics(metadataStatistics.values())
+        .lastModifiedTime(lastModifiedTime)
+        .column(column)
+        .partitionValues(partitionValues)
+        .locations(locations);
+  }
+
   public static PartitionMetadataBuilder builder() {
     return new PartitionMetadataBuilder();
   }

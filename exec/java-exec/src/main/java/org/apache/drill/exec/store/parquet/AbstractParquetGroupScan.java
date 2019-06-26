@@ -235,7 +235,7 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     }
 
     Set<SchemaPath> schemaPathsInExpr =
-        filterExpr.accept(new FilterEvaluatorUtils.FieldReferenceFinder(), null);
+        filterExpr.accept(FilterEvaluatorUtils.FieldReferenceFinder.INSTANCE, null);
 
     RowGroupScanFilterer filteredMetadata = getFilterer().getFiltered(optionManager, filterPredicate, schemaPathsInExpr);
 
