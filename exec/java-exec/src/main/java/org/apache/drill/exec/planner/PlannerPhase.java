@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.planner;
 
+import org.apache.drill.exec.planner.physical.MetadataAggPrule;
+import org.apache.drill.exec.planner.physical.MetadataControllerPrule;
+import org.apache.drill.exec.planner.physical.MetadataHandlerPrule;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet.Builder;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
@@ -518,6 +521,10 @@ public enum PlannerPhase {
     ruleList.add(DirectScanPrule.INSTANCE);
     ruleList.add(RowKeyJoinPrule.INSTANCE);
     ruleList.add(AnalyzePrule.INSTANCE);
+    // TODO: move these rules into separate stage
+    ruleList.add(MetadataControllerPrule.INSTANCE);
+    ruleList.add(MetadataHandlerPrule.INSTANCE);
+    ruleList.add(MetadataAggPrule.INSTANCE);
 
     ruleList.add(UnnestPrule.INSTANCE);
     ruleList.add(LateralJoinPrule.INSTANCE);

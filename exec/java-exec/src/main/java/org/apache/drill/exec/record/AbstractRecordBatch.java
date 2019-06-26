@@ -80,7 +80,7 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
     }
   }
 
-  public static enum BatchState {
+  public enum BatchState {
     /** Need to build schema and return. */
     BUILD_SCHEMA,
     /** This is still the first data batch. */
@@ -105,7 +105,7 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
     return context;
   }
 
-  public PhysicalOperator getPopConfig() {
+  public T getPopConfig() {
     return popConfig;
   }
 
@@ -116,10 +116,10 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
     return next(0, b);
   }
 
-  public final IterOutcome next(final int inputIndex, final RecordBatch b){
+  public final IterOutcome next(final int inputIndex, final RecordBatch b) {
     IterOutcome next;
     stats.stopProcessing();
-    try{
+    try {
       if (!context.getExecutorState().shouldContinue()) {
         return IterOutcome.STOP;
       }

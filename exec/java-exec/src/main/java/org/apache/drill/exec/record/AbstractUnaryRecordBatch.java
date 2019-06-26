@@ -138,15 +138,6 @@ public abstract class AbstractUnaryRecordBatch<T extends PhysicalOperator> exten
     }
   }
 
-  @Override
-  public BatchSchema getSchema() {
-    if (container.hasSchema()) {
-      return container.getSchema();
-    }
-
-    return null;
-  }
-
   protected abstract boolean setupNewSchema() throws SchemaChangeException;
   protected abstract IterOutcome doWork();
 

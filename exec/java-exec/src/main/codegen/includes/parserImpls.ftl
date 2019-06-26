@@ -697,8 +697,12 @@ Pair<SqlNodeList, SqlNodeList> ParenthesizedCompoundIdentifierList() :
 }
 </#if>
 
+
+// TODO: clean up this shit
 /**
- * Parses a analyze statement.
+ * Parses metastore analyze statement.
+ * ANALYZE TABLE [table_name] [COLUMNS (col1, col2, ...)] REFRESH METADATA [partition LEVEL]
+     and
  * ANALYZE TABLE table_name {COMPUTE | ESTIMATE} | STATISTICS
  *      [(column1, column2, ...)] [ SAMPLE numeric PERCENT ]
  */
@@ -706,37 +710,73 @@ SqlNode SqlAnalyzeTable() :
 {
     SqlParserPos pos;
     SqlIdentifier tblName;
-    SqlLiteral estimate = null;
     SqlNodeList fieldList = null;
+    SqlNode level = null;
+    SqlLiteral estimate = null;
     SqlNumericLiteral percent = null;
 }
 {
     <ANALYZE> { pos = getPos(); }
     <TABLE>
     tblName = CompoundIdentifier()
-    (
-        <COMPUTE> { estimate = SqlLiteral.createBoolean(false, pos); }
-        |
-        <ESTIMATE> { estimate = SqlLiteral.createBoolean(true, pos); }
-    )
-    <STATISTICS>
     [
+        (
+            <COMPUTE> { estimate = SqlLiteral.createBoolean(false, pos); }
+            |
+            <ESTIMATE> { estimate = SqlLiteral.createBoolean(true, pos); }
+        )
+    ]
+    [
+          {
+              if (estimate != null) {
+    <#--            throw SqlUtil.newContextException(getPos(),-->
+    <#--                RESOURCE.illegalFromEmpty());-->
+                throw new ParseException("Unexpected COLUMNS keyword");
+              }
+          }
+        <COLUMNS>
         (fieldList = ParseRequiredFieldList("Table"))
     ]
     [
-        <SAMPLE> percent = UnsignedNumericLiteral() <PERCENT>
-        {
-            BigDecimal rate = percent.bigDecimalValue();
-            if (rate.compareTo(BigDecimal.ZERO) <= 0 ||
-                rate.compareTo(BigDecimal.valueOf(100L)) > 0)
+          {
+              if (fieldList != null) {
+                <#--            throw SqlUtil.newContextException(getPos(),-->
+                <#--                RESOURCE.illegalFromEmpty());-->
+                throw new ParseException("Unexpected STATISTICS keyword");
+              }
+          }
+        <STATISTICS>
+        [
+            (fieldList = ParseRequiredFieldList("Table"))
+        ]
+        [
+            <SAMPLE> percent = UnsignedNumericLiteral() <PERCENT>
             {
-                throw new ParseException("Invalid percentage for ANALYZE TABLE");
+                BigDecimal rate = percent.bigDecimalValue();
+                if (rate.compareTo(BigDecimal.ZERO) <= 0 ||
+                    rate.compareTo(BigDecimal.valueOf(100L)) > 0)
+                {
+                    throw new ParseException("Invalid percentage for ANALYZE TABLE");
+                }
             }
+        ]
+        {
+            if (percent == null) {
+              percent = SqlLiteral.createExactNumeric("100.0", pos);
+            }
+            return new SqlAnalyzeTable(pos, tblName, estimate, fieldList, percent);
         }
     ]
+    [
+        <REFRESH>
+        <METADATA>
+        [
+            level = StringLiteral()
+            <LEVEL>
+        ]
+    ]
     {
-        if (percent == null) { percent = SqlLiteral.createExactNumeric("100.0", pos); }
-        return new SqlAnalyzeTable(pos, tblName, estimate, fieldList, percent);
+        return new SqlMetastoreAnalyzeTable(pos, tblName, fieldList, level);
     }
 }
 

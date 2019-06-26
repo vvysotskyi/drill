@@ -20,6 +20,7 @@ package org.apache.drill.metastore.statistics;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Class represents kind of statistics or metadata, for example it may be min value for column,
@@ -27,6 +28,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 @JsonFormat(shape = JsonFormat.Shape.OBJECT)
+@JsonPropertyOrder(alphabetic=true)
 public interface StatisticsKind<T> {
 
   /**

@@ -17,12 +17,14 @@
  */
 package org.apache.drill.exec.store;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,6 +35,7 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.util.Utilities;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
@@ -46,7 +49,9 @@ public class ColumnExplorer {
   private final List<Integer> selectedPartitionColumns;
   private final List<SchemaPath> tableColumns;
   private final Map<String, ImplicitFileColumns> allImplicitColumns;
+  private final Map<String, ImplicitSpecialFileColumns> allSpecialColumns;
   private final Map<String, ImplicitFileColumns> selectedImplicitColumns;
+  private final Map<String, ImplicitSpecialFileColumns> selectedSpecialColumns;
 
   /**
    * Helper class that encapsulates logic for sorting out columns
@@ -58,7 +63,9 @@ public class ColumnExplorer {
     this.selectedPartitionColumns = Lists.newArrayList();
     this.tableColumns = Lists.newArrayList();
     this.allImplicitColumns = initImplicitFileColumns(optionManager);
+    this.allSpecialColumns = initImplicitSpecialFileColumns(optionManager);
     this.selectedImplicitColumns = CaseInsensitiveMap.newHashMap();
+    this.selectedSpecialColumns = CaseInsensitiveMap.newHashMap();
     if (columns == null) {
       isStarQuery = false;
       this.columns = null;
@@ -93,6 +100,22 @@ public class ColumnExplorer {
         map.put(optionValue.string_val, e);
       }
     }
+    return map;
+  }
+
+  /**
+   * Creates case insensitive map with implicit special file columns as keys and
+   * appropriate ImplicitFileColumns enum as values
+   */
+  public static Map<String, ImplicitSpecialFileColumns> initImplicitSpecialFileColumns(OptionManager optionManager) {
+    Map<String, ImplicitSpecialFileColumns> map = CaseInsensitiveMap.newHashMap();
+    for (ImplicitSpecialFileColumns e : ImplicitSpecialFileColumns.values()) {
+      OptionValue optionValue;
+      if ((optionValue = optionManager.getOption(e.name)) != null) {
+        map.put(optionValue.string_val, e);
+      }
+    }
+
     return map;
   }
 
@@ -219,6 +242,44 @@ public class ColumnExplorer {
   }
 
   /**
+   * Creates map with implicit and special columns where key is column name, value is columns actual value.
+   * This map contains partition, implicit and special file columns (if requested).
+   * Partition columns names are formed based in partition designator and value index.
+   *
+   * @param filePath                   file path, used to populate file implicit columns
+   * @param partitionValues            list of partition values
+   * @param includeFileImplicitColumns if file implicit columns should be included into the result
+   * @param fs                         file system
+   * @param index                      index of row group to populate
+   * @return implicit columns map
+   */
+  public Map<String, String> populateImplicitAndSpecialColumns(Path filePath,
+      List<String> partitionValues, boolean includeFileImplicitColumns, FileSystem fs, int index) {
+
+    Map<String, String> implicitValues =
+        new LinkedHashMap<>(populateImplicitColumns(filePath, partitionValues, includeFileImplicitColumns));
+
+    selectedSpecialColumns.forEach((key, value) -> {
+      switch (value) {
+        case ROW_GROUP_INDEX:
+          implicitValues.put(key, String.valueOf(index));
+          break;
+        case LAST_MODIFIED_TIME:
+          try {
+            implicitValues.put(key, String.valueOf(fs.getFileStatus(filePath).getModificationTime()));
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+          break;
+      }
+    });
+
+    // TODO: add host affinity? see FileMetadataCollector.getHostAffinity()
+
+    return implicitValues;
+  }
+
+  /**
    * Compares root and file path to determine directories
    * that are present in the file path but absent in root.
    * Example: root - a/b/c, file - a/b/c/d/e/0_0_0.parquet, result - d/e.
@@ -314,12 +375,16 @@ public class ColumnExplorer {
       if (isStarQuery) {
         if (allImplicitColumns.get(path) != null) {
           selectedImplicitColumns.put(path, allImplicitColumns.get(path));
+        } else if (allSpecialColumns.get(path) != null) {
+          selectedSpecialColumns.put(path, allSpecialColumns.get(path));
         }
       } else {
         if (isPartitionColumn(partitionDesignator, path)) {
           selectedPartitionColumns.add(Integer.parseInt(path.substring(partitionDesignator.length())));
         } else if (allImplicitColumns.get(path) != null) {
           selectedImplicitColumns.put(path, allImplicitColumns.get(path));
+        } else if (allSpecialColumns.get(path) != null) {
+          selectedSpecialColumns.put(path, allSpecialColumns.get(path));
         } else {
           tableColumns.add(column);
         }
@@ -385,5 +450,25 @@ public class ColumnExplorer {
      * Using file path calculates value for each implicit file column
      */
     public abstract String getValue(Path path);
+  }
+
+  public enum ImplicitSpecialFileColumns {
+
+    LAST_MODIFIED_TIME(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL),
+
+    ROW_GROUP_INDEX(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
+
+    String name;
+
+    ImplicitSpecialFileColumns(String name) {
+      this.name = name;
+    }
+
+    /**
+     * Using file path calculates value for each implicit file column
+     */
+    public String getValue(Supplier<String> supplier) {
+      return supplier.get();
+    }
   }
 }

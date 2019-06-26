@@ -332,6 +332,36 @@ public class BasicTablesRequests {
   }
 
   /**
+   * Returns row groups metadata based on given table information, metadata key and locations.
+   *
+   * Schematic SQL request:
+   * <pre>
+   *   select [$ROW_GROUP_METADATA$] from METASTORE
+   *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
+   *   and metadataKey = 'part_int=3'
+   *   and path in ('/tmp/nation/part_int=3/part_varchar=g/0_0_0.parquet', …)
+   *   and metadataType = 'ROW_GROUP'
+   * </pre>
+   *
+   * @param tableInfo table information
+   * @param metadataKey metadata key
+   * @param paths list of full paths to the file of the row group
+   * @return list of row group metadata
+   */
+  public List<RowGroupMetadata> rowGroupsMetadata(TableInfo tableInfo, String metadataKey, List<String> paths) {
+    RequestMetadata requestMetadata = RequestMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataKey(metadataKey)
+        .paths(paths)
+        .metadataType(MetadataType.ROW_GROUP.name())
+        .requestColumns(TableMetadataUnit.SCHEMA.rowGroupColumns())
+        .build();
+
+    List<TableMetadataUnit> units = request(requestMetadata);
+    return BasicTablesTransformer.rowGroups(units);
+  }
+
+  /**
    * Returns metadata for segments, files and row groups based on given metadata keys and locations.
    *
    * Schematic SQL request:

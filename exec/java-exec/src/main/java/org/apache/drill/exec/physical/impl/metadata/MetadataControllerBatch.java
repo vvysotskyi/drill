@@ -1,0 +1,430 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.exec.physical.impl.metadata;
+
+import org.apache.calcite.sql.SqlKind;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.physical.config.MetadataControllerPOP;
+import org.apache.drill.exec.physical.rowSet.DirectRowSet;
+import org.apache.drill.exec.physical.rowSet.RowSetReader;
+import org.apache.drill.exec.record.AbstractSingleRecordBatch;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ObjectReader;
+import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.metastore.components.tables.TableMetadataUnit;
+import org.apache.drill.metastore.components.tables.Tables;
+import org.apache.drill.metastore.metadata.BaseMetadata;
+import org.apache.drill.metastore.metadata.BaseTableMetadata;
+import org.apache.drill.metastore.metadata.FileMetadata;
+import org.apache.drill.metastore.metadata.MetadataInfo;
+import org.apache.drill.metastore.metadata.MetadataType;
+import org.apache.drill.metastore.metadata.PartitionMetadata;
+import org.apache.drill.metastore.metadata.RowGroupMetadata;
+import org.apache.drill.metastore.metadata.SegmentMetadata;
+import org.apache.drill.metastore.metadata.TableInfo;
+import org.apache.drill.metastore.statistics.BaseStatisticsKind;
+import org.apache.drill.metastore.statistics.ColumnStatistics;
+import org.apache.drill.metastore.statistics.ColumnStatisticsKind;
+import org.apache.drill.metastore.statistics.StatisticsHolder;
+import org.apache.drill.metastore.statistics.StatisticsKind;
+import org.apache.drill.metastore.statistics.TableStatisticsKind;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
+import org.apache.hadoop.fs.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.apache.drill.exec.physical.impl.metadata.MetadataControllerBatch.ColumnNameStatisticsHandler.getStatisticsKind;
+
+public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataControllerPOP> {
+  private static final Logger logger = LoggerFactory.getLogger(MetadataControllerBatch.class);
+
+  private final Tables tables;
+  private TableInfo tableInfo;
+  private List<String> locations;
+  private List<SchemaPath> interestingColumns;
+  private MetadataType metadataType;
+
+  private static final String METADATA_IDENTIFIER_SEPARATOR = "/";
+
+  protected MetadataControllerBatch(MetadataControllerPOP popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
+    super(popConfig, context, incoming);
+    this.tables = context.getMetastore().tables();
+    this.tableInfo = popConfig.getTableInfo();
+  }
+
+  @Override
+  protected boolean setupNewSchema() throws SchemaChangeException {
+    // TODO: add logic for constructing schema
+    container.clear();
+
+    container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
+
+    return true;
+  }
+
+  @Override
+  protected IterOutcome doWork() {
+    // TODO: currently there is nothing to return, will populate it later with result of analyze
+    container.setRecordCount(0);
+
+    context.getMetastore().tables().modify()
+        .overwrite(getMetadataUnits(incoming.getContainer()))
+        .execute();
+    return IterOutcome.OK;
+  }
+
+  private List<TableMetadataUnit> getMetadataUnits(VectorContainer container) {
+    List<TableMetadataUnit> metadataUnits = new ArrayList<>();
+    RowSetReader reader = DirectRowSet.fromContainer(container).reader();
+    while (reader.next()) {
+      metadataUnits.addAll(getMetadataUnits(reader, 0));
+    }
+    return metadataUnits;
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<TableMetadataUnit> getMetadataUnits(TupleReader reader, int nestingLevel) {
+    List<TableMetadataUnit> metadataUnits = new ArrayList<>();
+    Multimap<String, StatisticsHolder> columnStatistics = ArrayListMultimap.create();
+    List<StatisticsHolder> metadataStatistics = new ArrayList<>();
+    Map<String, TypeProtos.MinorType> columnTypes = new HashMap<>();
+
+    TupleMetadata columnMetadata = reader.tupleSchema();
+    ObjectReader metadataColumnReader = reader.column(MetadataAggBatch.METADATA_TYPE);
+    Preconditions.checkNotNull(metadataColumnReader, "metadataType column wasn't found");
+
+    ObjectReader underlyingMetadataReader = reader.column(MetadataAggBatch.COLLECTED_MAP_FIELD);
+    if (underlyingMetadataReader != null) {
+      if (!underlyingMetadataReader.schema().isArray()) {
+        throw new IllegalStateException("Incoming vector with name `collected_map` should be repeated map");
+      }
+      // current row contains information about underlying metadata
+      ArrayReader array = underlyingMetadataReader.array();
+      while (array.next()) {
+        metadataUnits.addAll(getMetadataUnits(array.tuple(), nestingLevel + 1));
+      }
+    }
+
+    for (ColumnMetadata column : columnMetadata) {
+      String fieldName = ColumnNameStatisticsHandler.getColumnName(column.name());
+
+      if (ColumnNameStatisticsHandler.columnStatisticsField(column.name())) {
+        StatisticsKind statisticsKind = getStatisticsKind(column.name());
+        columnStatistics.put(fieldName,
+            new StatisticsHolder(reader.column(column.name()).getObject(), statisticsKind));
+        if (statisticsKind.getName().equalsIgnoreCase(ColumnStatisticsKind.MIN_VALUE.getName())
+            || statisticsKind.getName().equalsIgnoreCase(ColumnStatisticsKind.MAX_VALUE.getName())) {
+          columnTypes.putIfAbsent(fieldName, column.type());
+        }
+      } else if (ColumnNameStatisticsHandler.metadataStatisticsField(column.name())) {
+        metadataStatistics.add(new StatisticsHolder(reader.column(column.name()).getObject(), getStatisticsKind(column.name())));
+      }
+    }
+
+    Map<SchemaPath, ColumnStatistics> resultingStats = new HashMap<>();
+
+    columnStatistics.asMap().forEach((fieldName, statisticsHolders) ->
+        resultingStats.put(SchemaPath.getSimplePath(fieldName), new ColumnStatistics(statisticsHolders, columnTypes.get(fieldName))));
+
+    MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.scalar().getString());
+
+    List<String> segmentColumns = popConfig.getSegmentColumns();
+    // TODO: remove when columns are passed into pop config correctly
+    segmentColumns = Arrays.asList("dir0", "dir1", "dir2", "dir3", "dir4", "dir5");
+
+    BaseMetadata metadata;
+
+    switch (metadataType) {
+      case TABLE: {
+        // set storagePlugin, workspace, tableName, owner, tableType - tableInfo
+        // metadataType, metadataKey - metadataInfo
+        // location, interestingColumns
+        // from config
+        // get schema, columnsStatistics, metadataStatistics, lastModifiedTime, partitionKeys, additionalMetadata
+        // from incoming data and convert / set to table metadata
+        MetadataInfo metadataInfo = MetadataInfo.builder()
+            .type(MetadataType.TABLE)
+            .key(MetadataInfo.GENERAL_INFO_KEY)
+            .build();
+        metadata = BaseTableMetadata.builder()
+            .tableInfo(tableInfo)
+            .metadataInfo(metadataInfo)
+            .columnsStatistics(resultingStats)
+            .metadataStatistics(metadataStatistics)
+            .partitionKeys(Collections.emptyMap())
+            .interestingColumns(popConfig.getInterestingColumns())
+            .location(popConfig.getLocation())
+            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+            .build();
+        break;
+      }
+      case SEGMENT: {
+        String segmentKey = segmentColumns.size() > 0
+            ? reader.column(segmentColumns.iterator().next()).scalar().getString()
+            : MetadataInfo.GENERAL_INFO_KEY;
+
+        List<String> partitionValues = segmentColumns.stream()
+            .limit(nestingLevel)
+            .map(columnName -> reader.column(columnName).scalar().getString())
+            .collect(Collectors.toList());
+        String metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, partitionValues);
+        MetadataInfo metadataInfo = MetadataInfo.builder()
+            .type(MetadataType.SEGMENT)
+            .key(segmentKey)
+            .identifier(StringUtils.defaultIfEmpty(metadataIdentifier, null))
+            .build();
+        metadata = SegmentMetadata.builder()
+            .tableInfo(tableInfo)
+            .metadataInfo(metadataInfo)
+            .columnsStatistics(resultingStats)
+            .metadataStatistics(metadataStatistics)
+            .path(new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString()))
+            .locations(getIncomingLocations(reader))
+            .column(segmentColumns.size() > 0 ? SchemaPath.getSimplePath(segmentColumns.get(nestingLevel - 1)) : null)
+            .partitionValues(partitionValues)
+            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+            .build();
+        break;
+      }
+      case PARTITION: {
+        String segmentKey = segmentColumns.size() > 0
+            ? reader.column(segmentColumns.iterator().next()).scalar().getString()
+            : MetadataInfo.GENERAL_INFO_KEY;
+
+        List<String> partitionValues = segmentColumns.stream()
+            .limit(nestingLevel)
+            .map(columnName -> reader.column(columnName).scalar().getString())
+            .collect(Collectors.toList());
+        String metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, partitionValues);
+        MetadataInfo metadataInfo = MetadataInfo.builder()
+            .type(MetadataType.PARTITION)
+            .key(segmentKey)
+            .identifier(StringUtils.defaultIfEmpty(metadataIdentifier, null))
+            .build();
+        metadata = PartitionMetadata.builder()
+            .tableInfo(tableInfo)
+            .metadataInfo(metadataInfo)
+            .columnsStatistics(resultingStats)
+            .metadataStatistics(metadataStatistics)
+            .locations(getIncomingLocations(reader))
+            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+//            .column(SchemaPath.getSimplePath("dir1"))
+//            .partitionValues()
+            .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+            .build();
+        break;
+      }
+      case FILE: {
+        String segmentKey = segmentColumns.size() > 0
+            ? reader.column(segmentColumns.iterator().next()).scalar().getString()
+            : MetadataInfo.GENERAL_INFO_KEY;
+
+        List<String> partitionValues = segmentColumns.stream()
+            .limit(nestingLevel - 1)
+            .map(columnName -> reader.column(columnName).scalar().getString())
+            .collect(Collectors.toList());
+        String metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, partitionValues);
+        Path path = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
+        metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, metadataIdentifier, ColumnExplorer.ImplicitFileColumns.FILENAME.getValue(path));
+        MetadataInfo metadataInfo = MetadataInfo.builder()
+            .type(MetadataType.FILE)
+            .key(segmentKey)
+            .identifier(StringUtils.defaultIfEmpty(metadataIdentifier, null))
+            .build();
+        metadata = FileMetadata.builder()
+            .tableInfo(tableInfo)
+            .metadataInfo(metadataInfo)
+            .columnsStatistics(resultingStats)
+            .metadataStatistics(metadataStatistics)
+            .path(path)
+            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+            .build();
+        break;
+      }
+      case ROW_GROUP: {
+        String segmentKey = segmentColumns.size() > 0
+            ? reader.column(segmentColumns.iterator().next()).scalar().getString()
+            : MetadataInfo.GENERAL_INFO_KEY;
+
+        List<String> partitionValues = segmentColumns.stream()
+            .limit(nestingLevel - 2)
+            .map(columnName -> reader.column(columnName).scalar().getString())
+            .collect(Collectors.toList());
+        String metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, partitionValues);
+        MetadataInfo metadataInfo = MetadataInfo.builder()
+            .type(MetadataType.ROW_GROUP)
+            .key(segmentKey)
+            .identifier(StringUtils.defaultIfEmpty(metadataIdentifier, null))
+            .build();
+        metadata = RowGroupMetadata.builder()
+            .tableInfo(tableInfo)
+            .metadataInfo(metadataInfo)
+            .columnsStatistics(resultingStats)
+            .metadataStatistics(metadataStatistics)
+            // TODO: pass host affinity
+            .hostAffinity(Collections.emptyMap())
+            .rowGroupIndex(Integer.parseInt(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL)).scalar().getString()))
+            .path(new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString()))
+            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+            .build();
+        break;
+      }
+      default:
+        throw new UnsupportedOperationException("Unsupported metadata type: " + metadataType);
+    }
+    metadataUnits.add(metadata.toMetadataUnit());
+
+    return metadataUnits;
+  }
+
+  private Set<Path> getIncomingLocations(TupleReader reader) {
+    Set<Path> childLocations = new HashSet<>();
+
+    ObjectReader metadataColumnReader = reader.column(MetadataAggBatch.METADATA_TYPE);
+    Preconditions.checkNotNull(metadataColumnReader, "metadataType column wasn't found");
+
+    MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.getObject().toString());
+
+    switch (metadataType) {
+      case SEGMENT:
+      case PARTITION:
+        ObjectReader locationsReader = reader.column(MetadataAggBatch.LOCATIONS_FIELD);
+        // populate list of file locations from "locations" field if it is present in the schema
+        if (locationsReader != null && locationsReader.type() == ObjectType.ARRAY) {
+          ArrayReader array = locationsReader.array();
+          while (array.next()) {
+            childLocations.add(new Path(array.scalar().getString()));
+          }
+          break;
+        }
+        // in the opposite case, populate list of file locations using underlying metadata
+        ObjectReader underlyingMetadataReader = reader.column(MetadataAggBatch.COLLECTED_MAP_FIELD);
+        if (underlyingMetadataReader != null) {
+          // current row contains information about underlying metadata
+          ArrayReader array = underlyingMetadataReader.array();
+          array.rewind();
+          while (array.next()) {
+            childLocations.addAll(getIncomingLocations(array.tuple()));
+          }
+        }
+        break;
+      case FILE:
+        childLocations.add(new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString()));
+    }
+
+    return childLocations;
+  }
+
+  @Override
+  protected void killIncoming(boolean sendUpstream) {
+    incoming.kill(sendUpstream);
+  }
+
+  @Override
+  public void dump() {
+    logger.error("MetadataHandlerBatch[container={}, popConfig={}]", container, popConfig);
+  }
+
+  @Override
+  public int getRecordCount() {
+    return container.getRecordCount();
+  }
+
+  public static class ColumnNameStatisticsHandler {
+    private static final String COLUMN_SEPARATOR = "$";
+
+    public static final Map<StatisticsKind, SqlKind> COLUMN_STATISTICS_FUNCTIONS = ImmutableMap.<StatisticsKind, SqlKind>builder()
+        .put(ColumnStatisticsKind.MAX_VALUE, SqlKind.MAX)
+        .put(ColumnStatisticsKind.MIN_VALUE, SqlKind.MIN)
+        .put(ColumnStatisticsKind.NON_NULL_COUNT, SqlKind.COUNT)
+        .put(TableStatisticsKind.ROW_COUNT, SqlKind.COUNT)
+        .build();
+
+    public static final Map<StatisticsKind, SqlKind> META_STATISTICS_FUNCTIONS = ImmutableMap.<StatisticsKind, SqlKind>builder()
+        .put(TableStatisticsKind.ROW_COUNT, SqlKind.COUNT)
+        .build();
+
+    public static String getColumnName(String fullName) {
+      return fullName.substring(fullName.indexOf(COLUMN_SEPARATOR, fullName.indexOf(COLUMN_SEPARATOR) + 1) + 1);
+    }
+
+    // TODO: rewrite to cover all known statistics cases and unite logic which assigns names to the columns which logic for parsing field names
+    public static StatisticsKind getStatisticsKind(String fullName) {
+      String statisticsIdentifier = fullName.split("\\" + COLUMN_SEPARATOR)[1];
+      switch (statisticsIdentifier) {
+        case "minValue":
+          return ColumnStatisticsKind.MIN_VALUE;
+        case "maxValue":
+          return ColumnStatisticsKind.MAX_VALUE;
+        case "nullsCount":
+          return ColumnStatisticsKind.NULLS_COUNT;
+        case "nonnullrowcount":
+          return ColumnStatisticsKind.NON_NULL_COUNT;
+        case "rowCount":
+          return TableStatisticsKind.ROW_COUNT;
+      }
+      return new BaseStatisticsKind(statisticsIdentifier, false);
+    }
+
+    public static String getColumnStatisticsFieldName(String columnName, StatisticsKind statisticsKind) {
+      return String.format("column%1$s%2$s%1$s%3$s", COLUMN_SEPARATOR, statisticsKind.getName(), columnName);
+    }
+
+    public static String getMetadataStatisticsFieldName(StatisticsKind statisticsKind) {
+      return String.format("metadata%s%s", COLUMN_SEPARATOR, statisticsKind.getName());
+    }
+
+    public static boolean columnStatisticsField(String fieldName) {
+      return fieldName.startsWith("column" + COLUMN_SEPARATOR);
+    }
+
+    public static boolean metadataStatisticsField(String fieldName) {
+      return fieldName.startsWith("metadata" + COLUMN_SEPARATOR);
+    }
+  }
+}

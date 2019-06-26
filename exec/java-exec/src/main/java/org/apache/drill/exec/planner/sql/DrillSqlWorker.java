@@ -40,6 +40,7 @@ import org.apache.drill.exec.planner.sql.handlers.DefaultSqlHandler;
 import org.apache.drill.exec.planner.sql.handlers.DescribeSchemaHandler;
 import org.apache.drill.exec.planner.sql.handlers.DescribeTableHandler;
 import org.apache.drill.exec.planner.sql.handlers.ExplainHandler;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler;
 import org.apache.drill.exec.planner.sql.handlers.RefreshMetadataHandler;
 import org.apache.drill.exec.planner.sql.handlers.ResetOptionHandler;
 import org.apache.drill.exec.planner.sql.handlers.SchemaHandler;
@@ -202,7 +203,7 @@ public class DrillSqlWorker {
 
         if (sqlNode instanceof DrillSqlCall) {
           handler = ((DrillSqlCall) sqlNode).getSqlHandler(config);
-          if (handler instanceof AnalyzeTableHandler) {
+          if (handler instanceof AnalyzeTableHandler || handler instanceof MetastoreAnalyzeTableHandler) {
             context.setSQLStatementType(SqlStatementType.ANALYZE);
           } else if (handler instanceof RefreshMetadataHandler) {
             context.setSQLStatementType(SqlStatementType.REFRESH);

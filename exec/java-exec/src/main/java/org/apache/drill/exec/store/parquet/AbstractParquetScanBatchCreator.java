@@ -116,7 +116,7 @@ public abstract class AbstractParquetScanBatchCreator {
           true /* supports file implicit columns */,
           schema);
         // Extract only the relevant columns from the filter (sans implicit columns, if any)
-        schemaPathsInExpr = filterExpr.accept(new FilterEvaluatorUtils.FieldReferenceFinder(), null);
+        schemaPathsInExpr = filterExpr.accept(FilterEvaluatorUtils.FieldReferenceFinder.INSTANCE, null);
         columnsInExpr = new HashSet<>();
         String partitionColumnLabel = context.getOptions().getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL).string_val;
         for (SchemaPath path : schemaPathsInExpr) {
@@ -327,7 +327,9 @@ public abstract class AbstractParquetScanBatchCreator {
     readers.add(reader);
 
     List<String> partitionValues = rowGroupScan.getPartitionValues(rowGroup);
-    Map<String, String> implicitValues = columnExplorer.populateImplicitColumns(rowGroup.getPath(), partitionValues, rowGroupScan.supportsFileImplicitColumns());
+    Map<String, String> implicitValues =
+        columnExplorer.populateImplicitAndSpecialColumns(rowGroup.getPath(), partitionValues,
+            rowGroupScan.supportsFileImplicitColumns(), fs, rowGroup.getRowGroupIndex());
     implicitColumns.add(implicitValues);
     if (implicitValues.size() > mapWithMaxColumns.size()) {
       mapWithMaxColumns = implicitValues;

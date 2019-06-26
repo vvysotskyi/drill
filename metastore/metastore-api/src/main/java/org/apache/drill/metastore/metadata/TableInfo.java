@@ -17,6 +17,10 @@
  */
 package org.apache.drill.metastore.metadata;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.metastore.components.tables.TableMetadataUnit;
 import org.apache.drill.metastore.expressions.FilterExpression;
 
@@ -26,6 +30,7 @@ import java.util.StringJoiner;
 /**
  * General table information.
  */
+@JsonTypeName("tableInfo")
 public class TableInfo {
   public static final String UNKNOWN = "UNKNOWN";
   public static final TableInfo UNKNOWN_TABLE_INFO = TableInfo.builder()
@@ -54,22 +59,40 @@ public class TableInfo {
     this.owner = builder.owner;
   }
 
+  @JsonCreator
+  public TableInfo(@JsonProperty("storagePlugin") String storagePlugin,
+      @JsonProperty("workspace") String workspace,
+      @JsonProperty("name") String name,
+      @JsonProperty("type") String type,
+      @JsonProperty("owner") String owner) {
+    this.storagePlugin = storagePlugin;
+    this.workspace = workspace;
+    this.name = name;
+    this.type = type;
+    this.owner = owner;
+  }
+
+  @JsonProperty("storagePlugin")
   public String storagePlugin() {
     return storagePlugin;
   }
 
+  @JsonProperty("workspace")
   public String workspace() {
     return workspace;
   }
 
+  @JsonProperty("name")
   public String name() {
     return name;
   }
 
+  @JsonProperty("type")
   public String type() {
     return type;
   }
 
+  @JsonProperty("owner")
   public String owner() {
     return owner;
   }

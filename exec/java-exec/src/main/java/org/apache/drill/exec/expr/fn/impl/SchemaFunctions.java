@@ -1,0 +1,309 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.exec.expr.fn.impl;
+
+import io.netty.buffer.DrillBuf;
+import org.apache.drill.exec.expr.DrillAggFunc;
+import org.apache.drill.exec.expr.annotations.FunctionTemplate;
+import org.apache.drill.exec.expr.annotations.Output;
+import org.apache.drill.exec.expr.annotations.Param;
+import org.apache.drill.exec.expr.annotations.Workspace;
+import org.apache.drill.exec.expr.holders.NullableVarCharHolder;
+import org.apache.drill.exec.expr.holders.ObjectHolder;
+import org.apache.drill.exec.expr.holders.VarCharHolder;
+import org.apache.drill.exec.vector.complex.reader.FieldReader;
+
+import javax.inject.Inject;
+
+public class SchemaFunctions {
+
+  @FunctionTemplate(name = "schema",
+                    scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE,
+                    isInternal = true,
+                    isVarArg = true)
+  public static class SchemaFunction implements DrillAggFunc {
+
+    @Param FieldReader[] inputs;
+    @Output NullableVarCharHolder out;
+    @Inject DrillBuf buf;
+    @Workspace ObjectHolder columnsHolder;
+
+    @Override
+    public void setup() {
+      columnsHolder = new ObjectHolder();
+    }
+
+    @Override
+    public void add() {
+      java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType> columns;
+      if (columnsHolder.obj == null) {
+        // Janino does not support diamond operator for this case :(
+        columnsHolder.obj = new java.util.HashMap<String, org.apache.drill.common.types.TypeProtos.MajorType>();
+      }
+
+      columns = (java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType>) columnsHolder.obj;
+
+      for (int i = 0; i < inputs.length; i += 2) {
+        String columnName = inputs[i].readObject().toString();
+        // Janino cannot infer type
+        org.apache.drill.common.types.TypeProtos.MajorType majorType = (org.apache.drill.common.types.TypeProtos.MajorType) columns.get(columnName);
+        if (majorType != null && !majorType.equals(inputs[i + 1].getType())) {
+          org.apache.drill.common.types.TypeProtos.MinorType leastRestrictiveType = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveType(java.util.Arrays.asList(majorType.getMinorType(), inputs[i + 1].getType().getMinorType()));
+          org.apache.drill.common.types.TypeProtos.DataMode leastRestrictiveMode = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveDataMode(java.util.Arrays.asList(majorType.getMode(), inputs[i + 1].getType().getMode()));
+
+          columns.put(columnName, majorType.toBuilder().setMinorType(leastRestrictiveType).setMode(leastRestrictiveMode).build());
+        } else {
+          columns.put(columnName, inputs[i + 1].getType());
+        }
+      }
+    }
+
+    @Override
+    public void output() {
+      org.apache.drill.exec.record.metadata.SchemaBuilder schemaBuilder = new org.apache.drill.exec.record.metadata.SchemaBuilder();
+
+      java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType> columns =
+          (java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType>) columnsHolder.obj;
+
+      if (columns == null) {
+        return;
+      }
+
+      for (java.util.Map.Entry<String, org.apache.drill.common.types.TypeProtos.MajorType> entry : columns.entrySet()) {
+        // Janino compiler cannot infer types from generics :(
+        schemaBuilder.add(org.apache.drill.exec.record.MaterializedField.create((String) entry.getKey(),
+            (org.apache.drill.common.types.TypeProtos.MajorType) entry.getValue()));
+      }
+
+      byte[] type = schemaBuilder.build().jsonString().getBytes();
+      buf = buf.reallocIfNeeded(type.length);
+      buf.setBytes(0, type);
+      out.buffer = buf;
+      out.start = 0;
+      out.end = type.length;
+      out.isSet = 1;
+    }
+
+    @Override
+    public void reset() {
+      columnsHolder.obj = null;
+    }
+  }
+
+  @FunctionTemplate(name = "merge_schema",
+                    scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE,
+                    isInternal = true)
+  public static class MergeNullableSchemaFunction implements DrillAggFunc {
+
+    @Param NullableVarCharHolder input;
+    @Output NullableVarCharHolder out;
+    @Inject DrillBuf buf;
+    @Workspace ObjectHolder schemaHolder;
+
+    @Override
+    public void setup() {
+      schemaHolder = new ObjectHolder();
+    }
+
+    @Override
+    public void add() {
+      if (input.isSet == 0) {
+        return;
+      }
+
+      org.apache.drill.exec.record.metadata.TupleMetadata currentSchema =
+          org.apache.drill.exec.record.metadata.TupleMetadata.of(
+              org.apache.drill.common.util.DrillStringUtils.toBinaryString(input.buffer, input.start, input.end));
+      if (schemaHolder.obj == null) {
+        schemaHolder.obj = currentSchema;
+        return;
+      }
+
+      org.apache.drill.exec.record.metadata.TupleMetadata resolvedSchema = (org.apache.drill.exec.record.metadata.TupleMetadata) schemaHolder.obj;
+
+      if (resolvedSchema.isEquivalent(currentSchema)) {
+        return;
+      } else {
+        throw new UnsupportedOperationException("Schema change! Vova, do not hesitate to complete logic for schema resolution.");
+      }
+
+//      currentSchema.forEach(columnMetadata -> {
+//        ColumnMetadata resolvedColumnMetadata = resolvedSchema.metadata(columnMetadata.name());
+//        if (resolvedColumnMetadata == null) {
+//          resolvedSchema.addColumn(columnMetadata);
+//        } else if (!columnMetadata.equals(resolvedColumnMetadata)) {
+//          org.apache.drill.common.types.TypeProtos.MinorType leastRestrictiveType =
+//              org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveType(
+//                  java.util.Arrays.asList(columnMetadata.type(), resolvedColumnMetadata.type()));
+//          org.apache.drill.common.types.TypeProtos.DataMode leastRestrictiveMode =
+//              org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveDataMode(
+//                  java.util.Arrays.asList(columnMetadata.mode(), resolvedColumnMetadata.mode()));
+//          resolvedSchema.
+//        }
+//      });
+//
+//      columns = (java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType>) schemaHolder.obj;
+//
+//      for (int i = 0; i < inputs.length; i += 2) {
+//        String columnName = inputs[i].readObject().toString();
+//        // Janino cannot infer type
+//        org.apache.drill.common.types.TypeProtos.MajorType majorType = (org.apache.drill.common.types.TypeProtos.MajorType) columns.get(columnName);
+//        if (majorType != null && !majorType.equals(inputs[i + 1].getType())) {
+//          org.apache.drill.common.types.TypeProtos.MinorType leastRestrictiveType = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveType(java.util.Arrays.asList(majorType.getMinorType(), inputs[i + 1].getType().getMinorType()));
+//          org.apache.drill.common.types.TypeProtos.DataMode leastRestrictiveMode = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveDataMode(java.util.Arrays.asList(majorType.getMode(), inputs[i + 1].getType().getMode()));
+//
+//          columns.put(columnName, majorType.toBuilder().setMinorType(leastRestrictiveType).setMode(leastRestrictiveMode).build());
+//        } else {
+//          columns.put(columnName, inputs[i + 1].getType());
+//        }
+//      }
+    }
+
+    @Override
+    public void output() {
+//      org.apache.drill.exec.record.metadata.SchemaBuilder schemaBuilder = new org.apache.drill.exec.record.metadata.SchemaBuilder();
+//
+//      java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType> columns =
+//          (java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType>) schemaHolder.obj;
+//
+//      if (columns == null) {
+//        return;
+//      }
+//
+//      for (java.util.Map.Entry<String, org.apache.drill.common.types.TypeProtos.MajorType> entry : columns.entrySet()) {
+//        // Janino compiler cannot infer type :(
+//        schemaBuilder.add(org.apache.drill.exec.record.MaterializedField.create((String) entry.getKey(),
+//            (org.apache.drill.common.types.TypeProtos.MajorType) entry.getValue()));
+//      }
+
+      org.apache.drill.exec.record.metadata.TupleMetadata resolvedSchema = (org.apache.drill.exec.record.metadata.TupleMetadata) schemaHolder.obj;
+
+      byte[] type = resolvedSchema.jsonString().getBytes();
+      buf = buf.reallocIfNeeded(type.length);
+      buf.setBytes(0, type);
+      out.buffer = buf;
+      out.start = 0;
+      out.end = type.length;
+      out.isSet = 1;
+    }
+
+    @Override
+    public void reset() {
+      schemaHolder.obj = null;
+    }
+
+  }
+
+  @FunctionTemplate(name = "merge_schema",
+      scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE,
+      isInternal = true)
+  public static class MergeSchemaFunction implements DrillAggFunc {
+
+    @Param VarCharHolder input;
+    @Output VarCharHolder out;
+    @Inject DrillBuf buf;
+    @Workspace ObjectHolder schemaHolder;
+
+    @Override
+    public void setup() {
+      schemaHolder = new ObjectHolder();
+    }
+
+    @Override
+    public void add() {
+      org.apache.drill.exec.record.metadata.TupleMetadata currentSchema = org.apache.drill.exec.record.metadata.TupleMetadata.of(
+          org.apache.drill.common.util.DrillStringUtils.toBinaryString(input.buffer, input.start, input.end));
+      if (schemaHolder.obj == null) {
+        schemaHolder.obj = currentSchema;
+        return;
+      }
+
+      org.apache.drill.exec.record.metadata.TupleMetadata resolvedSchema = (org.apache.drill.exec.record.metadata.TupleMetadata) schemaHolder.obj;
+
+      if (resolvedSchema.isEquivalent(currentSchema)) {
+        return;
+      } else {
+        throw new UnsupportedOperationException("Schema change! Vova, do not hesitate to complete logic for schema resolution.");
+      }
+
+//      currentSchema.forEach(columnMetadata -> {
+//        ColumnMetadata resolvedColumnMetadata = resolvedSchema.metadata(columnMetadata.name());
+//        if (resolvedColumnMetadata == null) {
+//          resolvedSchema.addColumn(columnMetadata);
+//        } else if (!columnMetadata.equals(resolvedColumnMetadata)) {
+//          org.apache.drill.common.types.TypeProtos.MinorType leastRestrictiveType =
+//              org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveType(
+//                  java.util.Arrays.asList(columnMetadata.type(), resolvedColumnMetadata.type()));
+//          org.apache.drill.common.types.TypeProtos.DataMode leastRestrictiveMode =
+//              org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveDataMode(
+//                  java.util.Arrays.asList(columnMetadata.mode(), resolvedColumnMetadata.mode()));
+//          resolvedSchema.
+//        }
+//      });
+//
+//      columns = (java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType>) schemaHolder.obj;
+//
+//      for (int i = 0; i < inputs.length; i += 2) {
+//        String columnName = inputs[i].readObject().toString();
+//        // Janino cannot infer type
+//        org.apache.drill.common.types.TypeProtos.MajorType majorType = (org.apache.drill.common.types.TypeProtos.MajorType) columns.get(columnName);
+//        if (majorType != null && !majorType.equals(inputs[i + 1].getType())) {
+//          org.apache.drill.common.types.TypeProtos.MinorType leastRestrictiveType = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveType(java.util.Arrays.asList(majorType.getMinorType(), inputs[i + 1].getType().getMinorType()));
+//          org.apache.drill.common.types.TypeProtos.DataMode leastRestrictiveMode = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveDataMode(java.util.Arrays.asList(majorType.getMode(), inputs[i + 1].getType().getMode()));
+//
+//          columns.put(columnName, majorType.toBuilder().setMinorType(leastRestrictiveType).setMode(leastRestrictiveMode).build());
+//        } else {
+//          columns.put(columnName, inputs[i + 1].getType());
+//        }
+//      }
+    }
+
+    @Override
+    public void output() {
+//      org.apache.drill.exec.record.metadata.SchemaBuilder schemaBuilder = new org.apache.drill.exec.record.metadata.SchemaBuilder();
+//
+//      java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType> columns =
+//          (java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType>) schemaHolder.obj;
+//
+//      if (columns == null) {
+//        return;
+//      }
+//
+//      for (java.util.Map.Entry<String, org.apache.drill.common.types.TypeProtos.MajorType> entry : columns.entrySet()) {
+//        // Janino compiler cannot infer type :(
+//        schemaBuilder.add(org.apache.drill.exec.record.MaterializedField.create((String) entry.getKey(),
+//            (org.apache.drill.common.types.TypeProtos.MajorType) entry.getValue()));
+//      }
+
+      org.apache.drill.exec.record.metadata.TupleMetadata resolvedSchema = (org.apache.drill.exec.record.metadata.TupleMetadata) schemaHolder.obj;
+
+      byte[] type = resolvedSchema.jsonString().getBytes();
+      buf = buf.reallocIfNeeded(type.length);
+      buf.setBytes(0, type);
+      out.buffer = buf;
+      out.start = 0;
+      out.end = type.length;
+    }
+
+    @Override
+    public void reset() {
+      schemaHolder.obj = null;
+    }
+
+  }
+}
