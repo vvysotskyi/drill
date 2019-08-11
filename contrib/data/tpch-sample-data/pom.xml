@@ -61,7 +61,7 @@
       <id>sonatype-public-repository</id>
       <url>https://oss.sonatype.org/content/groups/public</url>
       <snapshots>
-        <enabled>true</enabled>
+        <enabled>false</enabled>
       </snapshots>
       <releases>
         <enabled>true</enabled>
