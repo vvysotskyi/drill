@@ -81,8 +81,4 @@ public class DFSDirPartitionLocation implements PartitionLocation {
 
     return DrillFileSystemUtil.createPathSafe(path.toString());
   }
-
-  public String[] getDirs() {
-    return dirs;
-  }
 }

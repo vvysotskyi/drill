@@ -21,12 +21,16 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.MetadataControllerPOP;
 import org.apache.drill.exec.planner.common.DrillRelNode;
 import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.TableInfo;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.Path;
@@ -39,19 +43,25 @@ public class MetadataControllerPrel extends SingleRel implements DrillRelNode, P
   private final TableInfo tableInfo;
   private final Path location;
   private final List<SchemaPath> interestingColumns;
+  private final List<String> segmentColumns;
+  private final List<MetadataInfo> metadataToHandle;
+  private final List<MetadataInfo> metadataToRemove;
 
   protected MetadataControllerPrel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      TableInfo tableInfo, Path location, List<SchemaPath> interestingColumns) {
+      TableInfo tableInfo, Path location, List<SchemaPath> interestingColumns, List<String> segmentColumns, List<MetadataInfo> metadataToHandle, List<MetadataInfo> metadataToRemove) {
     super(cluster, traits, input);
     this.tableInfo = tableInfo;
     this.location = location;
     this.interestingColumns = interestingColumns;
+    this.segmentColumns = segmentColumns;
+    this.metadataToHandle = metadataToHandle;
+    this.metadataToRemove = metadataToRemove;
   }
 
   @Override
   public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) throws IOException {
     Prel child = (Prel) this.getInput();
-    MetadataControllerPOP physicalOperator = new MetadataControllerPOP(child.getPhysicalOperator(creator), tableInfo, location, interestingColumns);
+    MetadataControllerPOP physicalOperator = new MetadataControllerPOP(child.getPhysicalOperator(creator), tableInfo, location, interestingColumns, segmentColumns, metadataToHandle, metadataToRemove);
     return creator.addMetadata(this, physicalOperator);
   }
 
@@ -74,7 +84,7 @@ public class MetadataControllerPrel extends SingleRel implements DrillRelNode, P
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     Preconditions.checkState(inputs.size() == 1);
     return new MetadataControllerPrel(getCluster(), traitSet, inputs.iterator().next(),
-        tableInfo, location, interestingColumns);
+        tableInfo, location, interestingColumns, segmentColumns, metadataToHandle, metadataToRemove);
   }
 
   @Override
@@ -85,5 +95,13 @@ public class MetadataControllerPrel extends SingleRel implements DrillRelNode, P
   @Override
   public Iterator<Prel> iterator() {
     return PrelUtil.iter(getInput());
+  }
+
+  @Override
+  protected RelDataType deriveRowType() {
+    RelDataTypeFactory.Builder builder = getCluster().getTypeFactory().builder();
+
+    return builder.add("ok", SqlTypeName.BOOLEAN)
+        .add("Summary", SqlTypeName.VARCHAR).build();
   }
 }

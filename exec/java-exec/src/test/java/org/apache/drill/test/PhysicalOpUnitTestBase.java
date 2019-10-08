@@ -56,7 +56,6 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.rpc.NamedThreadFactory;
-import org.apache.drill.metastore.Metastore;
 import org.apache.hadoop.fs.Path;
 import org.junit.After;
 import org.junit.Before;
@@ -310,11 +309,6 @@ public class PhysicalOpUnitTestBase extends ExecTest {
 
     @Override
     public RuntimeFilterWritable getRuntimeFilter(long rfIdentifier, long maxWaitTime, TimeUnit timeUnit) {
-      return null;
-    }
-
-    @Override
-    public Metastore getMetastore() {
       return null;
     }
   }

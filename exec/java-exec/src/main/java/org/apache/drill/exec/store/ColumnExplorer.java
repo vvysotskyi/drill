@@ -180,10 +180,40 @@ public class ColumnExplorer {
    * @return list with partition column names.
    */
   public static List<String> getPartitionColumnNames(FileSelection selection, SchemaConfig schemaConfig) {
-    int partitionsCount = getPartitionDepth(selection);
 
     String partitionColumnLabel = schemaConfig.getOption(
         ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL).string_val;
+
+    return getPartitionColumnNames(selection, partitionColumnLabel);
+  }
+
+  /**
+   * Returns list with partition column names.
+   * For the case when table has several levels of nesting, max level is chosen.
+   *
+   * @param selection     the source of file paths
+   * @param optionManager the source of session option value for partition column label
+   * @return list with partition column names.
+   */
+  public static List<String> getPartitionColumnNames(FileSelection selection, OptionManager optionManager) {
+
+    String partitionColumnLabel = optionManager.getString(
+        ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
+
+    return getPartitionColumnNames(selection, partitionColumnLabel);
+  }
+
+  /**
+   * Returns list with partition column names.
+   * For the case when table has several levels of nesting, max level is chosen.
+   *
+   * @param selection            the source of file paths
+   * @param partitionColumnLabel partition column label
+   * @return list with partition column names.
+   */
+  private static List<String> getPartitionColumnNames(FileSelection selection, String partitionColumnLabel) {
+    int partitionsCount = getPartitionDepth(selection);
+
     List<String> partitions = new ArrayList<>();
 
     // generates partition column names: dir0, dir1 etc.

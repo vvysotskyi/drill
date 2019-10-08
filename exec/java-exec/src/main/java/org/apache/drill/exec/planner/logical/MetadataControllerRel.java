@@ -25,10 +25,14 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.LogicalOperator;
 import org.apache.drill.common.logical.data.MetadataController;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
+import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.TableInfo;
 import org.apache.hadoop.fs.Path;
 
@@ -38,22 +42,19 @@ public class MetadataControllerRel extends SingleRel implements DrillRel {
   private final TableInfo tableInfo;
   private final Path location;
   private final List<SchemaPath> interestingColumns;
+  private final List<String> segmentColumns;
+  private final List<MetadataInfo> metadataToHandle;
+  private final List<MetadataInfo> metadataToRemove;
 
-  /**
-   * Creates a <code>SingleRel</code>.
-   *
-   * @param cluster            Cluster this relational expression belongs to
-   * @param traits
-   * @param input              Input relational expression
-   * @param tableInfo
-   * @param location
-   * @param interestingColumns
-   */
-  public MetadataControllerRel(RelOptCluster cluster, RelTraitSet traits, RelNode input, TableInfo tableInfo, Path location, List<SchemaPath> interestingColumns) {
+  public MetadataControllerRel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
+      TableInfo tableInfo, Path location, List<SchemaPath> interestingColumns, List<String> segmentColumns, List<MetadataInfo> metadataToHandle, List<MetadataInfo> metadataToRemove) {
     super(cluster, traits, input);
     this.tableInfo = tableInfo;
     this.location = location;
     this.interestingColumns = interestingColumns;
+    this.segmentColumns = segmentColumns;
+    this.metadataToHandle = metadataToHandle;
+    this.metadataToRemove = metadataToRemove;
   }
 
   @Override
@@ -66,7 +67,8 @@ public class MetadataControllerRel extends SingleRel implements DrillRel {
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    return new MetadataControllerRel(getCluster(), traitSet, sole(inputs), tableInfo, location, interestingColumns);
+    return new MetadataControllerRel(getCluster(), traitSet, sole(inputs),
+        tableInfo, location, interestingColumns, segmentColumns, metadataToHandle, metadataToRemove);
   }
 
   @Override
@@ -89,10 +91,33 @@ public class MetadataControllerRel extends SingleRel implements DrillRel {
     return interestingColumns;
   }
 
+  public List<String> getSegmentColumns() {
+    return segmentColumns;
+  }
+
+  @Override
+  protected RelDataType deriveRowType() {
+    RelDataTypeFactory.Builder builder = getCluster().getTypeFactory().builder();
+
+    return builder.add("ok", SqlTypeName.BOOLEAN)
+        .add("Summary", SqlTypeName.VARCHAR).build();
+  }
+
+  public List<MetadataInfo> getMetadataToHandle() {
+    return metadataToHandle;
+  }
+
+  public List<MetadataInfo> getMetadataToRemove() {
+    return metadataToRemove;
+  }
+
   @Override
   public RelWriter explainTerms(RelWriter pw) {
     return super.explainTerms(pw).item("tableInfo: ", tableInfo)
         .item("location: ", location)
-        .item("interestingColumns: ", interestingColumns);
+        .item("interestingColumns: ", interestingColumns)
+        .item("segmentColumns: ", segmentColumns)
+        .item("metadataToHandle: ", metadataToHandle)
+        .item("metadataToRemove: ", metadataToRemove);
   }
 }

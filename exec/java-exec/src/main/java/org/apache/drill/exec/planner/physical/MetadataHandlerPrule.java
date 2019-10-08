@@ -40,6 +40,7 @@ public class MetadataHandlerPrule extends Prule {
         plus(DrillDistributionTrait.DEFAULT);
     RelNode convertedInput = convert(input, traits);
     call.transformTo(new MetadataHandlerPrel(relNode.getCluster(), relNode.getTraitSet().plus(Prel.DRILL_PHYSICAL),
-        convertedInput, relNode.getTableInfo(), relNode.getMetadataToHandle(), relNode.getMetadataType()));
+        convertedInput, relNode.getTableInfo(), relNode.getMetadataToHandle(), relNode.getMetadataType(),
+        relNode.getDepthLevel(), relNode.getLocations(), relNode.getSegmentColumns()));
   }
 }

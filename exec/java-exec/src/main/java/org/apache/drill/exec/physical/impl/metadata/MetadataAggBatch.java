@@ -43,7 +43,9 @@ import org.apache.drill.exec.record.RecordBatch;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MetadataAggBatch extends StreamingAggBatch {
 
@@ -70,105 +72,153 @@ public class MetadataAggBatch extends StreamingAggBatch {
     List<SchemaPath> excludedColumns = popConfig.getExcludedColumns();
 
     BatchSchema schema = incoming.getSchema();
-    assert schema != null : "schema is null";
-    List<String> fieldNames = new ArrayList<>();
-    List<LogicalExpression> fieldRefs = new ArrayList<>();
+    Map<String, LogicalExpression> fields = new HashMap<>();
     // Iterates through input expressions, to add aggregation calls for table fields
     // to collect required statistics (MIN, MAX, COUNT)
+//    Map<String, FieldReference> unflattenedFileds = getUnflattenedFileds(Lists.newArrayList(schema), null);
+//    unflattenedFileds.forEach((s, fieldRef) -> {
+////      if (!excludedColumns.contains(fieldRef)) {
+//        fields.put(s, fieldRef);
+//        addColumnAggregateExpressions(interestingColumns, fieldRef, s);
+////      }
+//    });
+
+    // TODO: unflatten maps to have statistics for nested fields.
+    //  Currently, for accessing nested fields, project below is created, but it is possible to walk through all nested fields and add call
     for (MaterializedField materializedField : schema) {
       FieldReference fieldRef = FieldReference.getWithQuotedRef(materializedField.getName());
 
       String fieldName = removeRenamingPrefix(materializedField.getName());
-      if (excludedColumns.contains(fieldRef)) {
-        // skip map field with collected statistics, it will be added to the
-        continue;
-      }
-      fieldRefs.add(fieldRef);
-      fieldNames.add(fieldName);
-      // TODO: unflatten maps to have statistics for nested fields.
-      //  Currently, for accessing nested fields, project below is created, but it is possible to walk through all nested fields and add call
+      // skip map field with collected statistics, it will be added to the
+      if (!excludedColumns.contains(fieldRef)) {
+        fields.put(fieldName, fieldRef);
 
-      if (popConfig.createNewAggregations()) {
-        if (interestingColumns == null || interestingColumns.contains(fieldRef)) {
-          // collect statistics for all or only interesting columns if they are specified
-          MetadataControllerBatch.ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {
-            LogicalExpression call = new FunctionCall(sqlKind.name(),
-                Collections.singletonList(fieldRef), ExpressionPosition.UNKNOWN);
-            valueExpressions.add(
-                new NamedExpression(call,
-                    FieldReference.getWithQuotedRef(MetadataControllerBatch.ColumnNameStatisticsHandler.getColumnStatisticsFieldName(fieldName, statisticsKind))));
-          });
-        }
-      } else if (MetadataControllerBatch.ColumnNameStatisticsHandler.columnStatisticsField(fieldName)
-          || MetadataControllerBatch.ColumnNameStatisticsHandler.metadataStatisticsField(fieldName)) {
-        SqlKind function = MetadataControllerBatch.ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.get(
-            MetadataControllerBatch.ColumnNameStatisticsHandler.getStatisticsKind(fieldName));
-        if (function == SqlKind.COUNT) {
-          // for the case when aggregation was done, call SUM function for the results of COUNT aggregate call
-          function = SqlKind.SUM;
-        }
-        LogicalExpression functionCall = new FunctionCall(function.name(),
-            Collections.singletonList(fieldRef), ExpressionPosition.UNKNOWN);
-        valueExpressions.add(new NamedExpression(functionCall, FieldReference.getWithQuotedRef(fieldName)));
+        addColumnAggregateExpressions(interestingColumns, fieldRef, fieldName);
       }
     }
 
     ArrayList<LogicalExpression> fieldsList = new ArrayList<>();
-    for (int i = 0; i < fieldNames.size(); i++) {
-      fieldsList.add(ValueExpressions.getChar(fieldNames.get(i), DrillRelDataTypeSystem.DRILL_REL_DATATYPE_SYSTEM.getDefaultPrecision(SqlTypeName.VARCHAR)));
-      fieldsList.add(fieldRefs.get(i));
-    }
+    fields.forEach((filedName, fieldRef) -> {
+      fieldsList.add(ValueExpressions.getChar(filedName,
+          DrillRelDataTypeSystem.DRILL_REL_DATATYPE_SYSTEM.getDefaultPrecision(SqlTypeName.VARCHAR)));
+      fieldsList.add(fieldRef);
+    });
 
     if (popConfig.createNewAggregations()) {
-      // metadata statistics
-      MetadataControllerBatch.ColumnNameStatisticsHandler.META_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {
-        LogicalExpression call = new FunctionCall(sqlKind.name(),
-            Collections.singletonList(ValueExpressions.getBigInt(1)), ExpressionPosition.UNKNOWN);
-        valueExpressions.add(
-            new NamedExpression(call,
-                FieldReference.getWithQuotedRef(MetadataControllerBatch.ColumnNameStatisticsHandler.getMetadataStatisticsFieldName(statisticsKind))));
-      });
-
-      // infer schema from incoming data
-      LogicalExpression schemaExpr = new FunctionCall("schema",
-          fieldsList, ExpressionPosition.UNKNOWN);
-
-      valueExpressions.add(new NamedExpression(schemaExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)));
-
-      LogicalExpression locationsExpr = new FunctionCall("collect_to_list_varchar",
-          Collections.singletonList(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL))), ExpressionPosition.UNKNOWN);
-
-      valueExpressions.add(new NamedExpression(locationsExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.LOCATIONS_FIELD)));
-    }
-
-    // for the case when aggregate on top of non-aggregated data is added, no need to collect raw data into the map
-    if (!popConfig.createNewAggregations()) {
-      // populate columns which weren't included to the schema, but should be collected to the list
-      for (SchemaPath logicalExpressions : excludedColumns) {
-        fieldsList.add(ValueExpressions.getChar(logicalExpressions.getRootSegmentPath(), DrillRelDataTypeSystem.DRILL_REL_DATATYPE_SYSTEM.getDefaultPrecision(SqlTypeName.VARCHAR)));
-        fieldsList.add(FieldReference.getWithQuotedRef(logicalExpressions.getRootSegmentPath()));
-      }
-
-      LogicalExpression collectList = new FunctionCall("collect_list",
-          fieldsList, ExpressionPosition.UNKNOWN);
-
-      valueExpressions.add(new NamedExpression(collectList, FieldReference.getWithQuotedRef(COLLECTED_MAP_FIELD)));
-
-      // TODO: add function call for merging schemas
-      //  Is it enough? perhaps not, it does not resolve schema changes, keep trying better
-      LogicalExpression schemaExpr = new FunctionCall("merge_schema",
-          Collections.singletonList(FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)),
-          ExpressionPosition.UNKNOWN);
-
-      valueExpressions.add(new NamedExpression(schemaExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)));
+      addNewAggregations(fieldsList);
+    } else if (!popConfig.createNewAggregations()) {
+      // for the case when aggregate on top of non-aggregated data is added, no need to collect raw data into the map
+      addAggregationsToCollectAndMergeData(fieldsList);
     }
 
     LogicalExpression lastModifiedTime = new FunctionCall("max",
-        Collections.singletonList(FieldReference.getWithQuotedRef(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL))), ExpressionPosition.UNKNOWN);
+        Collections.singletonList(
+            FieldReference.getWithQuotedRef(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL))),
+        ExpressionPosition.UNKNOWN);
 
-    valueExpressions.add(new NamedExpression(lastModifiedTime, FieldReference.getWithQuotedRef(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL))));
+    valueExpressions.add(new NamedExpression(lastModifiedTime,
+        FieldReference.getWithQuotedRef(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL))));
 
     return super.createAggregatorInternal();
+  }
+
+  private void addAggregationsToCollectAndMergeData(ArrayList<LogicalExpression> fieldsList) {
+    MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
+    List<SchemaPath> excludedColumns = popConfig.getExcludedColumns();
+    // populate columns which weren't included to the schema, but should be collected to the COLLECTED_MAP_FIELD
+    for (SchemaPath logicalExpressions : excludedColumns) {
+      fieldsList.add(ValueExpressions.getChar(logicalExpressions.getRootSegmentPath(),
+          DrillRelDataTypeSystem.DRILL_REL_DATATYPE_SYSTEM.getDefaultPrecision(SqlTypeName.VARCHAR)));
+      fieldsList.add(FieldReference.getWithQuotedRef(logicalExpressions.getRootSegmentPath()));
+    }
+
+    LogicalExpression collectList = new FunctionCall("collect_list",
+        fieldsList, ExpressionPosition.UNKNOWN);
+
+    valueExpressions.add(new NamedExpression(collectList, FieldReference.getWithQuotedRef(COLLECTED_MAP_FIELD)));
+
+    // TODO: add function call for merging schemas
+    //  Is it enough? perhaps not, it does not resolve schema changes, keep trying better
+    LogicalExpression schemaExpr = new FunctionCall("merge_schema",
+        Collections.singletonList(FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)),
+        ExpressionPosition.UNKNOWN);
+
+    valueExpressions.add(new NamedExpression(schemaExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)));
+  }
+
+  private void addNewAggregations(List<LogicalExpression> fieldsList) {
+    // metadata statistics
+    MetadataControllerBatch.ColumnNameStatisticsHandler.META_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {
+      LogicalExpression call = new FunctionCall(sqlKind.name(),
+          Collections.singletonList(ValueExpressions.getBigInt(1)), ExpressionPosition.UNKNOWN);
+      valueExpressions.add(
+          new NamedExpression(call,
+              FieldReference.getWithQuotedRef(MetadataControllerBatch.ColumnNameStatisticsHandler.getMetadataStatisticsFieldName(statisticsKind))));
+    });
+
+    // infer schema from incoming data
+    LogicalExpression schemaExpr = new FunctionCall("schema",
+        fieldsList, ExpressionPosition.UNKNOWN);
+
+    valueExpressions.add(new NamedExpression(schemaExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)));
+
+    LogicalExpression locationsExpr = new FunctionCall("collect_to_list_varchar",
+        Collections.singletonList(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL))), ExpressionPosition.UNKNOWN);
+
+    valueExpressions.add(new NamedExpression(locationsExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.LOCATIONS_FIELD)));
+  }
+
+//  private Map<String, FieldReference> getUnflattenedFileds(Collection<MaterializedField> fields, List<String> parentFields) {
+//    Map<String, FieldReference> fieldNameRefMap = new HashMap<>();
+//    for (MaterializedField field : fields) {
+//      MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
+//      List<SchemaPath> excludedColumns = popConfig.getExcludedColumns();
+//      // excludedColumns are applied for root fields only
+//      if (parentFields != null || !excludedColumns.contains(SchemaPath.getSimplePath(field.getName()))) {
+//        List<String> currentPath;
+//        if (parentFields == null) {
+//          currentPath = Collections.singletonList(field.getName());
+//        } else {
+//          currentPath = new ArrayList<>(parentFields);
+//          currentPath.add(field.getName());
+//        }
+//        if (field.getType().getMinorType() == TypeProtos.MinorType.MAP && popConfig.createNewAggregations()) {
+//          fieldNameRefMap.putAll(getUnflattenedFileds(field.getChildren(), currentPath));
+//        } else {
+//          String resultingName = currentPath.size() == 1 ? currentPath.get(0) : SchemaPath.getCompoundPath(currentPath.toArray(new String[0])).toExpr();
+//          fieldNameRefMap.put(resultingName, new FieldReference(schemaPath));
+//        }
+//      }
+//    }
+//
+//    return fieldNameRefMap;
+//  }
+
+  private void addColumnAggregateExpressions(List<SchemaPath> interestingColumns, FieldReference fieldRef, String fieldName) {
+    MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
+    if (popConfig.createNewAggregations()) {
+      if (interestingColumns == null || interestingColumns.contains(fieldRef)) {
+        // collect statistics for all or only interesting columns if they are specified
+        MetadataControllerBatch.ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {
+          LogicalExpression call = new FunctionCall(sqlKind.name(),
+              Collections.singletonList(fieldRef), ExpressionPosition.UNKNOWN);
+          valueExpressions.add(
+              new NamedExpression(call,
+                  FieldReference.getWithQuotedRef(MetadataControllerBatch.ColumnNameStatisticsHandler.getColumnStatisticsFieldName(fieldName, statisticsKind))));
+        });
+      }
+    } else if (MetadataControllerBatch.ColumnNameStatisticsHandler.columnStatisticsField(fieldName)
+        || MetadataControllerBatch.ColumnNameStatisticsHandler.metadataStatisticsField(fieldName)) {
+      SqlKind function = MetadataControllerBatch.ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.get(
+          MetadataControllerBatch.ColumnNameStatisticsHandler.getStatisticsKind(fieldName));
+      if (function == SqlKind.COUNT) {
+        // for the case when aggregation was done, call SUM function for the results of COUNT aggregate call
+        function = SqlKind.SUM;
+      }
+      LogicalExpression functionCall = new FunctionCall(function.name(),
+          Collections.singletonList(fieldRef), ExpressionPosition.UNKNOWN);
+      valueExpressions.add(new NamedExpression(functionCall, fieldRef));
+    }
   }
 
   private String removeRenamingPrefix(String name) {

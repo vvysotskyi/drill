@@ -29,6 +29,7 @@ import org.apache.drill.metastore.metadata.TableInfo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,6 +43,8 @@ public class BasicTablesRequests {
 
   public static final String LAST_MODIFIED_TIME = "lastModifiedTime";
   public static final String PATH = "path";
+  public static final String METADATA_IDENTIFIER = "metadataIdentifier";
+  public static final String METADATA_KEY = "metadataKey";
   public static final String LOCATION = "location";
   public static final String COLUMN = "column";
   public static final String INTERESTING_COLUMNS = "interestingColumns";
@@ -210,6 +213,68 @@ public class BasicTablesRequests {
   }
 
   /**
+   * Returns row groups metadata based on given table information, metadata key and locations.
+   *
+   * Schematic SQL request:
+   * <pre>
+   *   select [$ROW_GROUP_METADATA$] from METASTORE
+   *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
+   *   and metadataKey = 'part_int=3'
+   *   and path in ('/tmp/nation/part_int=3/part_varchar=g/0_0_0.parquet', …)
+   *   and metadataType = 'ROW_GROUP'
+   * </pre>
+   *
+   * @param tableInfo table information
+   * @param metadataInfos list of MetadataInfo for required row groups to obtain
+   * @return list of row group metadata
+   */
+  public List<SegmentMetadata> segmentsMetadata(TableInfo tableInfo, List<MetadataInfo> metadataInfos) {
+    List<String> keys = metadataInfos.stream()
+        .map(MetadataInfo::key)
+        .collect(Collectors.toList());
+    List<String> identifiers = metadataInfos.stream()
+        .map(MetadataInfo::identifier)
+        .collect(Collectors.toList());
+
+    RequestMetadata requestMetadata = RequestMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataKeys(keys)
+        .identifiers(identifiers)
+        .metadataType(MetadataType.SEGMENT.name())
+        .requestColumns(TableMetadataUnit.SCHEMA.segmentColumns())
+        .build();
+
+    List<TableMetadataUnit> units = request(requestMetadata);
+    return BasicTablesTransformer.segments(units);
+  }
+
+  /**
+   * JavaDoc java doc javadoc
+   */
+  public List<TableMetadataUnit> metadata(TableInfo tableInfo, Collection<MetadataInfo> metadataInfos) {
+    List<String> keys = metadataInfos.stream()
+        .map(MetadataInfo::key)
+        .collect(Collectors.toList());
+    List<String> identifiers = metadataInfos.stream()
+        .map(MetadataInfo::identifier)
+        .collect(Collectors.toList());
+
+    List<String> metadataTypes = metadataInfos.stream()
+        .map(metadataInfo -> metadataInfo.type().name())
+        .collect(Collectors.toList());
+
+
+    RequestMetadata requestMetadata = RequestMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataKeys(keys)
+        .identifiers(identifiers)
+        .metadataTypes(metadataTypes)
+        .build();
+
+    return request(requestMetadata);
+  }
+
+  /**
    * Returns partitions metadata based on given table information, metadata keys and column name.
    *
    * Schematic SQL request:
@@ -264,6 +329,42 @@ public class BasicTablesRequests {
       .metadataType(MetadataType.FILE.name())
       .requestColumns(TableMetadataUnit.SCHEMA.fileColumns())
       .build();
+
+    List<TableMetadataUnit> units = request(requestMetadata);
+    return BasicTablesTransformer.files(units);
+  }
+
+  /**
+   * Returns row groups metadata based on given table information, metadata key and locations.
+   *
+   * Schematic SQL request:
+   * <pre>
+   *   select [$ROW_GROUP_METADATA$] from METASTORE
+   *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
+   *   and metadataKey = 'part_int=3'
+   *   and path in ('/tmp/nation/part_int=3/part_varchar=g/0_0_0.parquet', …)
+   *   and metadataType = 'ROW_GROUP'
+   * </pre>
+   *
+   * @param tableInfo table information
+   * @param metadataInfos list of MetadataInfo for required row groups to obtain
+   * @return list of row group metadata
+   */
+  public List<FileMetadata> filesMetadata(TableInfo tableInfo, List<MetadataInfo> metadataInfos) {
+    List<String> keys = metadataInfos.stream()
+        .map(MetadataInfo::key)
+        .collect(Collectors.toList());
+    List<String> identifiers = metadataInfos.stream()
+        .map(MetadataInfo::identifier)
+        .collect(Collectors.toList());
+
+    RequestMetadata requestMetadata = RequestMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataKeys(keys)
+        .identifiers(identifiers)
+        .metadataType(MetadataType.FILE.name())
+        .requestColumns(TableMetadataUnit.SCHEMA.fileColumns())
+        .build();
 
     List<TableMetadataUnit> units = request(requestMetadata);
     return BasicTablesTransformer.files(units);
@@ -338,21 +439,57 @@ public class BasicTablesRequests {
    * <pre>
    *   select [$ROW_GROUP_METADATA$] from METASTORE
    *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
+   *   and metadataKey in ('part_int=3', …)
+   *   and path in ('/tmp/nation/part_int=3/part_varchar=g/0_0_0.parquet', …)
+   *   and metadataType = 'ROW_GROUP'
+   * </pre>
+   *
+   * @param tableInfo table information
+   * @param metadataKeys metadata key
+   * @param paths list of full paths to the file of the row group
+   * @return list of row group metadata
+   */
+  public List<RowGroupMetadata> rowGroupsMetadata(TableInfo tableInfo, List<String> metadataKeys, List<String> paths) {
+    RequestMetadata requestMetadata = RequestMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataKeys(metadataKeys)
+        .paths(paths)
+        .metadataType(MetadataType.ROW_GROUP.name())
+        .requestColumns(TableMetadataUnit.SCHEMA.rowGroupColumns())
+        .build();
+
+    List<TableMetadataUnit> units = request(requestMetadata);
+    return BasicTablesTransformer.rowGroups(units);
+  }
+
+  /**
+   * Returns row groups metadata based on given table information, metadata key and locations.
+   *
+   * Schematic SQL request:
+   * <pre>
+   *   select [$ROW_GROUP_METADATA$] from METASTORE
+   *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
    *   and metadataKey = 'part_int=3'
    *   and path in ('/tmp/nation/part_int=3/part_varchar=g/0_0_0.parquet', …)
    *   and metadataType = 'ROW_GROUP'
    * </pre>
    *
    * @param tableInfo table information
-   * @param metadataKey metadata key
-   * @param paths list of full paths to the file of the row group
+   * @param metadataInfos list of MetadataInfo for required row groups to obtain
    * @return list of row group metadata
    */
-  public List<RowGroupMetadata> rowGroupsMetadata(TableInfo tableInfo, String metadataKey, List<String> paths) {
+  public List<RowGroupMetadata> rowGroupsMetadata(TableInfo tableInfo, List<MetadataInfo> metadataInfos) {
+    List<String> keys = metadataInfos.stream()
+        .map(MetadataInfo::key)
+        .collect(Collectors.toList());
+    List<String> identifiers = metadataInfos.stream()
+        .map(MetadataInfo::identifier)
+        .collect(Collectors.toList());
+
     RequestMetadata requestMetadata = RequestMetadata.builder()
         .tableInfo(tableInfo)
-        .metadataKey(metadataKey)
-        .paths(paths)
+        .metadataKeys(keys)
+        .identifiers(identifiers)
         .metadataType(MetadataType.ROW_GROUP.name())
         .requestColumns(TableMetadataUnit.SCHEMA.rowGroupColumns())
         .build();
@@ -553,6 +690,7 @@ public class BasicTablesRequests {
       private List<String> metadataKeys;
       private String path;
       private List<String> paths;
+      private List<String> identifiers;
       private FilterExpression customFilter;
       private final List<String> requestColumns = new ArrayList<>();
 
@@ -606,6 +744,11 @@ public class BasicTablesRequests {
         return this;
       }
 
+      public RequestMetadata.Builder identifiers(List<String> identifiers) {
+        this.identifiers = identifiers;
+        return this;
+      }
+
       public RequestMetadata.Builder customFilter(FilterExpression customFilter) {
         this.customFilter = customFilter;
         return this;
@@ -638,6 +781,7 @@ public class BasicTablesRequests {
         addFilter(MetadataInfo.METADATA_KEY, metadataKeys, filters);
         addFilter(PATH, path, filters);
         addFilter(PATH, paths, filters);
+        addFilter(METADATA_IDENTIFIER, identifiers, filters);
         if (customFilter != null) {
           filters.add(customFilter);
         }

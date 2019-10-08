@@ -20,6 +20,7 @@ package org.apache.drill.exec.planner.sql.handlers;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -41,11 +42,13 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.base.SchemalessScan;
 import org.apache.drill.exec.physical.impl.metadata.MetadataAggBatch;
-import org.apache.drill.exec.planner.DFSDirPartitionLocation;
-import org.apache.drill.exec.planner.DFSFilePartitionLocation;
 import org.apache.drill.exec.planner.FileSystemPartitionDescriptor;
+import org.apache.drill.exec.planner.PartitionLocation;
+import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 import org.apache.drill.exec.planner.logical.DrillRel;
+import org.apache.drill.exec.planner.logical.DrillScanRel;
 import org.apache.drill.exec.planner.logical.DrillScreenRel;
 import org.apache.drill.exec.planner.logical.DrillStoreRel;
 import org.apache.drill.exec.planner.logical.DrillTable;
@@ -58,17 +61,25 @@ import org.apache.drill.exec.planner.sql.SchemaUtilites;
 import org.apache.drill.exec.planner.sql.parser.SqlMetastoreAnalyzeTable;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.AbstractSchema;
+import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FormatSelection;
 import org.apache.drill.exec.store.parquet.ParquetGroupScan;
 import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
+import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
+import org.apache.drill.metastore.components.tables.TableMetadataUnit;
+import org.apache.drill.metastore.components.tables.Tables;
+import org.apache.drill.metastore.metadata.BaseMetadata;
 import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.MetadataType;
 import org.apache.drill.metastore.metadata.TableInfo;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
+import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
+import org.apache.drill.shaded.guava.com.google.common.collect.Streams;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.Strings;
@@ -81,9 +92,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static org.apache.drill.exec.planner.logical.DrillRelFactories.LOGICAL_BUILDER;
 
@@ -93,9 +103,7 @@ import static org.apache.drill.exec.planner.logical.DrillRelFactories.LOGICAL_BU
 public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   private static final Logger logger = LoggerFactory.getLogger(MetastoreAnalyzeTableHandler.class);
 
-  public MetastoreAnalyzeTableHandler(SqlHandlerConfig config) {
-    super(config);
-  }
+  private static final String METADATA_IDENTIFIER_SEPARATOR = "/";
 
   public MetastoreAnalyzeTableHandler(SqlHandlerConfig config, Pointer<String> textPlan) {
     super(config, textPlan);
@@ -238,43 +246,16 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   /* Converts to Drill logical plan */
+  @SuppressWarnings("unchecked")
   protected DrillRel convertToDrel(RelNode relNode, AbstractSchema schema, DrillTable table, SqlMetastoreAnalyzeTable sqlAnalyzeTable) throws SqlUnsupportedException, IOException {
+    RelBuilder relBuilder = LOGICAL_BUILDER.create(relNode.getCluster(), null);
+
     // TODO: add logic to create required partition descriptor depending on the table type, i.e. file system, hive, parquet etc.
     MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
 
     TableType tableType = getTableType(table.getGroupScan());
 
     AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(tableType);
-
-    List<NamedExpression> segmentExpressions = analyzeInfoProvider.getSegmentColumns((TableScan) convertToRawDrel(relNode), context.getPlannerSettings()).stream()
-        .map(partitionName ->
-            new NamedExpression(partitionName, FieldReference.getWithQuotedRef(partitionName.getRootSegmentPath())))
-        .collect(Collectors.toList());
-
-    // add partition columns to the projection for the case when
-    // columns list was provided in analyze statement
-    if (sqlAnalyzeTable.getFieldList() != null && sqlAnalyzeTable.getFieldList().size() > 0) {
-      RelBuilder relBuilder = LOGICAL_BUILDER.create(relNode.getCluster(), null);
-      RelNode input = relNode.getInput(0);
-      Preconditions.checkState(input.getRowType().getFieldList().get(0).isDynamicStar(), "First field should be dynamic star");
-      relBuilder.push(input);
-
-      List<RexNode> projections = segmentExpressions.stream()
-          .map(namedExpression -> relBuilder.call(SqlStdOperatorTable.ITEM,
-              relBuilder.field(0), relBuilder.literal(namedExpression.getRef().getRootSegmentPath())))
-          .collect(Collectors.toList());
-
-      relNode.getRowType().getFieldList().forEach(relDataTypeField -> projections.add(relBuilder.field(relDataTypeField.getName())));
-
-      relNode = relBuilder.project(projections).build();
-    }
-
-    DrillRel convertedRelNode = convertToRawDrel(relNode);
-
-    // TODO: investigate why it is needed?
-    if (convertedRelNode instanceof DrillStoreRel) {
-      throw new UnsupportedOperationException();
-    }
 
     List<String> schemaPath = schema.getSchemaPath();
     String pluginName = schemaPath.get(0);
@@ -287,6 +268,208 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         .storagePlugin(pluginName)
         .workspace(workspaceName)
         .build();
+
+    List<String> segmentColumns = analyzeInfoProvider.getSegmentColumns((TableScan) relNode.getInput(0), context.getPlannerSettings().getOptions()).stream()
+        .map(SchemaPath::getRootSegmentPath)
+        .collect(Collectors.toList());
+    List<NamedExpression> segmentExpressions = segmentColumns.stream()
+        .map(partitionName ->
+            new NamedExpression(SchemaPath.getSimplePath(partitionName), FieldReference.getWithQuotedRef(partitionName)))
+        .collect(Collectors.toList());
+
+    List<MetadataInfo> rowGroupsInfo = Collections.emptyList();
+    List<MetadataInfo> filesInfo = Collections.emptyList();
+    Multimap<Integer, MetadataInfo> segments = ArrayListMultimap.create();
+
+    Tables tables = context.getMetastoreRegistry().get().tables();
+
+    MetastoreTableInfo metastoreTableInfo = tables.basicRequests().metastoreTableInfo(tableInfo);
+
+    // add partition columns to the projection for the case when
+    // columns list was provided in analyze statement
+    if (sqlAnalyzeTable.getFieldList() != null && sqlAnalyzeTable.getFieldList().size() > 0) {
+      RelNode input = relNode.getInput(0);
+      Preconditions.checkState(input.getRowType().getFieldList().get(0).isDynamicStar(), "First field should be dynamic star");
+      relBuilder.push(input);
+
+      List<String> fieldNames = segmentExpressions.stream()
+          .map(e -> e.getRef().getRootSegmentPath())
+          .collect(Collectors.toList());
+      List<RexNode> projections = segmentExpressions.stream()
+          .map(namedExpression -> relBuilder.call(SqlStdOperatorTable.ITEM,
+              relBuilder.field(0), relBuilder.literal(namedExpression.getRef().getRootSegmentPath())))
+          .collect(Collectors.toList());
+
+      for (RelDataTypeField relDataTypeField : relNode.getRowType().getFieldList()) {
+        projections.add(relBuilder.field(relDataTypeField.getName()));
+        fieldNames.add(relDataTypeField.getName());
+      }
+
+      relNode = relBuilder.project(projections, fieldNames).build();
+    }
+
+    List<MetadataInfo> allMetaToHandle = new ArrayList<>();
+    List<MetadataInfo> metadataToRemove = new ArrayList<>();
+    // TODO: add logic to determine whether segment may be removed with its metadata
+
+    if (metastoreTableInfo.isExists()) {
+      TableMetadataUnit tableMetadataUnit = tables.basicRequests().interestingColumnsAndPartitionKeys(tableInfo);
+      List<String> metastoreInterestingColumns = tableMetadataUnit.interestingColumns();
+      Map<String, String> metastorePartitionKeys = tableMetadataUnit.partitionKeys();
+
+      Map<String, Long> filesNamesLastModifiedTime = tables.basicRequests().filesLastModifiedTime(tableInfo, null, null);
+
+      TableScan tableScan = (TableScan) relNode.getInput(0);
+
+      FormatSelection selection = (FormatSelection) DrillRelOptUtil.getDrillTable(tableScan).getSelection();
+
+      List<FileStatus> fileStatuses = selection.getSelection().getFileStatuses();
+
+      List<String> newFiles = new ArrayList<>();
+      List<String> updatedFiles = new ArrayList<>();
+      List<String> removedFiles = new ArrayList<>(filesNamesLastModifiedTime.keySet());
+      List<String> allFiles = new ArrayList<>();
+
+      for (FileStatus fileStatus : fileStatuses) {
+        // TODO: investigate whether it is possible to store all path attributes
+        String path = Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()).toUri().getPath();
+        Long lastModificationTime = filesNamesLastModifiedTime.get(path);
+        if (lastModificationTime == null) {
+          newFiles.add(path);
+        } else if (lastModificationTime < fileStatus.getModificationTime()) {
+          updatedFiles.add(path);
+        }
+        removedFiles.remove(path);
+        allFiles.add(path);
+      }
+
+      if (newFiles.isEmpty() && updatedFiles.isEmpty() && removedFiles.isEmpty()) {
+        // TODO: handle case when specified columns differ from the stored ones
+
+        DrillRel convertedRelNode = convertToRawDrel(
+            relBuilder.values(new String[]{"ok", "Summary"}, false, "Analyze is so cool, it knows that table wasn't changed!").build());
+        return new DrillScreenRel(convertedRelNode.getCluster(), convertedRelNode.getTraitSet(), convertedRelNode);
+      }
+
+      // updates scan to read updated / new files, pass removed files into metadata handler
+
+      List<String> scanFiles = new ArrayList<>(newFiles);
+      scanFiles.addAll(updatedFiles);
+      tableScan = analyzeInfoProvider.getPrunedScan(scanFiles, context.getPlannerSettings(), tableScan);
+
+      relNode = relNode.copy(relNode.getTraitSet(), Collections.singletonList(tableScan));
+
+      String selectionRoot = ((FormatSelection) DrillRelOptUtil.getDrillTable(tableScan).getSelection()).getSelection().getSelectionRoot().toUri().getPath();
+
+      // TODO: should we add default segment here for the case when there are no segments?
+      // iterates from the end;
+      // takes deepest updated segments,
+      // finds their parents:
+      //  - fetches all segments for parent level;
+      //  - filters segments to leave parents only;
+      // obtains all children segments;
+      // filters child segments for filtered parent segments
+
+      Multimap<Integer, MetadataInfo> allSegments = ArrayListMultimap.create();
+
+      int lastSegmentIndex = segmentExpressions.size() - 1;
+      List<String> presentAndRemovedFiles = new ArrayList<>(allFiles);
+      presentAndRemovedFiles.addAll(removedFiles);
+      allSegments.putAll(lastSegmentIndex, ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex));
+      List<String> scanAndRemovedFiles = new ArrayList<>(scanFiles);
+      scanAndRemovedFiles.addAll(removedFiles);
+
+      // 1. Obtain files info for files from the same folder without removed files
+      // 2. Get segments for obtained files + segments for removed files
+      // 3. Get parent segments
+      // 4. Get other segments for the same parent segment
+      // 5. Remove segments which have only removed files (matched for removedFileInfo and don't match to filesInfo)
+      // 6. Do the same for parent segments
+
+      List<MetadataInfo> allFilesInfo = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, allFiles, MetadataType.FILE, 0);
+
+      // --------------------- new logic for files and segments
+      // first pass: collect updated segments even without files, they will be removed at the second path
+      List<MetadataInfo> leafSegments = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex);
+      List<MetadataInfo> removedFilesMetadata = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, removedFiles, MetadataType.FILE, 0);
+
+      List<MetadataInfo> scanFilesInfo = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.FILE, 0);
+      // files from scan + files from the same folder without removed files
+      filesInfo = leafSegments.stream()
+          .filter(parent -> scanFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .flatMap(parent ->
+              allFilesInfo.stream()
+                  .filter(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .collect(Collectors.toList());
+
+      List<MetadataInfo> finalFilesInfo = filesInfo;
+      for (int i = lastSegmentIndex - 1; i >= 0; i--) {
+        List<MetadataInfo> currentChildSegments = leafSegments;
+        List<MetadataInfo> allParentSegments = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, i);
+        allSegments.putAll(i, allParentSegments);
+
+        // segments, parent for segments from currentChildSegments
+        List<MetadataInfo> parentSegments = allParentSegments.stream()
+            .filter(parent -> currentChildSegments.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .collect(Collectors.toList());
+
+        // all segments children for parentSegments segments except empty segments
+        List<MetadataInfo> childSegments = allSegments.get(i + 1).stream()
+            .filter(child -> parentSegments.stream().anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .filter(parent ->
+                removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
+                    || finalFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .collect(Collectors.toList());
+
+        segments.putAll(i + 1, childSegments);
+        leafSegments = childSegments;
+      }
+      segments.putAll(0, ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, 0).stream()
+          .filter(parent ->
+              removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
+                  || finalFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .collect(Collectors.toList()));
+
+      // --------------------- end new logic
+
+      List<String> metadataKeys = filesInfo.stream()
+          .map(MetadataInfo::key)
+          .distinct()
+          .collect(Collectors.toList());
+
+      List<MetadataInfo> allRowGroupsInfo = tables.basicRequests().rowGroupsMetadata(tableInfo, metadataKeys, allFiles).stream()
+          .map(BaseMetadata::getMetadataInfo)
+          .collect(Collectors.toList());
+
+      rowGroupsInfo = allRowGroupsInfo.stream()
+          .filter(child -> finalFilesInfo.stream().anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .collect(Collectors.toList());
+
+      List<MetadataInfo> segmentsToUpdate = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.SEGMENT, 0);
+      Streams.concat(allSegments.values().stream(), allFilesInfo.stream(), allRowGroupsInfo.stream())
+          .filter(child -> segmentsToUpdate.stream().anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .filter(parent ->
+              removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
+                  || finalFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .forEach(allMetaToHandle::add);
+
+      allMetaToHandle.addAll(segmentsToUpdate);
+
+      // is handled separately since it is not overridden when writing the metadata
+      List<MetadataInfo> removedTopSegments = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, removedFiles, MetadataType.SEGMENT, 0).stream()
+          .filter(parent ->
+              removedFilesMetadata.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
+                  && allFilesInfo.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .collect(Collectors.toList());
+      metadataToRemove.addAll(removedTopSegments);
+    }
+
+    DrillRel convertedRelNode = convertToRawDrel(relNode);
+
+    // TODO: investigate why it is needed?
+    if (convertedRelNode instanceof DrillStoreRel) {
+      throw new UnsupportedOperationException();
+    }
 
     boolean createNewAggregations = true;
 
@@ -305,12 +488,12 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       excludedColumns = Arrays.asList(lastModifiedTimeField, locationField, rgiField);
 
       // adds aggregation for collecting row group level metadata
-      List<NamedExpression> rowGroupGroupByExpressions = Arrays.asList(
+      ArrayList<NamedExpression> rowGroupGroupByExpressions = new ArrayList<>(segmentExpressions);
+      rowGroupGroupByExpressions.add(
           new NamedExpression(rgiField,
-              FieldReference.getWithQuotedRef(rowGroupIndexColumn)),
-          new NamedExpression(locationField,
-              FieldReference.getWithQuotedRef(MetadataAggBatch.LOCATION_FIELD)));
+              FieldReference.getWithQuotedRef(rowGroupIndexColumn)));
 
+      rowGroupGroupByExpressions.add(new NamedExpression(locationField, FieldReference.getWithQuotedRef(MetadataAggBatch.LOCATION_FIELD)));
       convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
           convertedRelNode.getTraitSet(),
           convertedRelNode,
@@ -324,8 +507,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
               convertedRelNode.getTraitSet(),
               convertedRelNode,
               tableInfo,
-              Collections.singletonList(new MetadataInfo(MetadataType.ROW_GROUP, MetadataInfo.GENERAL_INFO_KEY, null)),
-              MetadataType.ROW_GROUP);
+              rowGroupsInfo,
+              MetadataType.ROW_GROUP, segmentExpressions.size(), null, segmentColumns); // TODO: pass locations here
 
       createNewAggregations = false;
       locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
@@ -351,8 +534,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
               convertedRelNode.getTraitSet(),
               convertedRelNode,
               tableInfo,
-              Collections.singletonList(new MetadataInfo(MetadataType.FILE, MetadataInfo.GENERAL_INFO_KEY, null)),
-              MetadataType.FILE);
+              filesInfo,
+              MetadataType.FILE, segmentExpressions.size(), null, segmentColumns);
 
       locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
 
@@ -361,7 +544,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     if (metadataLevel.compareTo(MetadataType.SEGMENT) >= 0) {
 
-      for (int i = segmentExpressions.size() + 1; i > 1; i--) {
+      for (int i = segmentExpressions.size(); i > 0; i--) {
         // value for location field may be changed, so list is recreated
         excludedColumns = Arrays.asList(lastModifiedTimeField, locationField);
 
@@ -375,7 +558,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
             convertedRelNode.getTraitSet(),
             convertedRelNode,
-            groupByExpressions.subList(0, i),
+            groupByExpressions.subList(0, i + 1),
             null,
             createNewAggregations, excludedColumns);
 
@@ -384,8 +567,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
                 convertedRelNode.getTraitSet(),
                 convertedRelNode,
                 tableInfo,
-                Collections.singletonList(new MetadataInfo(MetadataType.SEGMENT, MetadataInfo.GENERAL_INFO_KEY, null)),
-                MetadataType.SEGMENT);
+                new ArrayList<>(segments.get(i - 1)),
+                MetadataType.SEGMENT, i, null, segmentColumns.subList(0, i));
 
         locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
 
@@ -409,11 +592,14 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
               convertedRelNode,
               tableInfo,
               Collections.singletonList(new MetadataInfo(MetadataType.TABLE, MetadataInfo.GENERAL_INFO_KEY, null)),
-              MetadataType.TABLE);
+              MetadataType.TABLE, segmentExpressions.size(), null, segmentColumns);
 
       convertedRelNode = new MetadataControllerRel(convertedRelNode.getCluster(),
           convertedRelNode.getTraitSet(),
-          convertedRelNode, tableInfo, ((FormatSelection) table.getSelection()).getSelection().getSelectionRoot(), null);
+          convertedRelNode,
+          tableInfo,
+          ((FormatSelection) table.getSelection()).getSelection().getSelectionRoot(),
+          null, segmentColumns, allMetaToHandle, metadataToRemove);
     } else {
       throw new IllegalStateException("Analyze table with NONE level");
     }
@@ -433,7 +619,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   public interface AnalyzeInfoProvider {
-    List<SchemaPath> getSegmentColumns(TableScan tableScan, PlannerSettings plannerSettings);
+    List<SchemaPath> getSegmentColumns(TableScan tableScan, OptionManager options);
     List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options);
 
     static AnalyzeInfoProvider getAnalyzeInfoProvider(TableType tableType) {
@@ -444,40 +630,20 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           throw new UnsupportedOperationException("Unsupported table type");
       }
     }
+
+    TableScan getPrunedScan(List<String> newFiles, PlannerSettings plannerSettings, TableScan tableScan);
   }
 
   private static class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
     public static final AnalyzeInfoProvider INSTANCE = new AnalyzeFileInfoProvider();
 
     @Override
-    public List<SchemaPath> getSegmentColumns(TableScan tableScan, PlannerSettings plannerSettings) {
-      String partitionLabel = plannerSettings.getOptions().getString(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
+    public List<SchemaPath> getSegmentColumns(TableScan tableScan, OptionManager options) {
+      FormatSelection selection = (FormatSelection) DrillRelOptUtil.getDrillTable(tableScan).getSelection();
 
-      return IntStream.range(0, getSegmentsCount(tableScan, plannerSettings))
-          .mapToObj(value -> SchemaPath.getSimplePath(partitionLabel + value))
+      return ColumnExplorer.getPartitionColumnNames(selection.getSelection(), options).stream()
+          .map(SchemaPath::getSimplePath)
           .collect(Collectors.toList());
-    }
-
-    // TODO: cleanup this method
-    private int getSegmentsCount(TableScan tableScan, PlannerSettings plannerSettings) {
-      FileSystemPartitionDescriptor partitionDescriptor =
-          new FileSystemPartitionDescriptor(plannerSettings, tableScan);
-
-      return Lists.newArrayList(partitionDescriptor.iterator()).stream()
-          .flatMap(Collection::stream)
-          .mapToInt(
-              e -> {
-                if (e instanceof DFSFilePartitionLocation) {
-                  return 0;
-                } else if (e instanceof DFSDirPartitionLocation) {
-                  return (int) Arrays.stream(((DFSDirPartitionLocation) e).getDirs())
-                      .filter(Objects::nonNull)
-                      .count();
-                }
-                return 0;
-              })
-          .max()
-          .orElse(0);
     }
 
     @Override
@@ -489,6 +655,114 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       }
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL), SqlParserPos.ZERO));
       return columnList;
+    }
+
+    public TableScan getPrunedScan(List<String> newPaths, PlannerSettings settings, TableScan scanRel) {
+      FileSystemPartitionDescriptor descriptor =
+          new FileSystemPartitionDescriptor(settings, scanRel);
+      List<PartitionLocation> newPartitions = Lists.newArrayList(descriptor.iterator()).stream()
+          .flatMap(Collection::stream)
+          .flatMap(p -> p.getPartitionLocationRecursive().stream())
+          .filter(p -> newPaths.contains(p.getEntirePartitionLocation().toUri().getPath()))
+          .collect(Collectors.toList());
+
+      try {
+        if (!newPartitions.isEmpty()) {
+          return descriptor.createTableScan(newPartitions, false);
+        } else {
+          DrillTable drillTable = descriptor.getTable();
+          SchemalessScan scan = new SchemalessScan(drillTable.getUserName(), ((FormatSelection) descriptor.getTable().getSelection()).getSelection().getSelectionRoot());
+
+          return new DrillScanRel(scanRel.getCluster(),
+              scanRel.getTraitSet().plus(DrillRel.DRILL_LOGICAL),
+              scanRel.getTable(),
+              scan,
+              scanRel.getRowType(),
+              DrillScanRel.getProjectedColumns(scanRel.getTable(), true),
+              true /*filter pushdown*/);
+        }
+      } catch (Exception e) {
+        throw new RuntimeException("Error happened during recreation of pruned scan", e);
+      }
+    }
+
+    // move logic for determining outdated metadata and recreating new scan here?
+
+
+    // metadata info may not be dependent on location, find more generic way...
+    public List<MetadataInfo> getMetadataInfoList(String parent, List<String> locations, MetadataType metadataType, int level) {
+      return locations.stream()
+          .map(location -> getMetadataInfo(parent, location, metadataType, level))
+          .distinct()
+          .collect(Collectors.toList());
+    }
+
+    public MetadataInfo getMetadataInfo(String parent, String location, MetadataType metadataType, int level) {
+      List<String> values = ColumnExplorer.listPartitionValues(new Path(location), new Path(parent), true);
+
+      switch (metadataType) {
+        case ROW_GROUP: {
+          String key = values.size() > 1 ? values.iterator().next() : MetadataInfo.DEFAULT_SEGMENT_KEY;
+          return MetadataInfo.builder()
+              .type(metadataType)
+              .key(key)
+              // TODO: append row group indexes to have a correct RG meta info
+              .identifier(MetadataIdentifierUtils.getMetadataIdentifierKey(values))
+              .build();
+        }
+        case FILE: {
+          String key = values.size() > 1 ? values.iterator().next() : MetadataInfo.DEFAULT_SEGMENT_KEY;
+          return MetadataInfo.builder()
+              .type(metadataType)
+              .key(key)
+              .identifier(MetadataIdentifierUtils.getMetadataIdentifierKey(values))
+              .build();
+        }
+        case SEGMENT: {
+          String key = values.size() > 0 ? values.iterator().next() : MetadataInfo.DEFAULT_SEGMENT_KEY;
+          return MetadataInfo.builder()
+              .type(metadataType)
+              .key(key)
+              .identifier(values.size() > 0 ? MetadataIdentifierUtils.getMetadataIdentifierKey(values.subList(0, level + 1)) :  MetadataInfo.DEFAULT_SEGMENT_KEY)
+              .build();
+        }
+        case TABLE: {
+          return MetadataInfo.builder()
+              .type(metadataType)
+              .key(MetadataInfo.GENERAL_INFO_KEY)
+              .build();
+        }
+        default:
+          throw new UnsupportedOperationException(metadataType.name());
+      }
+
+    }
+  }
+
+  public static class MetadataIdentifierUtils {
+    public static String getMetadataIdentifierKey(List<String> values) {
+      return String.join(METADATA_IDENTIFIER_SEPARATOR, values);
+    }
+
+    public static boolean isMetadataKeyParent(String parent, String child) {
+      return child.startsWith(parent + METADATA_IDENTIFIER_SEPARATOR);
+    }
+
+    public static String getFileMetadataIdentifier(List<String> partitionValues, Path path) {
+      List<String> identifierValues = new ArrayList<>(partitionValues);
+      identifierValues.add(ColumnExplorer.ImplicitFileColumns.FILENAME.getValue(path));
+      return getMetadataIdentifierKey(identifierValues);
+    }
+
+    public static String getRowGroupMetadataIdentifier(List<String> partitionValues, Path path, int index) {
+      List<String> identifierValues = new ArrayList<>(partitionValues);
+      identifierValues.add(ColumnExplorer.ImplicitFileColumns.FILENAME.getValue(path));
+      identifierValues.add(Integer.toString(index));
+      return getMetadataIdentifierKey(identifierValues);
+    }
+
+    public static String[] getValuesFromMetadataIdentifier(String metadataIdentifier) {
+      return metadataIdentifier.split(METADATA_IDENTIFIER_SEPARATOR);
     }
   }
 }

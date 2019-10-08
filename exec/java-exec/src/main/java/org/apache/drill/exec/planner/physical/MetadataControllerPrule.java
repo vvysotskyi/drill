@@ -36,10 +36,12 @@ public class MetadataControllerPrule extends Prule {
   public void onMatch(RelOptRuleCall call) {
     MetadataControllerRel relNode = call.rel(0);
     RelNode input = relNode.getInput();
-    RelTraitSet traits = input.getTraitSet().plus(Prel.DRILL_PHYSICAL).
-        plus(DrillDistributionTrait.DEFAULT);
+    RelTraitSet traits = input.getTraitSet()
+        .plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.DEFAULT);
     RelNode convertedInput = convert(input, traits);
-    call.transformTo(new MetadataControllerPrel(relNode.getCluster(), relNode.getTraitSet().plus(Prel.DRILL_PHYSICAL),
-        convertedInput, relNode.getTableInfo(), relNode.getLocation(), relNode.getInterestingColumns()));
+    call.transformTo(new MetadataControllerPrel(relNode.getCluster(),
+        relNode.getTraitSet().plus(Prel.DRILL_PHYSICAL), convertedInput, relNode.getTableInfo(),
+        relNode.getLocation(), relNode.getInterestingColumns(), relNode.getSegmentColumns(),
+        relNode.getMetadataToHandle(), relNode.getMetadataToRemove()));
   }
 }

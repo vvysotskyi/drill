@@ -36,22 +36,28 @@ import java.util.Iterator;
 import java.util.List;
 
 public class MetadataHandlerPrel extends SingleRel implements DrillRelNode, Prel {
-  private TableInfo tableInfo;
-  private List<MetadataInfo> metadataToHandle;
+  private final TableInfo tableInfo;
+  private final List<MetadataInfo> metadataToHandle;
   private final MetadataType metadataType;
+  private final List<String> locations;
+  private final int depthLevel;
+  private final List<String> segmentColumns;
 
   protected MetadataHandlerPrel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      TableInfo tableInfo, List<MetadataInfo> metadataToHandle, MetadataType metadataType) {
+      TableInfo tableInfo, List<MetadataInfo> metadataToHandle, MetadataType metadataType, int depthLevel, List<String> locations, List<String> segmentColumns) {
     super(cluster, traits, input);
     this.tableInfo = tableInfo;
     this.metadataToHandle = metadataToHandle;
     this.metadataType = metadataType;
+    this.depthLevel = depthLevel;
+    this.locations = locations;
+    this.segmentColumns = segmentColumns;
   }
 
   @Override
   public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) throws IOException {
     Prel child = (Prel) this.getInput();
-    MetadataHandlerPOP physicalOperator = new MetadataHandlerPOP(child.getPhysicalOperator(creator), tableInfo, metadataToHandle, metadataType);
+    MetadataHandlerPOP physicalOperator = new MetadataHandlerPOP(child.getPhysicalOperator(creator), tableInfo, metadataToHandle, metadataType, depthLevel, segmentColumns, locations);
 
     return creator.addMetadata(this, physicalOperator);
   }
@@ -84,14 +90,6 @@ public class MetadataHandlerPrel extends SingleRel implements DrillRelNode, Prel
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     Preconditions.checkState(inputs.size() == 1);
-    return new MetadataHandlerPrel(getCluster(), traitSet, inputs.iterator().next(), tableInfo, metadataToHandle, metadataType);
-  }
-
-  public TableInfo getTableInfo() {
-    return tableInfo;
-  }
-
-  public List<MetadataInfo> getMetadataToHandle() {
-    return metadataToHandle;
+    return new MetadataHandlerPrel(getCluster(), traitSet, inputs.iterator().next(), tableInfo, metadataToHandle, metadataType, depthLevel, locations, segmentColumns);
   }
 }

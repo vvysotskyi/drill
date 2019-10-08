@@ -38,13 +38,20 @@ public class MetadataHandlerRel extends SingleRel implements DrillRel {
   private final TableInfo tableInfo;
   private final List<MetadataInfo> metadataToHandle;
   private final MetadataType metadataType;
+  private final int depthLevel;
+  private final List<String> locations;
+  private final List<String> segmentColumns;
 
   public MetadataHandlerRel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      TableInfo tableInfo, List<MetadataInfo> metadataToHandle, MetadataType metadataType) {
+      TableInfo tableInfo, List<MetadataInfo> metadataToHandle, MetadataType metadataType,
+      int depthLevel, List<String> locations, List<String> segmentColumns) {
     super(cluster, traits, input);
     this.tableInfo = tableInfo;
     this.metadataToHandle = metadataToHandle;
     this.metadataType = metadataType;
+    this.depthLevel = depthLevel;
+    this.locations = locations;
+    this.segmentColumns = segmentColumns;
   }
 
   @Override
@@ -57,7 +64,7 @@ public class MetadataHandlerRel extends SingleRel implements DrillRel {
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    return new MetadataHandlerRel(getCluster(), traitSet, sole(inputs), tableInfo, metadataToHandle, metadataType);
+    return new MetadataHandlerRel(getCluster(), traitSet, sole(inputs), tableInfo, metadataToHandle, metadataType, depthLevel, locations, segmentColumns);
   }
 
   @Override
@@ -80,10 +87,25 @@ public class MetadataHandlerRel extends SingleRel implements DrillRel {
     return metadataType;
   }
 
+  public List<String> getLocations() {
+    return locations;
+  }
+
+  public int getDepthLevel() {
+    return depthLevel;
+  }
+
+  public List<String> getSegmentColumns() {
+    return segmentColumns;
+  }
+
   @Override
   public RelWriter explainTerms(RelWriter pw) {
     return super.explainTerms(pw).item("tableInfo: ", tableInfo)
         .item("metadataToHandle: ", metadataToHandle)
-        .item("metadataType: ", metadataType);
+        .item("metadataType: ", metadataType)
+        .item("depthLevel: ", depthLevel)
+        .item("locations: ", locations)
+        .item("segmentColumns: ", segmentColumns);
   }
 }

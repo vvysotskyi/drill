@@ -321,11 +321,6 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     }
 
     @Override
-    public Metastore getMetastore() {
-      return null;
-    }
-
-    @Override
     public ContextInformation getContextInformation() {
       return null;
     }

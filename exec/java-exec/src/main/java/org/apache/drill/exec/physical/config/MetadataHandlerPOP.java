@@ -35,21 +35,30 @@ public class MetadataHandlerPOP extends AbstractSingle {
   private final TableInfo tableInfo;
   private final List<MetadataInfo> metadataToHandle;
   private final MetadataType metadataType;
+  private final int depthLevel;
+  private final List<String> segmentColumns;
+  private final List<String> locations;
 
   @JsonCreator
   public MetadataHandlerPOP(@JsonProperty("child") PhysicalOperator child,
       @JsonProperty("tableInfo") TableInfo tableInfo,
       @JsonProperty("metadataToHandle") List<MetadataInfo> metadataToHandle,
-      @JsonProperty("metadataType") MetadataType metadataType) {
+      @JsonProperty("metadataType") MetadataType metadataType,
+      @JsonProperty("depthLevel") int depthLevel,
+      @JsonProperty("segmentColumns") List<String> segmentColumns,
+      @JsonProperty("locations") List<String> locations) {
     super(child);
     this.tableInfo = tableInfo;
     this.metadataToHandle = metadataToHandle;
     this.metadataType = metadataType;
+    this.depthLevel = depthLevel;
+    this.segmentColumns = segmentColumns;
+    this.locations = locations;
   }
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new MetadataHandlerPOP(child, tableInfo, metadataToHandle, metadataType);
+    return new MetadataHandlerPOP(child, tableInfo, metadataToHandle, metadataType, depthLevel, segmentColumns, locations);
   }
 
   @Override
@@ -72,5 +81,13 @@ public class MetadataHandlerPOP extends AbstractSingle {
 
   public MetadataType getMetadataType() {
     return metadataType;
+  }
+
+  public int getDepthLevel() {
+    return depthLevel;
+  }
+
+  public List<String> getSegmentColumns() {
+    return segmentColumns;
   }
 }

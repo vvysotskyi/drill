@@ -19,28 +19,33 @@ package org.apache.drill.exec.physical.impl.metadata;
 
 import org.apache.calcite.sql.SqlKind;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.drill.common.expression.ExpressionStringBuilder;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.OutOfMemoryException;
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.MetadataControllerPOP;
 import org.apache.drill.exec.physical.rowSet.DirectRowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataIdentifierUtils;
 import org.apache.drill.exec.record.AbstractSingleRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.vector.BitVector;
+import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.metastore.components.tables.BasicTablesRequests;
 import org.apache.drill.metastore.components.tables.TableMetadataUnit;
 import org.apache.drill.metastore.components.tables.Tables;
+import org.apache.drill.metastore.expressions.FilterExpression;
 import org.apache.drill.metastore.metadata.BaseMetadata;
 import org.apache.drill.metastore.metadata.BaseTableMetadata;
 import org.apache.drill.metastore.metadata.FileMetadata;
@@ -50,6 +55,7 @@ import org.apache.drill.metastore.metadata.PartitionMetadata;
 import org.apache.drill.metastore.metadata.RowGroupMetadata;
 import org.apache.drill.metastore.metadata.SegmentMetadata;
 import org.apache.drill.metastore.metadata.TableInfo;
+import org.apache.drill.metastore.operate.Modify;
 import org.apache.drill.metastore.statistics.BaseStatisticsKind;
 import org.apache.drill.metastore.statistics.ColumnStatistics;
 import org.apache.drill.metastore.statistics.ColumnStatisticsKind;
@@ -65,13 +71,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.drill.exec.physical.impl.metadata.MetadataControllerBatch.ColumnNameStatisticsHandler.getStatisticsKind;
@@ -80,23 +86,25 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
   private static final Logger logger = LoggerFactory.getLogger(MetadataControllerBatch.class);
 
   private final Tables tables;
-  private TableInfo tableInfo;
-  private List<String> locations;
-  private List<SchemaPath> interestingColumns;
-  private MetadataType metadataType;
-
-  private static final String METADATA_IDENTIFIER_SEPARATOR = "/";
+  private final TableInfo tableInfo;
+  private final Map<String, MetadataInfo> metadataToHandle;
 
   protected MetadataControllerBatch(MetadataControllerPOP popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
     super(popConfig, context, incoming);
-    this.tables = context.getMetastore().tables();
+    this.tables = context.getMetastoreRegistry().get().tables();
     this.tableInfo = popConfig.getTableInfo();
+    this.metadataToHandle = popConfig.getMetadataToHandle() == null
+        ? null
+        : popConfig.getMetadataToHandle().stream()
+            .collect(Collectors.toMap(MetadataInfo::identifier, Function.identity()));
   }
 
   @Override
-  protected boolean setupNewSchema() throws SchemaChangeException {
-    // TODO: add logic for constructing schema
+  protected boolean setupNewSchema() {
     container.clear();
+
+    container.addOrGet("ok", Types.required(TypeProtos.MinorType.BIT), null);
+    container.addOrGet("Summary", Types.required(TypeProtos.MinorType.VARCHAR), null);
 
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
 
@@ -105,12 +113,37 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
 
   @Override
   protected IterOutcome doWork() {
-    // TODO: currently there is nothing to return, will populate it later with result of analyze
-    container.setRecordCount(0);
+    FilterExpression deleteFilter = popConfig.getTableInfo().toFilter();
 
-    context.getMetastore().tables().modify()
-        .overwrite(getMetadataUnits(incoming.getContainer()))
+    for (MetadataInfo metadataInfo : popConfig.getMetadataToRemove()) {
+      deleteFilter = FilterExpression.and(deleteFilter,
+          FilterExpression.equal(BasicTablesRequests.METADATA_KEY, metadataInfo.key()));
+    }
+
+    Modify<TableMetadataUnit> modify = tables.modify();
+    if (!popConfig.getMetadataToRemove().isEmpty()) {
+      modify.delete(deleteFilter);
+    }
+    modify.overwrite(getMetadataUnits(incoming.getContainer()))
         .execute();
+
+    BitVector bitVector = container.addOrGet("ok", Types.required(TypeProtos.MinorType.BIT), null);
+    VarCharVector varCharVector = container.addOrGet("Summary", Types.required(TypeProtos.MinorType.VARCHAR), null);
+
+    bitVector.allocateNew();
+    varCharVector.allocateNew();
+
+    bitVector.getMutator().set(0, 1);
+    varCharVector.getMutator().setSafe(0,
+        String.format("Collected / refreshed metadata for table [%s.%s.%s]",
+            popConfig.getTableInfo().storagePlugin(),
+            popConfig.getTableInfo().workspace(),
+            popConfig.getTableInfo().name()).getBytes());
+
+    bitVector.getMutator().setValueCount(1);
+    varCharVector.getMutator().setValueCount(1);
+    container.setRecordCount(1);
+
     return IterOutcome.OK;
   }
 
@@ -120,7 +153,59 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     while (reader.next()) {
       metadataUnits.addAll(getMetadataUnits(reader, 0));
     }
+
+    if (!metadataToHandle.isEmpty()) {
+      // leaves only metadata which belongs to segments be overridden and table metadata
+      metadataUnits = metadataUnits.stream()
+          .filter(tableMetadataUnit -> metadataToHandle.containsKey(tableMetadataUnit.metadataIdentifier())
+              || MetadataType.TABLE.name().equals(tableMetadataUnit.metadataType()))
+          .collect(Collectors.toList());
+
+      // leaves only metadata which should be fetched from the metastore
+      metadataUnits.stream()
+          .map(TableMetadataUnit::metadataIdentifier)
+          .forEach(metadataToHandle::remove);
+
+      List<TableMetadataUnit> metadata = metadataToHandle.isEmpty()
+          ? Collections.emptyList()
+          : tables.basicRequests().metadata(popConfig.getTableInfo(), metadataToHandle.values());
+
+      metadataUnits.addAll(metadata);
+    }
+
+    boolean insertDefaultSegment = metadataUnits.stream()
+        .noneMatch(metadataUnit -> metadataUnit.metadataType().equals(MetadataType.SEGMENT.name()));
+
+    if (insertDefaultSegment) {
+      TableMetadataUnit defaultSegmentMetadata = getDefaultSegment(metadataUnits);
+      metadataUnits.add(defaultSegmentMetadata);
+    }
+
     return metadataUnits;
+  }
+
+  private TableMetadataUnit getDefaultSegment(List<TableMetadataUnit> metadataUnits) {
+    TableMetadataUnit tableMetadataUnit = metadataUnits.stream()
+        .filter(metadataUnit -> metadataUnit.metadataType().equals(MetadataType.TABLE.name()))
+        .findAny()
+        .orElseThrow(() -> new IllegalStateException("Table metadata wasn't found among collected metadata."));
+
+    List<String> paths = metadataUnits.stream()
+        .filter(metadataUnit -> metadataUnit.metadataType().equals(MetadataType.FILE.name()))
+        .map(TableMetadataUnit::path)
+        .collect(Collectors.toList());
+
+    return tableMetadataUnit.toBuilder()
+        .metadataType(MetadataType.SEGMENT.name())
+        .metadataKey(MetadataInfo.DEFAULT_SEGMENT_KEY)
+        .owner(null)
+        .tableType(null)
+        .metadataStatistics(Collections.emptyList())
+        .columnsStatistics(Collections.emptyMap())
+        .path(tableMetadataUnit.location())
+        .schema(null)
+        .locations(paths)
+        .build();
   }
 
   @SuppressWarnings("unchecked")
@@ -170,11 +255,10 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.scalar().getString());
 
     List<String> segmentColumns = popConfig.getSegmentColumns();
-    // TODO: remove when columns are passed into pop config correctly
-    segmentColumns = Arrays.asList("dir0", "dir1", "dir2", "dir3", "dir4", "dir5");
 
     BaseMetadata metadata;
 
+    String lastModifiedTimeCol = context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL);
     switch (metadataType) {
       case TABLE: {
         // set storagePlugin, workspace, tableName, owner, tableType - tableInfo
@@ -195,7 +279,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
             .partitionKeys(Collections.emptyMap())
             .interestingColumns(popConfig.getInterestingColumns())
             .location(popConfig.getLocation())
-            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
             .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
             .build();
         break;
@@ -203,13 +287,13 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
       case SEGMENT: {
         String segmentKey = segmentColumns.size() > 0
             ? reader.column(segmentColumns.iterator().next()).scalar().getString()
-            : MetadataInfo.GENERAL_INFO_KEY;
+            : MetadataInfo.DEFAULT_SEGMENT_KEY;
 
         List<String> partitionValues = segmentColumns.stream()
             .limit(nestingLevel)
             .map(columnName -> reader.column(columnName).scalar().getString())
             .collect(Collectors.toList());
-        String metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, partitionValues);
+        String metadataIdentifier = MetadataIdentifierUtils.getMetadataIdentifierKey(partitionValues);
         MetadataInfo metadataInfo = MetadataInfo.builder()
             .type(MetadataType.SEGMENT)
             .key(segmentKey)
@@ -224,7 +308,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
             .locations(getIncomingLocations(reader))
             .column(segmentColumns.size() > 0 ? SchemaPath.getSimplePath(segmentColumns.get(nestingLevel - 1)) : null)
             .partitionValues(partitionValues)
-            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
             .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
             .build();
         break;
@@ -232,13 +316,13 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
       case PARTITION: {
         String segmentKey = segmentColumns.size() > 0
             ? reader.column(segmentColumns.iterator().next()).scalar().getString()
-            : MetadataInfo.GENERAL_INFO_KEY;
+            : MetadataInfo.DEFAULT_SEGMENT_KEY;
 
         List<String> partitionValues = segmentColumns.stream()
             .limit(nestingLevel)
             .map(columnName -> reader.column(columnName).scalar().getString())
             .collect(Collectors.toList());
-        String metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, partitionValues);
+        String metadataIdentifier = MetadataIdentifierUtils.getMetadataIdentifierKey(partitionValues);
         MetadataInfo metadataInfo = MetadataInfo.builder()
             .type(MetadataType.PARTITION)
             .key(segmentKey)
@@ -250,7 +334,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
             .columnsStatistics(resultingStats)
             .metadataStatistics(metadataStatistics)
             .locations(getIncomingLocations(reader))
-            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
 //            .column(SchemaPath.getSimplePath("dir1"))
 //            .partitionValues()
             .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
@@ -260,15 +344,14 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
       case FILE: {
         String segmentKey = segmentColumns.size() > 0
             ? reader.column(segmentColumns.iterator().next()).scalar().getString()
-            : MetadataInfo.GENERAL_INFO_KEY;
+            : MetadataInfo.DEFAULT_SEGMENT_KEY;
 
         List<String> partitionValues = segmentColumns.stream()
             .limit(nestingLevel - 1)
             .map(columnName -> reader.column(columnName).scalar().getString())
             .collect(Collectors.toList());
-        String metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, partitionValues);
         Path path = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
-        metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, metadataIdentifier, ColumnExplorer.ImplicitFileColumns.FILENAME.getValue(path));
+        String metadataIdentifier = MetadataIdentifierUtils.getFileMetadataIdentifier(partitionValues, path);
         MetadataInfo metadataInfo = MetadataInfo.builder()
             .type(MetadataType.FILE)
             .key(segmentKey)
@@ -280,7 +363,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
             .columnsStatistics(resultingStats)
             .metadataStatistics(metadataStatistics)
             .path(path)
-            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
             .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
             .build();
         break;
@@ -288,13 +371,15 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
       case ROW_GROUP: {
         String segmentKey = segmentColumns.size() > 0
             ? reader.column(segmentColumns.iterator().next()).scalar().getString()
-            : MetadataInfo.GENERAL_INFO_KEY;
+            : MetadataInfo.DEFAULT_SEGMENT_KEY;
 
         List<String> partitionValues = segmentColumns.stream()
             .limit(nestingLevel - 2)
             .map(columnName -> reader.column(columnName).scalar().getString())
             .collect(Collectors.toList());
-        String metadataIdentifier = String.join(METADATA_IDENTIFIER_SEPARATOR, partitionValues);
+        Path path = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
+        int rowGroupIndex = Integer.parseInt(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL)).scalar().getString());
+        String metadataIdentifier = MetadataIdentifierUtils.getRowGroupMetadataIdentifier(partitionValues, path, rowGroupIndex);
         MetadataInfo metadataInfo = MetadataInfo.builder()
             .type(MetadataType.ROW_GROUP)
             .key(segmentKey)
@@ -307,9 +392,9 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
             .metadataStatistics(metadataStatistics)
             // TODO: pass host affinity
             .hostAffinity(Collections.emptyMap())
-            .rowGroupIndex(Integer.parseInt(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL)).scalar().getString()))
-            .path(new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString()))
-            .lastModifiedTime(Long.parseLong(reader.column(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL)).scalar().getString()))
+            .rowGroupIndex(rowGroupIndex)
+            .path(path)
+            .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
             .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
             .build();
         break;
@@ -332,7 +417,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
 
     switch (metadataType) {
       case SEGMENT:
-      case PARTITION:
+      case PARTITION: {
         ObjectReader locationsReader = reader.column(MetadataAggBatch.LOCATIONS_FIELD);
         // populate list of file locations from "locations" field if it is present in the schema
         if (locationsReader != null && locationsReader.type() == ObjectType.ARRAY) {
@@ -353,8 +438,10 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
           }
         }
         break;
-      case FILE:
+      }
+      case FILE: {
         childLocations.add(new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString()));
+      }
     }
 
     return childLocations;
@@ -385,6 +472,11 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
         .put(TableStatisticsKind.ROW_COUNT, SqlKind.COUNT)
         .build();
 
+    public static final Map<StatisticsKind, TypeProtos.MinorType> COLUMN_STATISTICS_TYPES = ImmutableMap.<StatisticsKind, TypeProtos.MinorType>builder()
+        .put(ColumnStatisticsKind.NON_NULL_COUNT, TypeProtos.MinorType.BIGINT)
+        .put(TableStatisticsKind.ROW_COUNT, TypeProtos.MinorType.BIGINT)
+        .build();
+
     public static final Map<StatisticsKind, SqlKind> META_STATISTICS_FUNCTIONS = ImmutableMap.<StatisticsKind, SqlKind>builder()
         .put(TableStatisticsKind.ROW_COUNT, SqlKind.COUNT)
         .build();
@@ -412,7 +504,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     }
 
     public static String getColumnStatisticsFieldName(String columnName, StatisticsKind statisticsKind) {
-      return String.format("column%1$s%2$s%1$s%3$s", COLUMN_SEPARATOR, statisticsKind.getName(), columnName);
+      return ExpressionStringBuilder.escapeBackTick(String.format("column%1$s%2$s%1$s%3$s", COLUMN_SEPARATOR, statisticsKind.getName(), columnName));
     }
 
     public static String getMetadataStatisticsFieldName(StatisticsKind statisticsKind) {

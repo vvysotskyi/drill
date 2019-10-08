@@ -25,6 +25,7 @@ import org.apache.drill.exec.physical.base.AbstractSingle;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.proto.UserBitShared;
+import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.TableInfo;
 import org.apache.hadoop.fs.Path;
 
@@ -33,24 +34,32 @@ import java.util.List;
 @JsonTypeName("metadataController")
 public class MetadataControllerPOP extends AbstractSingle {
   private final TableInfo tableInfo;
-  private final Path location; // ("/tmp/nation")
-  private final List<SchemaPath> interestingColumns; // (Arrays.asList("`id`", "`name`"))
-  private List<String> segmentColumns;
+  private final Path location;
+  private final List<SchemaPath> interestingColumns;
+  private final List<String> segmentColumns;
+  private final List<MetadataInfo> metadataToHandle;
+  private final List<MetadataInfo> metadataToRemove;
 
   @JsonCreator
   public MetadataControllerPOP(@JsonProperty("child") PhysicalOperator child,
       @JsonProperty("tableInfo") TableInfo tableInfo,
       @JsonProperty("location") Path location,
-      @JsonProperty("interestingColumns") List<SchemaPath> interestingColumns) {
+      @JsonProperty("interestingColumns") List<SchemaPath> interestingColumns,
+      @JsonProperty("segmentColumns") List<String> segmentColumns,
+      @JsonProperty("metadataToHandle") List<MetadataInfo> metadataToHandle,
+      @JsonProperty("metadataToRemove") List<MetadataInfo> metadataToRemove) {
     super(child);
     this.tableInfo = tableInfo;
     this.location = location;
     this.interestingColumns = interestingColumns;
+    this.segmentColumns = segmentColumns;
+    this.metadataToHandle = metadataToHandle;
+    this.metadataToRemove = metadataToRemove;
   }
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new MetadataControllerPOP(child, tableInfo, location, interestingColumns);
+    return new MetadataControllerPOP(child, tableInfo, location, interestingColumns, segmentColumns, metadataToHandle, metadataToRemove);
   }
 
   @Override
@@ -80,5 +89,15 @@ public class MetadataControllerPOP extends AbstractSingle {
   @JsonProperty("segmentColumns")
   public List<String> getSegmentColumns() {
     return segmentColumns;
+  }
+
+  @JsonProperty("metadataToHandle")
+  public List<MetadataInfo> getMetadataToHandle() {
+    return metadataToHandle;
+  }
+
+  @JsonProperty("metadataToRemove")
+  public List<MetadataInfo> getMetadataToRemove() {
+    return metadataToRemove;
   }
 }
