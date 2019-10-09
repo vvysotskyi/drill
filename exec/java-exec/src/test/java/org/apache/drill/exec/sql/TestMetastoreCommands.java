@@ -1217,6 +1217,71 @@ public class TestMetastoreCommands extends ClusterTest {
     }
   }
 
+  @Test
+  public void testAnalyzeWithMapColumns() throws Exception {
+    String tableName = "complex";
+
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+
+    File table = dirTestWatcher.copyResourceToTestTmp(Paths.get("store/parquet/complex/complex.parquet"), Paths.get(tableName));
+
+    TupleMetadata schema = TupleMetadata.of("{\"type\":\"tuple_schema\"," +
+        "\"columns\":[{\"name\":\"date\",\"type\":\"VARCHAR\",\"mode\":\"OPTIONAL\"}," +
+        "{\"name\":\"amount\",\"type\":\"DOUBLE\",\"mode\":\"OPTIONAL\"}," +
+        "{\"name\":\"user_info\",\"type\":\"STRUCT<`cust_id` BIGINT, `device` VARCHAR, `state` VARCHAR>\",\"mode\":\"REQUIRED\"}," +
+        "{\"name\":\"trans_id\",\"type\":\"BIGINT\",\"mode\":\"OPTIONAL\"}," +
+        "{\"name\":\"time\",\"type\":\"VARCHAR\",\"mode\":\"OPTIONAL\"}," +
+        "{\"name\":\"trans_info\",\"type\":\"STRUCT<`prod_id` ARRAY<BIGINT>, `purch_flag` VARCHAR>\",\"mode\":\"REQUIRED\"}," +
+        "{\"name\":\"marketing_info\",\"type\":\"STRUCT<`camp_id` BIGINT, `keywords` ARRAY<VARCHAR>>\",\"mode\":\"REQUIRED\"}]}");
+
+    Map<SchemaPath, ColumnStatistics> columnStatistics = ImmutableMap.<SchemaPath, ColumnStatistics>builder()
+        .put(SchemaPath.getCompoundPath("user_info", "state"),
+            getColumnStatistics("ct", "nj", 5L, TypeProtos.MinorType.VARCHAR))
+        .put(SchemaPath.getSimplePath("date"),
+            getColumnStatistics("2013-05-16", "2013-07-26", 5L, TypeProtos.MinorType.VARCHAR))
+        .put(SchemaPath.getSimplePath("time"),
+            getColumnStatistics("04:56:59", "15:31:45", 5L, TypeProtos.MinorType.VARCHAR))
+        .put(SchemaPath.getCompoundPath("user_info", "cust_id"),
+            getColumnStatistics(11L, 86623L, 5L, TypeProtos.MinorType.BIGINT))
+        .put(SchemaPath.getSimplePath("amount"),
+            getColumnStatistics(20.25, 500.75, 5L, TypeProtos.MinorType.FLOAT8))
+        .put(SchemaPath.getCompoundPath("user_info", "device"),
+            getColumnStatistics("AOS4.2", "IOS7", 5L, TypeProtos.MinorType.VARCHAR))
+        .put(SchemaPath.getCompoundPath("marketing_info", "camp_id"),
+            getColumnStatistics(4L, 17L, 5L, TypeProtos.MinorType.BIGINT))
+        .put(SchemaPath.getSimplePath("trans_id"),
+            getColumnStatistics(0L, 4L, 5L, TypeProtos.MinorType.BIGINT))
+        .put(SchemaPath.getCompoundPath("trans_info", "purch_flag"),
+            getColumnStatistics("false", "true", 5L, TypeProtos.MinorType.VARCHAR))
+        .build();
+
+    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(TABLE_META_INFO)
+        .schema(schema)
+        .location(new Path(table.toURI().getPath()))
+        .columnsStatistics(columnStatistics)
+        .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(5L, TableStatisticsKind.ROW_COUNT)))
+        .partitionKeys(Collections.emptyMap())
+        .lastModifiedTime(table.lastModified())
+        .build()
+        .toMetadataUnit();
+
+    try {
+      queryBuilder().sql("analyze table dfs.tmp.`%s` REFRESH METADATA", tableName).run();
+
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .basicRequests().tableMetadata(tableInfo);
+
+      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+    }
+  }
+
   private static <T> ColumnStatistics<T> getColumnStatistics(T minValue, T maxValue, long rowCount, TypeProtos.MinorType minorType) {
     return new ColumnStatistics<>(
         Arrays.asList(

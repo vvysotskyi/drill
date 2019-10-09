@@ -19,7 +19,6 @@ package org.apache.drill.exec.physical.impl.metadata;
 
 import org.apache.calcite.sql.SqlKind;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.drill.common.expression.ExpressionStringBuilder;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
@@ -250,7 +249,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     Map<SchemaPath, ColumnStatistics> resultingStats = new HashMap<>();
 
     columnStatistics.asMap().forEach((fieldName, statisticsHolders) ->
-        resultingStats.put(SchemaPath.getSimplePath(fieldName), new ColumnStatistics(statisticsHolders, columnTypes.get(fieldName))));
+        resultingStats.put(SchemaPath.parseFromString(fieldName), new ColumnStatistics(statisticsHolders, columnTypes.get(fieldName))));
 
     MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.scalar().getString());
 
@@ -504,7 +503,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     }
 
     public static String getColumnStatisticsFieldName(String columnName, StatisticsKind statisticsKind) {
-      return ExpressionStringBuilder.escapeBackTick(String.format("column%1$s%2$s%1$s%3$s", COLUMN_SEPARATOR, statisticsKind.getName(), columnName));
+      return String.format("column%1$s%2$s%1$s%3$s", COLUMN_SEPARATOR, statisticsKind.getName(), columnName);
     }
 
     public static String getMetadataStatisticsFieldName(StatisticsKind statisticsKind) {

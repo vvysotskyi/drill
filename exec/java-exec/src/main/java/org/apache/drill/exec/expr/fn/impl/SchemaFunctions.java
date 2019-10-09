@@ -50,25 +50,32 @@ public class SchemaFunctions {
 
     @Override
     public void add() {
-      java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType> columns;
+      java.util.Map<String, org.apache.drill.exec.record.MaterializedField> columns;
       if (columnsHolder.obj == null) {
         // Janino does not support diamond operator for this case :(
-        columnsHolder.obj = new java.util.HashMap<String, org.apache.drill.common.types.TypeProtos.MajorType>();
+        columnsHolder.obj = new java.util.HashMap<String, org.apache.drill.exec.record.MaterializedField>();
       }
 
-      columns = (java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType>) columnsHolder.obj;
+      columns = (java.util.Map<String, org.apache.drill.exec.record.MaterializedField>) columnsHolder.obj;
 
       for (int i = 0; i < inputs.length; i += 2) {
         String columnName = inputs[i].readObject().toString();
         // Janino cannot infer type
-        org.apache.drill.common.types.TypeProtos.MajorType majorType = (org.apache.drill.common.types.TypeProtos.MajorType) columns.get(columnName);
-        if (majorType != null && !majorType.equals(inputs[i + 1].getType())) {
-          org.apache.drill.common.types.TypeProtos.MinorType leastRestrictiveType = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveType(java.util.Arrays.asList(majorType.getMinorType(), inputs[i + 1].getType().getMinorType()));
-          org.apache.drill.common.types.TypeProtos.DataMode leastRestrictiveMode = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveDataMode(java.util.Arrays.asList(majorType.getMode(), inputs[i + 1].getType().getMode()));
+        org.apache.drill.exec.record.MaterializedField materializedField = (org.apache.drill.exec.record.MaterializedField) columns.get(columnName);
+        org.apache.drill.common.types.TypeProtos.MajorType type = inputs[i + 1].getType();
+        if (materializedField != null && !materializedField.getType().equals(type)) {
+          org.apache.drill.common.types.TypeProtos.MinorType leastRestrictiveType = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveType(java.util.Arrays.asList(materializedField.getType().getMinorType(), type.getMinorType()));
+          org.apache.drill.common.types.TypeProtos.DataMode leastRestrictiveMode = org.apache.drill.exec.resolver.TypeCastRules.getLeastRestrictiveDataMode(java.util.Arrays.asList(materializedField.getType().getMode(), type.getMode()));
 
-          columns.put(columnName, majorType.toBuilder().setMinorType(leastRestrictiveType).setMode(leastRestrictiveMode).build());
+          org.apache.drill.exec.record.MaterializedField clone = materializedField.clone();
+          clone.replaceType(materializedField.getType().toBuilder().setMinorType(leastRestrictiveType).setMode(leastRestrictiveMode).build());
+          columns.put(columnName, clone);
         } else {
-          columns.put(columnName, inputs[i + 1].getType());
+          if (type.getMinorType() == org.apache.drill.common.types.TypeProtos.MinorType.MAP) {
+            columns.put(columnName, inputs[i + 1].getField());
+          } else {
+            columns.put(columnName, org.apache.drill.exec.record.MaterializedField.create(columnName, type));
+          }
         }
       }
     }
@@ -77,17 +84,16 @@ public class SchemaFunctions {
     public void output() {
       org.apache.drill.exec.record.metadata.SchemaBuilder schemaBuilder = new org.apache.drill.exec.record.metadata.SchemaBuilder();
 
-      java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType> columns =
-          (java.util.Map<String, org.apache.drill.common.types.TypeProtos.MajorType>) columnsHolder.obj;
+      java.util.Map<String, org.apache.drill.exec.record.MaterializedField> columns =
+          (java.util.Map<String, org.apache.drill.exec.record.MaterializedField>) columnsHolder.obj;
 
       if (columns == null) {
         return;
       }
 
-      for (java.util.Map.Entry<String, org.apache.drill.common.types.TypeProtos.MajorType> entry : columns.entrySet()) {
+      for (org.apache.drill.exec.record.MaterializedField materializedField : columns.values()) {
         // Janino compiler cannot infer types from generics :(
-        schemaBuilder.add(org.apache.drill.exec.record.MaterializedField.create((String) entry.getKey(),
-            (org.apache.drill.common.types.TypeProtos.MajorType) entry.getValue()));
+        schemaBuilder.add((org.apache.drill.exec.record.MaterializedField) materializedField);
       }
 
       byte[] type = schemaBuilder.build().jsonString().getBytes();

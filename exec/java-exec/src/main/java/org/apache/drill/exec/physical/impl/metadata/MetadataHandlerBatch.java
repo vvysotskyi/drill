@@ -313,7 +313,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           arguments.add(identifierValues[popConfig.getSegmentColumns().indexOf(fieldName)]);
         } else if (ColumnNameStatisticsHandler.columnStatisticsField(fieldName)) {
           arguments.add(
-              metadata.getColumnStatistics(SchemaPath.getSimplePath(ColumnNameStatisticsHandler.getColumnName(fieldName)))
+              metadata.getColumnStatistics(SchemaPath.parseFromString(ColumnNameStatisticsHandler.getColumnName(fieldName)))
                   .get(ColumnNameStatisticsHandler.getStatisticsKind(fieldName)));
         } else if (ColumnNameStatisticsHandler.metadataStatisticsField(fieldName)) {
           arguments.add(metadata.getStatistic(ColumnNameStatisticsHandler.getStatisticsKind(fieldName)));
