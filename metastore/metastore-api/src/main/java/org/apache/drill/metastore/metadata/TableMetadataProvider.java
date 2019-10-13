@@ -20,6 +20,7 @@ package org.apache.drill.metastore.metadata;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -96,4 +97,6 @@ public interface TableMetadataProvider {
    * @return {@link NonInterestingColumnsMetadata} instance
    */
   NonInterestingColumnsMetadata getNonInterestingColumnsMetadata();
+
+  TableMetadataProvider getFallbackTableMetadataProvider() throws IOException;
 }

@@ -104,6 +104,19 @@ public class BaseTableMetadata extends BaseMetadata implements TableMetadata {
     }
   }
 
+  public BaseTableMetadataBuilder toBuilder() {
+    return builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(metadataInfo)
+        .location(location)
+        .schema(schema)
+        .columnsStatistics(columnsStatistics)
+        .metadataStatistics(metadataStatistics.values())
+        .lastModifiedTime(lastModifiedTime)
+        .partitionKeys(partitionKeys)
+        .interestingColumns(interestingColumns);
+  }
+
   public static BaseTableMetadataBuilder builder() {
     return new BaseTableMetadataBuilder();
   }

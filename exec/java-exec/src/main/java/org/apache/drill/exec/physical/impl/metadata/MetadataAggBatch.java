@@ -79,7 +79,7 @@ public class MetadataAggBatch extends StreamingAggBatch {
     // Iterates through input expressions, to add aggregation calls for table fields
     // to collect required statistics (MIN, MAX, COUNT)
     getUnflattenedFileds(Lists.newArrayList(schema), null)
-        .forEach((fieldName, fieldRef) -> addColumnAggregateExpressions(interestingColumns, fieldRef, fieldName));
+        .forEach((fieldName, fieldRef) -> addColumnAggregateExpressions(fieldRef, fieldName));
 
     ArrayList<LogicalExpression> fieldsList = new ArrayList<>();
     StreamSupport.stream(schema.spliterator(), false)
@@ -96,6 +96,19 @@ public class MetadataAggBatch extends StreamingAggBatch {
     } else if (!popConfig.createNewAggregations()) {
       // for the case when aggregate on top of non-aggregated data is added, no need to collect raw data into the map
       addAggregationsToCollectAndMergeData(fieldsList);
+    }
+
+    for (SchemaPath excludedColumn : excludedColumns) {
+      if (excludedColumn.equals(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL)))
+          || excludedColumn.equals(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL)))) {
+        LogicalExpression lastModifiedTime = new FunctionCall("any_value",
+            Collections.singletonList(
+                FieldReference.getWithQuotedRef(excludedColumn.getRootSegmentPath())),
+            ExpressionPosition.UNKNOWN);
+
+        valueExpressions.add(new NamedExpression(lastModifiedTime,
+            FieldReference.getWithQuotedRef(excludedColumn.getRootSegmentPath())));
+      }
     }
 
     addMaxLastModifiedCall();
@@ -191,8 +204,9 @@ public class MetadataAggBatch extends StreamingAggBatch {
     return fieldNameRefMap;
   }
 
-  private void addColumnAggregateExpressions(List<SchemaPath> interestingColumns, FieldReference fieldRef, String fieldName) {
+  private void addColumnAggregateExpressions(FieldReference fieldRef, String fieldName) {
     MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
+    List<SchemaPath> interestingColumns = popConfig.getInterestingColumns();
     if (popConfig.createNewAggregations()) {
       if (interestingColumns == null || interestingColumns.contains(fieldRef)) {
         // collect statistics for all or only interesting columns if they are specified

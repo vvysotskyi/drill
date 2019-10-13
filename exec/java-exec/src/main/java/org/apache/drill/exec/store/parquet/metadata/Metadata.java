@@ -123,7 +123,7 @@ public class Metadata {
    *
    * @return parquet table metadata
    */
-  public static ParquetTableMetadata_v4 getParquetTableMetadata(FileSystem fs, String path, ParquetReaderConfig readerConfig) throws IOException {
+  public static ParquetTableMetadata_v4 getParquetTableMetadata(FileSystem fs, Path path, ParquetReaderConfig readerConfig) throws IOException {
     Metadata metadata = new Metadata(readerConfig);
     return metadata.getParquetTableMetadata(path, fs);
   }
@@ -363,15 +363,15 @@ public class Metadata {
    * @return metadata object for an entire parquet directory structure
    * @throws IOException in case of problems during accessing files
    */
-  private ParquetTableMetadata_v4 getParquetTableMetadata(String path, FileSystem fs) throws IOException {
-    Path p = new Path(path);
-    FileStatus fileStatus = fs.getFileStatus(p);
+  private ParquetTableMetadata_v4 getParquetTableMetadata(Path path, FileSystem fs) throws IOException {
+    FileStatus fileStatus = fs.getFileStatus(path);
     Stopwatch watch = logger.isDebugEnabled() ? Stopwatch.createStarted() : null;
     List<FileStatus> fileStatuses = new ArrayList<>();
     if (fileStatus.isFile()) {
       fileStatuses.add(fileStatus);
     } else {
-      fileStatuses.addAll(DrillFileSystemUtil.listFiles(fs, p, true));
+      // the thing we need!?
+      fileStatuses.addAll(DrillFileSystemUtil.listFiles(fs, path, true));
     }
     if (watch != null) {
       logger.debug("Took {} ms to get file statuses", watch.elapsed(TimeUnit.MILLISECONDS));

@@ -249,12 +249,15 @@ public class AnalyzeTableHandler extends DefaultSqlHandler {
     return new DrillScreenRel(writerRel.getCluster(), writerRel.getTraitSet(), writerRel);
   }
 
-  private DrillScanRel findScan(RelNode rel) {
-    if (rel instanceof DrillScanRel) {
-      return (DrillScanRel) rel;
-    } else {
-      return findScan(rel.getInput(0));
+  public static DrillScanRel findScan(RelNode... rels) {
+    for (RelNode rel : rels) {
+      if (rel instanceof DrillScanRel) {
+        return (DrillScanRel) rel;
+      } else {
+        return findScan(rel.getInputs().toArray(new RelNode[0]));
+      }
     }
+    return null;
   }
   // Make sure no unsupported features in ANALYZE statement are used
   private static void verifyNoUnsupportedFunctions(final SqlAnalyzeTable analyzeTable) {

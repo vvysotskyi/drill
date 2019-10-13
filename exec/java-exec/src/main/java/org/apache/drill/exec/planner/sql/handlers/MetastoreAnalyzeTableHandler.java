@@ -46,11 +46,9 @@ import org.apache.drill.exec.physical.base.SchemalessScan;
 import org.apache.drill.exec.physical.impl.metadata.MetadataAggBatch;
 import org.apache.drill.exec.planner.FileSystemPartitionDescriptor;
 import org.apache.drill.exec.planner.PartitionLocation;
-import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.DrillScanRel;
 import org.apache.drill.exec.planner.logical.DrillScreenRel;
-import org.apache.drill.exec.planner.logical.DrillStoreRel;
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.logical.MetadataAggRel;
 import org.apache.drill.exec.planner.logical.MetadataControllerRel;
@@ -63,15 +61,18 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.ColumnExplorer;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
+import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.FormatSelection;
 import org.apache.drill.exec.store.parquet.ParquetGroupScan;
+import org.apache.drill.exec.util.DrillFileSystemUtil;
+import org.apache.drill.exec.util.ImpersonationUtil;
 import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
+import org.apache.drill.metastore.components.tables.BasicTablesRequests;
 import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
 import org.apache.drill.metastore.components.tables.TableMetadataUnit;
 import org.apache.drill.metastore.components.tables.Tables;
-import org.apache.drill.metastore.metadata.BaseMetadata;
 import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.MetadataType;
 import org.apache.drill.metastore.metadata.TableInfo;
@@ -80,7 +81,9 @@ import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Streams;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.Strings;
 import org.slf4j.Logger;
@@ -94,6 +97,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.apache.drill.exec.planner.logical.DrillRelFactories.LOGICAL_BUILDER;
 
@@ -112,42 +116,47 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   @Override
   public PhysicalPlan getPlan(SqlNode sqlNode)
       throws ValidationException, RelConversionException, IOException, ForemanSetupException {
-    final SqlMetastoreAnalyzeTable sqlAnalyzeTable = unwrap(sqlNode, SqlMetastoreAnalyzeTable.class);
+    Preconditions.checkState(context.getOptions().getOption(ExecConstants.METASTORE_ENABLED_VALIDATOR),
+        "Running ANALYZE command when metastore is disabled");
+    try {
+      // disables during analyze to prevent using locations from the metastore
+      context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, false);
+      final SqlMetastoreAnalyzeTable sqlAnalyzeTable = unwrap(sqlNode, SqlMetastoreAnalyzeTable.class);
 
-    final String tableName = sqlAnalyzeTable.getName();
-    final AbstractSchema drillSchema = SchemaUtilites.resolveToDrillSchema(
-        config.getConverter().getDefaultSchema(), sqlAnalyzeTable.getSchemaPath());
-    DrillTable table = (DrillTable) SqlHandlerUtil.getTableFromSchema(drillSchema, tableName);
+      final String tableName = sqlAnalyzeTable.getName();
+      final AbstractSchema drillSchema = SchemaUtilites.resolveToDrillSchema(
+          config.getConverter().getDefaultSchema(), sqlAnalyzeTable.getSchemaPath());
+      DrillTable table = (DrillTable) SqlHandlerUtil.getTableFromSchema(drillSchema, tableName);
 
-    if (table == null) {
-      throw UserException.validationError()
-          .message("No table with given name [%s] exists in schema [%s]", tableName,
-              drillSchema.getFullSchemaName())
-          .build(logger);
-    }
+      if (table == null) {
+        throw UserException.validationError()
+            .message("No table with given name [%s] exists in schema [%s]", tableName,
+                drillSchema.getFullSchemaName())
+            .build(logger);
+      }
 
-    TableType tableType = getTableType(table.getGroupScan());
-    AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(tableType);
+      TableType tableType = getTableType(table.getGroupScan());
+      AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(tableType);
 
-    SqlIdentifier tableIdentifier = sqlAnalyzeTable.getTableIdentifier();
-    SqlSelect scanSql = new SqlSelect(
-        SqlParserPos.ZERO,              /* position */
-        SqlNodeList.EMPTY,              /* keyword list */
-        getColumnList(sqlAnalyzeTable, analyzeInfoProvider), /* select list */
-        tableIdentifier,                /* from */
-        null,                           /* where */
-        null,                           /* group by */
-        null,                           /* having */
-        null,                           /* windowDecls */
-        null,                           /* orderBy */
-        null,                           /* offset */
-        null                            /* fetch */
-    );
+      SqlIdentifier tableIdentifier = sqlAnalyzeTable.getTableIdentifier();
+      SqlSelect scanSql = new SqlSelect(
+          SqlParserPos.ZERO,              /* position */
+          SqlNodeList.EMPTY,              /* keyword list */
+          getColumnList(sqlAnalyzeTable, analyzeInfoProvider), /* select list */
+          tableIdentifier,                /* from */
+          null,                           /* where */
+          null,                           /* group by */
+          null,                           /* having */
+          null,                           /* windowDecls */
+          null,                           /* orderBy */
+          null,                           /* offset */
+          null                            /* fetch */
+      );
 
-    final ConvertedRelNode convertedRelNode = validateAndConvert(rewrite(scanSql));
-    final RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
+      final ConvertedRelNode convertedRelNode = validateAndConvert(rewrite(scanSql));
+      final RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
 
-    RelNode relScan = convertedRelNode.getConvertedNode();
+      RelNode relScan = convertedRelNode.getConvertedNode();
 
 //    if(! (table instanceof DrillTable)) {
 //      return DrillStatsTable.notSupported(context, tableName);
@@ -182,16 +191,19 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 //       return DrillStatsTable.notRequired(context, tableName);
 //      }
 //    }
-    // Convert the query to Drill Logical plan and insert a writer operator on top.
+      // Convert the query to Drill Logical plan and insert a writer operator on top.
 
-    DrillRel drel = convertToDrel(relScan, drillSchema, table, sqlAnalyzeTable);
+      DrillRel drel = convertToDrel(relScan, drillSchema, table, sqlAnalyzeTable);
 
-    Prel prel = convertToPrel(drel, validatedRowType);
-    logAndSetTextPlan("Drill Physical", prel, logger);
-    PhysicalOperator pop = convertToPop(prel);
-    PhysicalPlan plan = convertToPlan(pop);
-    log("Drill Plan", plan, logger);
-    return plan;
+      Prel prel = convertToPrel(drel, validatedRowType);
+      logAndSetTextPlan("Drill Physical", prel, logger);
+      PhysicalOperator pop = convertToPop(prel);
+      PhysicalPlan plan = convertToPlan(pop);
+      log("Drill Plan", plan, logger);
+      return plan;
+    } finally {
+      context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, true);
+    }
   }
 
   /* Determines if the table was modified after computing statistics based on
@@ -229,7 +241,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   private SqlNodeList getColumnList(SqlMetastoreAnalyzeTable sqlAnalyzeTable, AnalyzeInfoProvider analyzeInfoProvider) {
     SqlNodeList columnList = sqlAnalyzeTable.getFieldList();
     // TODO: issue when columns list specified without partition columns
-    if (columnList == null || columnList.size() <= 0) {
+    if (columnList == null || columnList.size() <= 0 || true) {
       columnList = new SqlNodeList(SqlParserPos.ZERO);
       columnList.add(new SqlIdentifier(SchemaPath.STAR_COLUMN.rootName(), SqlParserPos.ZERO));
     }
@@ -269,7 +281,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         .workspace(workspaceName)
         .build();
 
-    List<String> segmentColumns = analyzeInfoProvider.getSegmentColumns((TableScan) relNode.getInput(0), context.getPlannerSettings().getOptions()).stream()
+    List<String> segmentColumns = analyzeInfoProvider.getSegmentColumns(table, context.getPlannerSettings().getOptions()).stream()
         .map(SchemaPath::getRootSegmentPath)
         .collect(Collectors.toList());
     List<NamedExpression> segmentExpressions = segmentColumns.stream()
@@ -287,30 +299,13 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     // add partition columns to the projection for the case when
     // columns list was provided in analyze statement
-    if (sqlAnalyzeTable.getFieldList() != null && sqlAnalyzeTable.getFieldList().size() > 0) {
-      RelNode input = relNode.getInput(0);
-      Preconditions.checkState(input.getRowType().getFieldList().get(0).isDynamicStar(), "First field should be dynamic star");
-      relBuilder.push(input);
-
-      List<String> fieldNames = segmentExpressions.stream()
-          .map(e -> e.getRef().getRootSegmentPath())
-          .collect(Collectors.toList());
-      List<RexNode> projections = segmentExpressions.stream()
-          .map(namedExpression -> relBuilder.call(SqlStdOperatorTable.ITEM,
-              relBuilder.field(0), relBuilder.literal(namedExpression.getRef().getRootSegmentPath())))
-          .collect(Collectors.toList());
-
-      for (RelDataTypeField relDataTypeField : relNode.getRowType().getFieldList()) {
-        projections.add(relBuilder.field(relDataTypeField.getName()));
-        fieldNames.add(relDataTypeField.getName());
-      }
-
-      relNode = relBuilder.project(projections, fieldNames).build();
+    SqlNodeList analyzeFieldList = sqlAnalyzeTable.getFieldList();
+    if (analyzeFieldList != null && analyzeFieldList.size() > 0 && false) {
+      relNode = addProjectWithPartitionColumns(relNode, relBuilder, segmentExpressions);
     }
 
     List<MetadataInfo> allMetaToHandle = new ArrayList<>();
     List<MetadataInfo> metadataToRemove = new ArrayList<>();
-    // TODO: add logic to determine whether segment may be removed with its metadata
 
     if (metastoreTableInfo.isExists()) {
       TableMetadataUnit tableMetadataUnit = tables.basicRequests().interestingColumnsAndPartitionKeys(tableInfo);
@@ -319,11 +314,14 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
       Map<String, Long> filesNamesLastModifiedTime = tables.basicRequests().filesLastModifiedTime(tableInfo, null, null);
 
-      TableScan tableScan = (TableScan) relNode.getInput(0);
+      FormatSelection selection = (FormatSelection) table.getSelection();
 
-      FormatSelection selection = (FormatSelection) DrillRelOptUtil.getDrillTable(tableScan).getSelection();
+      FileSelection fileSelection = selection.getSelection();
 
-      List<FileStatus> fileStatuses = selection.getSelection().getFileStatuses();
+      if (!fileSelection.isExpandedFully()) {
+        fileSelection = getExpandedFileSelection(fileSelection);
+      }
+      List<FileStatus> fileStatuses = fileSelection.getFileStatuses();
 
       List<String> newFiles = new ArrayList<>();
       List<String> updatedFiles = new ArrayList<>();
@@ -355,13 +353,13 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
       List<String> scanFiles = new ArrayList<>(newFiles);
       scanFiles.addAll(updatedFiles);
-      tableScan = analyzeInfoProvider.getPrunedScan(scanFiles, context.getPlannerSettings(), tableScan);
+      TableScan tableScan = (TableScan) relNode.getInput(0);
+      tableScan = analyzeInfoProvider.getPrunedScan(scanFiles, context.getPlannerSettings(), AnalyzeTableHandler.findScan(convertToDrel(tableScan)));
 
       relNode = relNode.copy(relNode.getTraitSet(), Collections.singletonList(tableScan));
 
-      String selectionRoot = ((FormatSelection) DrillRelOptUtil.getDrillTable(tableScan).getSelection()).getSelection().getSelectionRoot().toUri().getPath();
+      String selectionRoot = ((FormatSelection) table.getSelection()).getSelection().getSelectionRoot().toUri().getPath();
 
-      // TODO: should we add default segment here for the case when there are no segments?
       // iterates from the end;
       // takes deepest updated segments,
       // finds their parents:
@@ -375,7 +373,9 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       int lastSegmentIndex = segmentExpressions.size() - 1;
       List<String> presentAndRemovedFiles = new ArrayList<>(allFiles);
       presentAndRemovedFiles.addAll(removedFiles);
-      allSegments.putAll(lastSegmentIndex, ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex));
+      if (lastSegmentIndex > 0) {
+        allSegments.putAll(lastSegmentIndex, ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex));
+      }
       List<String> scanAndRemovedFiles = new ArrayList<>(scanFiles);
       scanAndRemovedFiles.addAll(removedFiles);
 
@@ -388,7 +388,6 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
       List<MetadataInfo> allFilesInfo = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, allFiles, MetadataType.FILE, 0);
 
-      // --------------------- new logic for files and segments
       // first pass: collect updated segments even without files, they will be removed at the second path
       List<MetadataInfo> leafSegments = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex);
       List<MetadataInfo> removedFilesMetadata = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, removedFiles, MetadataType.FILE, 0);
@@ -430,19 +429,28 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
                   || finalFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
           .collect(Collectors.toList()));
 
-      // --------------------- end new logic
-
       List<String> metadataKeys = filesInfo.stream()
           .map(MetadataInfo::key)
           .distinct()
           .collect(Collectors.toList());
 
-      List<MetadataInfo> allRowGroupsInfo = tables.basicRequests().rowGroupsMetadata(tableInfo, metadataKeys, allFiles).stream()
-          .map(BaseMetadata::getMetadataInfo)
+      BasicTablesRequests.RequestMetadata requestMetadata = BasicTablesRequests.RequestMetadata.builder()
+          .tableInfo(tableInfo)
+          .metadataKeys(metadataKeys)
+          .paths(allFiles)
+          .metadataType(MetadataType.ROW_GROUP.name())
+          .requestColumns(Arrays.asList(MetadataInfo.METADATA_KEY, MetadataInfo.METADATA_IDENTIFIER, MetadataInfo.METADATA_TYPE))
+          .build();
+
+
+      List<MetadataInfo> allRowGroupsInfo = tables.basicRequests().request(requestMetadata).stream()
+          .map(unit -> MetadataInfo.builder().metadataUnit(unit).build())
           .collect(Collectors.toList());
 
       rowGroupsInfo = allRowGroupsInfo.stream()
-          .filter(child -> finalFilesInfo.stream().anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .filter(child -> finalFilesInfo.stream()
+              .map(MetadataInfo::identifier)
+              .anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent, child.identifier())))
           .collect(Collectors.toList());
 
       List<MetadataInfo> segmentsToUpdate = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.SEGMENT, 0);
@@ -466,26 +474,40 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     DrillRel convertedRelNode = convertToRawDrel(relNode);
 
-    // TODO: investigate why it is needed?
-    if (convertedRelNode instanceof DrillStoreRel) {
-      throw new UnsupportedOperationException();
-    }
-
     boolean createNewAggregations = true;
-
-    String rowGroupIndexColumn = config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
-    String lastModifiedTimeColumn = config.getContext().getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL);
 
     // columns which are not added to the schema and for which statistics is not calculated
     List<SchemaPath> excludedColumns;
 
-    SchemaPath locationField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL));
-    SchemaPath lastModifiedTimeField = SchemaPath.getSimplePath(lastModifiedTimeColumn);
-    if (tableType == TableType.PARQUET && metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
+    SqlNodeList fieldList = sqlAnalyzeTable.getFieldList();
+    List<SchemaPath> interestingColumns = fieldList == null
+        ? null
+        : StreamSupport.stream(fieldList.spliterator(), false)
+            .map(sqlNode -> SchemaPath.parseFromString(sqlNode.toString()))
+            .collect(Collectors.toList());
 
+    // List of columns for which statistics should be collected: interesting columns + segment columns
+    List<SchemaPath> statisticsColumns = interestingColumns == null
+        ? null
+        : new ArrayList<>(interestingColumns);
+    if (statisticsColumns != null) {
+      //
+      statisticsColumns.addAll(
+          segmentColumns.stream()
+              .map(SchemaPath::getSimplePath)
+              .collect(Collectors.toList()));
+    }
+
+    SchemaPath locationField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL));
+    SchemaPath lastModifiedTimeField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL));
+
+    if (tableType == TableType.PARQUET && metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
+      String rowGroupIndexColumn = config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
+      SchemaPath rowGroupStartField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL));
+      SchemaPath rowGroupLengthField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL));
       SchemaPath rgiField = SchemaPath.getSimplePath(rowGroupIndexColumn);
 
-      excludedColumns = Arrays.asList(lastModifiedTimeField, locationField, rgiField);
+      excludedColumns = Arrays.asList(lastModifiedTimeField, locationField, rgiField, rowGroupStartField, rowGroupLengthField);
 
       // adds aggregation for collecting row group level metadata
       ArrayList<NamedExpression> rowGroupGroupByExpressions = new ArrayList<>(segmentExpressions);
@@ -498,7 +520,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           convertedRelNode.getTraitSet(),
           convertedRelNode,
           rowGroupGroupByExpressions,
-          null,
+          statisticsColumns,
           createNewAggregations,
           excludedColumns);
 
@@ -526,7 +548,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           convertedRelNode.getTraitSet(),
           convertedRelNode,
           fileGroupByExpressions,
-          null,
+          statisticsColumns,
           createNewAggregations, excludedColumns);
 
       convertedRelNode =
@@ -559,7 +581,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
             convertedRelNode.getTraitSet(),
             convertedRelNode,
             groupByExpressions.subList(0, i + 1),
-            null,
+            statisticsColumns,
             createNewAggregations, excludedColumns);
 
         convertedRelNode =
@@ -583,7 +605,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           convertedRelNode.getTraitSet(),
           convertedRelNode,
           Collections.emptyList(),
-          null,
+          statisticsColumns,
           createNewAggregations, excludedColumns);
 
       convertedRelNode =
@@ -599,12 +621,42 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           convertedRelNode,
           tableInfo,
           ((FormatSelection) table.getSelection()).getSelection().getSelectionRoot(),
-          null, segmentColumns, allMetaToHandle, metadataToRemove);
+          interestingColumns, segmentColumns, allMetaToHandle, metadataToRemove);
     } else {
       throw new IllegalStateException("Analyze table with NONE level");
     }
 
     return new DrillScreenRel(convertedRelNode.getCluster(), convertedRelNode.getTraitSet(), convertedRelNode);
+  }
+
+  private static FileSelection getExpandedFileSelection(FileSelection fileSelection) throws IOException {
+    FileSystem rawFs = fileSelection.getSelectionRoot().getFileSystem(new Configuration());
+    FileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), rawFs.getConf());
+    List<FileStatus> fileStatuses = DrillFileSystemUtil.listFiles(fs, fileSelection.getSelectionRoot(), true);
+    fileSelection = FileSelection.create(fileStatuses, null, fileSelection.getSelectionRoot());
+    return fileSelection;
+  }
+
+  private RelNode addProjectWithPartitionColumns(RelNode relNode, RelBuilder relBuilder, List<NamedExpression> segmentExpressions) {
+    RelNode input = relNode.getInput(0);
+    Preconditions.checkState(input.getRowType().getFieldList().get(0).isDynamicStar(), "First field should be dynamic star");
+    relBuilder.push(input);
+
+    List<String> fieldNames = segmentExpressions.stream()
+        .map(e -> e.getRef().getRootSegmentPath())
+        .collect(Collectors.toList());
+    List<RexNode> projections = segmentExpressions.stream()
+        .map(namedExpression -> relBuilder.call(SqlStdOperatorTable.ITEM,
+            relBuilder.field(0), relBuilder.literal(namedExpression.getRef().getRootSegmentPath())))
+        .collect(Collectors.toList());
+
+    for (RelDataTypeField relDataTypeField : relNode.getRowType().getFieldList()) {
+      projections.add(relBuilder.field(relDataTypeField.getName()));
+      fieldNames.add(relDataTypeField.getName());
+    }
+
+    relNode = relBuilder.project(projections, fieldNames).build();
+    return relNode;
   }
 
   private TableType getTableType(GroupScan groupScan) {
@@ -619,7 +671,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   public interface AnalyzeInfoProvider {
-    List<SchemaPath> getSegmentColumns(TableScan tableScan, OptionManager options);
+    List<SchemaPath> getSegmentColumns(DrillTable table, OptionManager options) throws IOException;
     List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options);
 
     static AnalyzeInfoProvider getAnalyzeInfoProvider(TableType tableType) {
@@ -638,10 +690,15 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     public static final AnalyzeInfoProvider INSTANCE = new AnalyzeFileInfoProvider();
 
     @Override
-    public List<SchemaPath> getSegmentColumns(TableScan tableScan, OptionManager options) {
-      FormatSelection selection = (FormatSelection) DrillRelOptUtil.getDrillTable(tableScan).getSelection();
+    public List<SchemaPath> getSegmentColumns(DrillTable table, OptionManager options) throws IOException {
+      FormatSelection selection = (FormatSelection) table.getSelection();
 
-      return ColumnExplorer.getPartitionColumnNames(selection.getSelection(), options).stream()
+      FileSelection fileSelection = selection.getSelection();
+      if (!fileSelection.isExpandedFully()) {
+        fileSelection = getExpandedFileSelection(fileSelection);
+      }
+
+      return ColumnExplorer.getPartitionColumnNames(fileSelection, options).stream()
           .map(SchemaPath::getSimplePath)
           .collect(Collectors.toList());
     }
@@ -652,6 +709,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL), SqlParserPos.ZERO));
       if (metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
         columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL), SqlParserPos.ZERO));
+        columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL), SqlParserPos.ZERO));
+        columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL), SqlParserPos.ZERO));
       }
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL), SqlParserPos.ZERO));
       return columnList;
@@ -719,11 +778,11 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
               .build();
         }
         case SEGMENT: {
-          String key = values.size() > 0 ? values.iterator().next() : MetadataInfo.DEFAULT_SEGMENT_KEY;
+          String key = values.size() > 1 ? values.iterator().next() : MetadataInfo.DEFAULT_SEGMENT_KEY;
           return MetadataInfo.builder()
               .type(metadataType)
               .key(key)
-              .identifier(values.size() > 0 ? MetadataIdentifierUtils.getMetadataIdentifierKey(values.subList(0, level + 1)) :  MetadataInfo.DEFAULT_SEGMENT_KEY)
+              .identifier(values.size() > 1 ? MetadataIdentifierUtils.getMetadataIdentifierKey(values.subList(0, level + 1)) :  MetadataInfo.DEFAULT_SEGMENT_KEY)
               .build();
         }
         case TABLE: {
@@ -745,7 +804,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     }
 
     public static boolean isMetadataKeyParent(String parent, String child) {
-      return child.startsWith(parent + METADATA_IDENTIFIER_SEPARATOR);
+      return child.startsWith(parent + METADATA_IDENTIFIER_SEPARATOR) || parent.equals(MetadataInfo.DEFAULT_SEGMENT_KEY);
     }
 
     public static String getFileMetadataIdentifier(List<String> partitionValues, Path path) {

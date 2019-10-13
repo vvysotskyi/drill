@@ -41,7 +41,6 @@ import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.TupleReader;
-import org.apache.drill.metastore.components.tables.BasicTablesRequests;
 import org.apache.drill.metastore.components.tables.TableMetadataUnit;
 import org.apache.drill.metastore.components.tables.Tables;
 import org.apache.drill.metastore.expressions.FilterExpression;
@@ -58,6 +57,7 @@ import org.apache.drill.metastore.operate.Modify;
 import org.apache.drill.metastore.statistics.BaseStatisticsKind;
 import org.apache.drill.metastore.statistics.ColumnStatistics;
 import org.apache.drill.metastore.statistics.ColumnStatisticsKind;
+import org.apache.drill.metastore.statistics.ExactStatisticsConstants;
 import org.apache.drill.metastore.statistics.StatisticsHolder;
 import org.apache.drill.metastore.statistics.StatisticsKind;
 import org.apache.drill.metastore.statistics.TableStatisticsKind;
@@ -116,7 +116,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
 
     for (MetadataInfo metadataInfo : popConfig.getMetadataToRemove()) {
       deleteFilter = FilterExpression.and(deleteFilter,
-          FilterExpression.equal(BasicTablesRequests.METADATA_KEY, metadataInfo.key()));
+          FilterExpression.equal(MetadataInfo.METADATA_KEY, metadataInfo.key()));
     }
 
     Modify<TableMetadataUnit> modify = tables.modify();
@@ -156,7 +156,10 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     if (!metadataToHandle.isEmpty()) {
       // leaves only metadata which belongs to segments be overridden and table metadata
       metadataUnits = metadataUnits.stream()
-          .filter(tableMetadataUnit -> metadataToHandle.containsKey(tableMetadataUnit.metadataIdentifier())
+          .filter(tableMetadataUnit ->
+              metadataToHandle.values().stream()
+                  .map(MetadataInfo::key)
+                  .anyMatch(s -> s.equals(tableMetadataUnit.metadataKey()))
               || MetadataType.TABLE.name().equals(tableMetadataUnit.metadataType()))
           .collect(Collectors.toList());
 
@@ -236,14 +239,40 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
       if (ColumnNameStatisticsHandler.columnStatisticsField(column.name())) {
         StatisticsKind statisticsKind = getStatisticsKind(column.name());
         columnStatistics.put(fieldName,
-            new StatisticsHolder(reader.column(column.name()).getObject(), statisticsKind));
+            new StatisticsHolder(getConvertedColumnValue(reader.column(column.name())), statisticsKind));
         if (statisticsKind.getName().equalsIgnoreCase(ColumnStatisticsKind.MIN_VALUE.getName())
             || statisticsKind.getName().equalsIgnoreCase(ColumnStatisticsKind.MAX_VALUE.getName())) {
           columnTypes.putIfAbsent(fieldName, column.type());
         }
       } else if (ColumnNameStatisticsHandler.metadataStatisticsField(column.name())) {
         metadataStatistics.add(new StatisticsHolder(reader.column(column.name()).getObject(), getStatisticsKind(column.name())));
+      } else if (column.name().equals(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL))) {
+        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()), new BaseStatisticsKind(ExactStatisticsConstants.START, true)));
+      } else if (column.name().equals(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL))) {
+        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()), new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)));
       }
+    }
+
+    Long rowCount = (Long) metadataStatistics.stream()
+        .filter(statisticsHolder -> statisticsHolder.getStatisticsKind() == TableStatisticsKind.ROW_COUNT)
+        .findAny()
+        .map(StatisticsHolder::getStatisticsValue)
+        .orElse(null);
+
+    // adds NON_NULL_COUNT to use it during filter pushdown
+    if (rowCount != null) {
+      Map<String, StatisticsHolder> nullsCountColumnStatistics = new HashMap<>();
+      columnStatistics.asMap().forEach((key, value) ->
+          value.stream()
+              .filter(statisticsHolder -> statisticsHolder.getStatisticsKind() == ColumnStatisticsKind.NON_NULL_COUNT)
+              .findAny()
+              .map(statisticsHolder -> (Long) statisticsHolder.getStatisticsValue())
+              .ifPresent(nonNullCount ->
+                  nullsCountColumnStatistics.put(
+                      key,
+                      new StatisticsHolder(rowCount - nonNullCount, ColumnStatisticsKind.NULLS_COUNT))));
+
+      nullsCountColumnStatistics.forEach(columnStatistics::put);
     }
 
     Map<SchemaPath, ColumnStatistics> resultingStats = new HashMap<>();
@@ -389,7 +418,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
             .metadataInfo(metadataInfo)
             .columnsStatistics(resultingStats)
             .metadataStatistics(metadataStatistics)
-            // TODO: pass host affinity
+            // TODO: pass host affinity? Am I sure that it is good idea?
             .hostAffinity(Collections.emptyMap())
             .rowGroupIndex(rowGroupIndex)
             .path(path)
@@ -404,6 +433,17 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     metadataUnits.add(metadata.toMetadataUnit());
 
     return metadataUnits;
+  }
+
+  private Object getConvertedColumnValue(ObjectReader objectReader) {
+    switch (objectReader.schema().type()) {
+      case VARBINARY:
+      case FIXEDBINARY:
+        return new String(objectReader.scalar().getBytes());
+      default:
+        return objectReader.getObject();
+    }
+
   }
 
   private Set<Path> getIncomingLocations(TupleReader reader) {

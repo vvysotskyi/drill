@@ -96,6 +96,11 @@ public class SimpleFileTableMetadataProvider implements TableMetadataProvider {
   }
 
   @Override
+  public SimpleFileTableMetadataProvider getFallbackTableMetadataProvider() {
+    return null;
+  }
+
+  @Override
   public NonInterestingColumnsMetadata getNonInterestingColumnsMetadata() {
     return null;
   }

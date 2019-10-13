@@ -329,7 +329,7 @@ public abstract class AbstractParquetScanBatchCreator {
     List<String> partitionValues = rowGroupScan.getPartitionValues(rowGroup);
     Map<String, String> implicitValues =
         columnExplorer.populateImplicitAndSpecialColumns(rowGroup.getPath(), partitionValues,
-            rowGroupScan.supportsFileImplicitColumns(), fs, rowGroup.getRowGroupIndex());
+            rowGroupScan.supportsFileImplicitColumns(), fs, rowGroup.getRowGroupIndex(), rowGroup.getStart(), rowGroup.getLength());
     implicitColumns.add(implicitValues);
     if (implicitValues.size() > mapWithMaxColumns.size()) {
       mapWithMaxColumns = implicitValues;

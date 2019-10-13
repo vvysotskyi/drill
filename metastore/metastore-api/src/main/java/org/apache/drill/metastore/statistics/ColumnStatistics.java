@@ -26,6 +26,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.datatype.joda.JodaModule;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.metastore.util.TableMetadataUtils;
 
@@ -63,8 +64,13 @@ import java.util.stream.Collectors;
 @JsonPropertyOrder({"statistics", "comparator"})
 public class ColumnStatistics<T> {
 
-  private static final ObjectWriter OBJECT_WRITER = new ObjectMapper().writerFor(ColumnStatistics.class);
-  private static final ObjectReader OBJECT_READER = new ObjectMapper().readerFor(ColumnStatistics.class);
+  private static final ObjectWriter OBJECT_WRITER = new ObjectMapper()
+      .registerModule(new JodaModule())
+      .writerFor(ColumnStatistics.class);
+
+  private static final ObjectReader OBJECT_READER = new ObjectMapper()
+      .registerModule(new JodaModule())
+      .readerFor(ColumnStatistics.class);
 
   private final Map<String, StatisticsHolder> statistics;
   private final Comparator<T> valueComparator;

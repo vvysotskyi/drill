@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.drill.exec.metastore.MetastoreParquetTableMetadataProvider;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
@@ -58,6 +59,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   private final ParquetFormatConfig formatConfig;
 
   private boolean usedMetadataCache; // false by default
+  private boolean usedMetastore; // false by default
   // may change when filter push down / partition pruning is applied
   private Path selectionRoot;
   private Path cacheFileRoot;
@@ -146,6 +148,8 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
     ParquetTableMetadataProvider parquetTableMetadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.usedMetadataCache = parquetTableMetadataProvider.isUsedMetadataCache();
+    // TODO: add method to avoid binding on specific implementation
+    this.usedMetastore = parquetTableMetadataProvider instanceof MetastoreParquetTableMetadataProvider;
     this.selectionRoot = parquetTableMetadataProvider.getSelectionRoot();
     this.entries = parquetTableMetadataProvider.getEntries();
     this.fileSet = parquetTableMetadataProvider.getFileSet();
@@ -173,6 +177,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.selectionRoot = that.selectionRoot;
     this.cacheFileRoot = selection == null ? that.cacheFileRoot : selection.getCacheFileRoot();
     this.usedMetadataCache = that.usedMetadataCache;
+    this.usedMetastore = that.usedMetastore;
   }
 
   // getters for serialization / deserialization start
@@ -246,6 +251,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     builder.append(", numFiles=").append(getEntries().size());
     builder.append(", numRowGroups=").append(getRowGroupsMetadata().size());
     builder.append(", usedMetadataFile=").append(usedMetadataCache);
+    builder.append(", usedMetastore=").append(usedMetastore);
 
     String filterString = getFilterString();
     if (!filterString.isEmpty()) {

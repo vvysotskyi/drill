@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.drill.common.expression.ExpressionStringBuilder;
+import org.apache.drill.exec.metastore.ParquetTableMetadataProvider;
 import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
 import org.apache.drill.metastore.metadata.SegmentMetadata;
 import org.apache.drill.metastore.statistics.TableStatisticsKind;
@@ -144,7 +145,18 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
 
   @Override
   public void applyAssignments(List<CoordinationProtos.DrillbitEndpoint> incomingEndpoints) {
-    this.mappings = AssignmentCreator.getMappings(incomingEndpoints, getRowGroupInfos());
+    List<RowGroupInfo> rowGroupInfos = getRowGroupInfos();
+    if (rowGroupInfos == null || rowGroupInfos.isEmpty()) {
+      // forces recalculation of RowGroupInfo with row groups metadata from fallback
+      this.rowGroupInfos = null;
+      try {
+        rowGroups = ((ParquetTableMetadataProvider) metadataProvider.getFallbackTableMetadataProvider()).getRowGroupsMetadataMap();
+        rowGroupInfos = getRowGroupInfos();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    this.mappings = AssignmentCreator.getMappings(incomingEndpoints, rowGroupInfos);
   }
 
   private List<RowGroupInfo> getRowGroupInfos() {

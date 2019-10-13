@@ -34,8 +34,10 @@ import org.apache.drill.metastore.metadata.MetadataType;
 import org.apache.drill.metastore.metadata.RowGroupMetadata;
 import org.apache.drill.metastore.metadata.SegmentMetadata;
 import org.apache.drill.metastore.metadata.TableInfo;
+import org.apache.drill.metastore.statistics.BaseStatisticsKind;
 import org.apache.drill.metastore.statistics.ColumnStatistics;
 import org.apache.drill.metastore.statistics.ColumnStatisticsKind;
+import org.apache.drill.metastore.statistics.ExactStatisticsConstants;
 import org.apache.drill.metastore.statistics.StatisticsHolder;
 import org.apache.drill.metastore.statistics.TableStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
@@ -61,7 +63,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 @Category({SlowTest.class, MetastoreTest.class})
@@ -174,6 +179,7 @@ public class TestMetastoreCommands extends ClusterTest {
     startCluster(builder);
 
     dirTestWatcher.copyResourceToRoot(Paths.get("multilevel/parquet"));
+    dirTestWatcher.copyResourceToRoot(Paths.get("multilevel/parquet2"));
   }
 
   @Test
@@ -370,7 +376,10 @@ public class TestMetastoreCommands extends ClusterTest {
         .hostAffinity(Collections.emptyMap())
         .lastModifiedTime(new File(new File(new File(tablePath.toUri().getPath(), "1994"), "Q1"), "orders_94_q1.parquet").lastModified())
         .columnsStatistics(DIR0_1994_Q1_SEGMENT_COLUMN_STATISTICS)
-        .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(10L, TableStatisticsKind.ROW_COUNT)))
+        .metadataStatistics(Arrays.asList(
+            new StatisticsHolder<>(10L, TableStatisticsKind.ROW_COUNT),
+            new StatisticsHolder<>(1196L, new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)),
+            new StatisticsHolder<>(4L, new BaseStatisticsKind(ExactStatisticsConstants.START, true))))
         .path(new Path(tablePath, "1994/Q1/orders_94_q1.parquet"))
         .build()
         .toMetadataUnit();
@@ -474,14 +483,13 @@ public class TestMetastoreCommands extends ClusterTest {
     TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
-        .schema(TupleMetadata.of("{\"type\":\"tuple_schema\",\"columns\":[{\"name\":\"o_orderstatus\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"dir1\",\"type\":\"VARCHAR\",\"mode\":\"OPTIONAL\"}," +
-            "{\"name\":\"dir0\",\"type\":\"VARCHAR\",\"mode\":\"OPTIONAL\"}]}"))
+        .schema(SCHEMA)
         .location(tablePath)
         .columnsStatistics(updatedTableColumnStatistics)
         .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(120L, TableStatisticsKind.ROW_COUNT)))
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(new File(dirTestWatcher.getRootDir().toURI().getPath(), tableName).lastModified())
+        .interestingColumns(Collections.singletonList(orderStatusPath))
         .build()
         .toMetadataUnit();
 
@@ -787,7 +795,7 @@ public class TestMetastoreCommands extends ClusterTest {
       rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
-      assertEquals(12, rowGroupsMetadata.size());
+      assertEquals(13, rowGroupsMetadata.size());
     } finally {
       cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
           .modify()
@@ -1282,13 +1290,515 @@ public class TestMetastoreCommands extends ClusterTest {
     }
   }
 
+  @Test
+  public void testDirPartitionPruning() throws Exception {
+    String tableName = "multilevel/parquet";
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+
+      String query =
+          "select dir0, dir1, o_custkey, o_orderdate from dfs.`%s`\n" +
+          "where dir0=1994 and dir1 in ('Q1', 'Q2')";
+      long expectedRowCount = 20;
+      int expectedNumFiles = 2;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+
+      assertEquals(expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningRootSegment() throws Exception {
+    String tableName = "multilevel/parquet";
+
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+
+      String query =
+          "select dir0, dir1, o_custkey, o_orderdate from dfs.`%s`\n" +
+          "where dir0=1994";
+      long expectedRowCount = 40;
+      int expectedNumFiles = 4;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+
+      assertEquals(expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningVarCharPartition() throws Exception {
+    String tableName = "orders_ctas_varchar";
+
+    try {
+      queryBuilder().sql("create table dfs.%s (o_orderdate, o_orderpriority) partition by (o_orderpriority) "
+          + "as select o_orderdate, o_orderpriority from dfs.`multilevel/parquet/1994/Q1`", tableName).run();
+
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+
+      String query = "select * from dfs.%s where o_orderpriority = '1-URGENT'";
+      long expectedRowCount = 3;
+      int expectedNumFiles = 1;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals(expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists dfs.`%s`", tableName).run();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningBinaryPartition() throws Exception {
+    String tableName = "orders_ctas_binary";
+
+    try {
+      queryBuilder().sql("create table dfs.%s (o_orderdate, o_orderpriority) partition by (o_orderpriority) "
+          + "as select o_orderdate, convert_to(o_orderpriority, 'UTF8') as o_orderpriority "
+          + "from dfs.`multilevel/parquet/1994/Q1`", tableName).run();
+
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+      String query = String.format("select * from dfs.%s where o_orderpriority = '1-URGENT'", tableName);
+      long expectedRowCount = 3;
+      int expectedNumFiles = 1;
+
+      long actualRowCount = queryBuilder().sql(query).run().recordCount();
+      assertEquals(expectedRowCount, actualRowCount);
+
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists dfs.`%s`", tableName).run();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningSingleLeafPartition() throws Exception {
+    String tableName = "multilevel/parquet2";
+
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+
+      String query =
+          "select dir0, dir1, o_custkey, o_orderdate from dfs.`%s`\n" +
+          "where dir0=1995 and dir1='Q3'";
+      long expectedRowCount = 20;
+      int expectedNumFiles = 2;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals(expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningSingleNonLeafPartition() throws Exception {
+    String tableName = "multilevel/parquet2";
+
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+
+      String query =
+          "select dir0, dir1, o_custkey, o_orderdate from dfs.`%s`\n" +
+          "where dir0=1995";
+      long expectedRowCount = 80;
+      int expectedNumFiles = 8;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals(expectedRowCount, actualRowCount);
+
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningDir1Filter() throws Exception {
+    String tableName = "multilevel/parquet2";
+
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+
+      String query =
+          "select dir0, dir1, o_custkey, o_orderdate from dfs.`%s`\n" +
+          "where dir1='Q3'";
+      long expectedRowCount = 40;
+      int expectedNumFiles = 4;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals(expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningNonExistentPartition() throws Exception {
+    String tableName = "multilevel/parquet2";
+
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+
+      String query =
+          "select dir0, dir1, o_custkey, o_orderdate from dfs.`%s`\n" +
+          "where dir0=1995 and dir1='Q6'";
+      long expectedRowCount = 0;
+      int expectedNumFiles = 1;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals(expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+    }
+  }
+
+  @Test
+  public void testAnalyzeMultilevelTable() throws Exception {
+    String tableName = "path with spaces";
+    try {
+      queryBuilder().sql("create table dfs.`%s` as select * from cp.`tpch/nation.parquet`", tableName).run();
+      queryBuilder().sql("create table  dfs.`%1$s/%1$s` as select * from cp.`tpch/nation.parquet`", tableName).run();
+
+      queryBuilder().sql("analyze table  dfs.`%s` REFRESH METADATA", tableName).run();
+
+      String query = "select * from  dfs.`%s`";
+      long expectedRowCount = 50;
+      int expectedNumFiles = 2;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals("An incorrect result was obtained while querying a table with metadata cache files",
+          expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists dfs.`%s`", tableName).run();
+    }
+  }
+
+  @Test
+  public void testFieldWithDots() throws Exception {
+    final String tableWithDots = "dfs.tmp.`complex_table`";
+    try {
+      queryBuilder().sql("create table %s as\n" +
+          "select cast(1 as int) as `column.with.dots`, t.`column`.`with.dots`\n" +
+          "from cp.`store/parquet/complex/complex.parquet` t limit 1", tableWithDots).run();
+
+      String query = "select * from %s";
+      int expectedRowCount = 1;
+
+      long actualRowCount = queryBuilder().sql(query, tableWithDots).run().recordCount();
+      assertEquals("Row count does not match the expected value", expectedRowCount, actualRowCount);
+
+      String plan = queryBuilder().sql(query, tableWithDots).explainText();
+      assertThat(plan, containsString("usedMetastore=false"));
+
+      queryBuilder().sql("analyze table %s REFRESH METADATA", tableWithDots).run();
+
+      actualRowCount = queryBuilder().sql(query, tableWithDots).run().recordCount();
+
+      assertEquals("Row count does not match the expected value", expectedRowCount, actualRowCount);
+      plan = queryBuilder().sql(query, tableWithDots).explainText();
+      assertThat(plan, containsString("usedMetastore=true"));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists %s", tableWithDots).run();
+    }
+  }
+
+  @Test
+  public void testBooleanPartitionPruning() throws Exception {
+    String tableName = "dfs.tmp.`interval_bool_partition`";
+    try {
+      queryBuilder().sql("create table %s partition by (col_bln) as\n" +
+          "select * from cp.`parquet/alltypes_required.parquet`", tableName).run();
+
+      queryBuilder().sql("analyze table %s REFRESH METADATA", tableName).run();
+
+      String query = "select * from %s where col_bln = true";
+      int expectedRowCount = 2;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals("Row count does not match the expected value", expectedRowCount, actualRowCount);
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists %s", tableName).run();
+    }
+  }
+
+  @Test
+  public void testIntWithNullsPartitionPruning() throws Exception {
+    String tableName = "t5";
+    try {
+      queryBuilder().sql("create table dfs.tmp.`%s/a` as\n" +
+          "select 100 as mykey from cp.`tpch/nation.parquet`\n" +
+          "union all\n" +
+          "select col_notexist from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("create table dfs.tmp.`%s/b` as\n" +
+          "select 200 as mykey from cp.`tpch/nation.parquet`\n" +
+          "union all\n" +
+          "select col_notexist from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("analyze table dfs.tmp.`%s` REFRESH METADATA", tableName).run();
+
+      String query = "select mykey from dfs.tmp.`t5` where mykey = 100";
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals("Row count does not match the expected value", 25, actualRowCount);
+
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(usedMetaPattern));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists dfs.tmp.`%s`", tableName).run();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningWithIsNull() throws Exception {
+    String tableName = "t6";
+    try {
+      queryBuilder().sql("create table dfs.tmp.`%s/a` as\n" +
+          "select col_notexist as mykey from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("create table dfs.tmp.`%s/b` as\n" +
+          "select case when true then 100 else null end as mykey from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("analyze table dfs.tmp.`%s` REFRESH METADATA", tableName).run();
+
+      String query = "select mykey from dfs.tmp.`%s` where mykey is null";
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals("Row count does not match the expected value", 5, actualRowCount);
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists dfs.tmp.`%s`", tableName).run();
+    }
+  }
+
+  @Test
+  public void testPartitionPruningWithIsNotNull() throws Exception {
+    String tableName = "t7";
+    try {
+      queryBuilder().sql("create table dfs.tmp.`%s/a` as\n" +
+          "select col_notexist as mykey from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("create table dfs.tmp.`%s/b` as\n" +
+          "select  case when true then 100 else null end as mykey from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("analyze table dfs.tmp.`%s` REFRESH METADATA", tableName).run();
+
+      String query = "select mykey from dfs.tmp.`%s` where mykey is null";
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals("Row count does not match the expected value", 5, actualRowCount);
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists dfs.tmp.`%s`", tableName).run();
+    }
+  }
+
+  @Test
+  public void testNonInterestingColumnInFilter() throws Exception {
+    String tableName = "t7";
+    try {
+      queryBuilder().sql("create table dfs.tmp.`%s/a` as\n" +
+          "select col_notexist as mykey from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("create table dfs.tmp.`%s/b` as\n" +
+          "select case when true then 100 else null end as mykey from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("analyze table dfs.tmp.`%s` columns none REFRESH METADATA", tableName).run();
+
+      String query = "select mykey from dfs.tmp.`%s` where mykey is null";
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals("Row count does not match the expected value", 5, actualRowCount);
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(usedMetaPattern));
+
+      // checks that filter wasn't removed since statistics is absent for filtering column
+      assertThat(plan, containsString("Filter"));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+      queryBuilder().sql("drop table if exists dfs.tmp.`%s`", tableName).run();
+    }
+  }
+
+  @Test
+  public void testSelectAfterAnalyzeWithNonRowGroupLevel() throws Exception {
+    String tableName = "multilevel/parquet";
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA 'file' level", tableName).run();
+
+      String query =
+          "select * from dfs.`%s`";
+      long expectedRowCount = 120;
+      int expectedNumFiles = 12;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+
+      assertEquals(expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .purge()
+          .execute();
+    }
+  }
+
   private static <T> ColumnStatistics<T> getColumnStatistics(T minValue, T maxValue, long rowCount, TypeProtos.MinorType minorType) {
     return new ColumnStatistics<>(
         Arrays.asList(
             new StatisticsHolder<>(minValue, ColumnStatisticsKind.MIN_VALUE),
             new StatisticsHolder<>(maxValue, ColumnStatisticsKind.MAX_VALUE),
             new StatisticsHolder<>(rowCount, TableStatisticsKind.ROW_COUNT),
-            new StatisticsHolder<>(rowCount, ColumnStatisticsKind.NON_NULL_COUNT)),
+            new StatisticsHolder<>(rowCount, ColumnStatisticsKind.NON_NULL_COUNT),
+            new StatisticsHolder<>(0L, ColumnStatisticsKind.NULLS_COUNT)),
         minorType);
   }
 

@@ -284,7 +284,7 @@ public class ColumnExplorer {
    * @return implicit columns map
    */
   public Map<String, String> populateImplicitAndSpecialColumns(Path filePath,
-      List<String> partitionValues, boolean includeFileImplicitColumns, FileSystem fs, int index) {
+      List<String> partitionValues, boolean includeFileImplicitColumns, FileSystem fs, int index, long start, long length) {
 
     Map<String, String> implicitValues =
         new LinkedHashMap<>(populateImplicitColumns(filePath, partitionValues, includeFileImplicitColumns));
@@ -293,6 +293,12 @@ public class ColumnExplorer {
       switch (value) {
         case ROW_GROUP_INDEX:
           implicitValues.put(key, String.valueOf(index));
+          break;
+        case ROW_GROUP_START:
+          implicitValues.put(key, String.valueOf(start));
+          break;
+        case ROW_GROUP_LENGTH:
+          implicitValues.put(key, String.valueOf(length));
           break;
         case LAST_MODIFIED_TIME:
           try {
@@ -486,7 +492,11 @@ public class ColumnExplorer {
 
     LAST_MODIFIED_TIME(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL),
 
-    ROW_GROUP_INDEX(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
+    ROW_GROUP_INDEX(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL),
+
+    ROW_GROUP_START(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL),
+
+    ROW_GROUP_LENGTH(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL);
 
     String name;
 

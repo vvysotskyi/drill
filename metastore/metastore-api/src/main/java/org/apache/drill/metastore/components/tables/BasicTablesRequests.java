@@ -43,8 +43,6 @@ public class BasicTablesRequests {
 
   public static final String LAST_MODIFIED_TIME = "lastModifiedTime";
   public static final String PATH = "path";
-  public static final String METADATA_IDENTIFIER = "metadataIdentifier";
-  public static final String METADATA_KEY = "metadataKey";
   public static final String LOCATION = "location";
   public static final String COLUMN = "column";
   public static final String INTERESTING_COLUMNS = "interestingColumns";
@@ -781,7 +779,7 @@ public class BasicTablesRequests {
         addFilter(MetadataInfo.METADATA_KEY, metadataKeys, filters);
         addFilter(PATH, path, filters);
         addFilter(PATH, paths, filters);
-        addFilter(METADATA_IDENTIFIER, identifiers, filters);
+        addFilter(MetadataInfo.METADATA_IDENTIFIER, identifiers, filters);
         if (customFilter != null) {
           filters.add(customFilter);
         }

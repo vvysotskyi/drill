@@ -735,7 +735,10 @@ SqlNode SqlAnalyzeTable() :
               }
           }
         <COLUMNS>
-        (fieldList = ParseRequiredFieldList("Table"))
+        (   fieldList = ParseRequiredFieldList("Table")
+          |
+          <NONE> {fieldList = SqlNodeList.EMPTY;}
+        )
     ]
     [
           {

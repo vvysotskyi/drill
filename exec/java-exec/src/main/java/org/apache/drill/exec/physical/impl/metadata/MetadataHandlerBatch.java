@@ -49,6 +49,7 @@ import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.MetadataType;
 import org.apache.drill.metastore.metadata.RowGroupMetadata;
 import org.apache.drill.metastore.metadata.SegmentMetadata;
+import org.apache.drill.metastore.statistics.ExactStatisticsConstants;
 import org.apache.drill.metastore.statistics.StatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.Path;
@@ -214,6 +215,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
       if (metadataType == MetadataType.ROW_GROUP) {
         arguments.add(Long.toString(((RowGroupMetadata) metadata).getRowGroupIndex()));
+        arguments.add(Long.toString(metadata.getStatistic(() -> ExactStatisticsConstants.START)));
+        arguments.add(Long.toString(metadata.getStatistic(() -> ExactStatisticsConstants.START)));
       }
 
       arguments.add(metadata.getSchema().jsonString());
@@ -262,6 +265,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
     if (metadataType == MetadataType.ROW_GROUP) {
       schemaBuilder.addNullable(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL), MinorType.VARCHAR);
+      schemaBuilder.addNullable(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL), MinorType.VARCHAR);
+      schemaBuilder.addNullable(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL), MinorType.VARCHAR);
     }
 
     schemaBuilder
@@ -282,6 +287,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
     String lastModifiedTimeField = context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL);
     String rgiField = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
+    String rgsField = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL);
+    String rglField = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL);
 
     ResultSetLoader resultSetLoader = getResultSetLoaderWithBatchSchema();
     resultSetLoader.startBatch();
@@ -326,6 +333,10 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           arguments.add(Long.toString(metadata.getLastModifiedTime()));
         } else if (fieldName.equals(rgiField)) {
           arguments.add(Long.toString(((RowGroupMetadata) metadata).getRowGroupIndex()));
+        } else if (fieldName.equals(rgsField)) {
+          arguments.add(Long.toString(metadata.getStatistic(() -> ExactStatisticsConstants.START)));
+        } else if (fieldName.equals(rglField)) {
+          arguments.add(Long.toString(metadata.getStatistic(() -> ExactStatisticsConstants.LENGTH)));
         } else if (fieldName.equals(MetadataAggBatch.METADATA_TYPE)) {
           arguments.add(metadataType.name());
         } else {
@@ -342,6 +353,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
   private ResultSetLoader getResultSetLoaderWithBatchSchema() {
     String lastModifiedTimeField = context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL);
     String rgiField = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
+    String rgsField = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL);
+    String rglField = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL);
     SchemaBuilder schemaBuilder = new SchemaBuilder();
     // adds fields to the schema preserving their order to avoid issues in outcoming batches
     for (VectorWrapper<?> vectorWrapper : container) {
@@ -351,6 +364,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           || fieldName.equals(MetadataAggBatch.SCHEMA_FIELD)
           || fieldName.equals(lastModifiedTimeField)
           || fieldName.equals(rgiField)
+          || fieldName.equals(rgsField)
+          || fieldName.equals(rglField)
           || fieldName.equals(MetadataAggBatch.METADATA_TYPE)
           || popConfig.getSegmentColumns().contains(fieldName)) {
         schemaBuilder.add(fieldName, field.getType().getMinorType(), field.getDataMode());

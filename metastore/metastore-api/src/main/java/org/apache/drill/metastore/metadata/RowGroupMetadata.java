@@ -74,6 +74,19 @@ public class RowGroupMetadata extends BaseMetadata implements LocationProvider {
     builder.location(getLocation().toUri().getPath());
   }
 
+  public RowGroupMetadataBuilder toBuilder() {
+    return builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(metadataInfo)
+        .schema(schema)
+        .columnsStatistics(columnsStatistics)
+        .metadataStatistics(metadataStatistics.values())
+        .lastModifiedTime(lastModifiedTime)
+        .hostAffinity(hostAffinity)
+        .rowGroupIndex(rowGroupIndex)
+        .path(path);
+  }
+
   public static RowGroupMetadataBuilder builder() {
     return new RowGroupMetadataBuilder();
   }
