@@ -37,7 +37,7 @@ public class MetadataControllerPrule extends Prule {
     MetadataControllerRel relNode = call.rel(0);
     RelNode input = relNode.getInput();
     RelTraitSet traits = input.getTraitSet()
-        .plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.DEFAULT);
+        .plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
     RelNode convertedInput = convert(input, traits);
     call.transformTo(new MetadataControllerPrel(relNode.getCluster(),
         relNode.getTraitSet().plus(Prel.DRILL_PHYSICAL), convertedInput, relNode.getTableInfo(),

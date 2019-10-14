@@ -82,9 +82,9 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
     super(popConfig, context, incoming);
     this.tables = context.getMetastoreRegistry().get().tables();
-    this.metadataType = popConfig.getMetadataType();
-    this.metadataToHandle = popConfig.getMetadataToHandle() != null
-        ? popConfig.getMetadataToHandle().stream()
+    this.metadataType = popConfig.getMetadataHandlerContext().metadataType();
+    this.metadataToHandle = popConfig.getMetadataHandlerContext().metadataToHandle() != null
+        ? popConfig.getMetadataHandlerContext().metadataToHandle().stream()
             .collect(Collectors.toMap(MetadataInfo::identifier, Function.identity()))
         : null;
   }
@@ -116,6 +116,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       case OK:
         assert !firstBatch : "First batch should be OK_NEW_SCHEMA";
         doWorkInternal();
+        // fall thru
       case OUT_OF_MEMORY:
       case NOT_YET:
       case STOP:
@@ -137,17 +138,17 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       switch (metadataType) {
         case ROW_GROUP: {
           List<RowGroupMetadata> rowGroups =
-              basicTablesRequests.rowGroupsMetadata(popConfig.getTableInfo(), new ArrayList<>(metadataToHandle.values()));
+              basicTablesRequests.rowGroupsMetadata(popConfig.getMetadataHandlerContext().tableInfo(), new ArrayList<>(metadataToHandle.values()));
           return populateContainer(rowGroups);
         }
         case FILE: {
           List<FileMetadata> files =
-              basicTablesRequests.filesMetadata(popConfig.getTableInfo(), new ArrayList<>(metadataToHandle.values()));
+              basicTablesRequests.filesMetadata(popConfig.getMetadataHandlerContext().tableInfo(), new ArrayList<>(metadataToHandle.values()));
           return populateContainer(files);
         }
         case SEGMENT: {
           List<SegmentMetadata> segments =
-              basicTablesRequests.segmentsMetadata(popConfig.getTableInfo(), new ArrayList<>(metadataToHandle.values()));
+              basicTablesRequests.segmentsMetadata(popConfig.getMetadataHandlerContext().tableInfo(), new ArrayList<>(metadataToHandle.values()));
           return populateContainer(segments);
         }
       }
@@ -190,7 +191,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       arguments.add(metadata.getPath().toUri().getPath());
       Collections.addAll(
           arguments,
-          Arrays.copyOf(MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()), popConfig.getSegmentColumns().size()));
+          Arrays.copyOf(MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()), popConfig.getMetadataHandlerContext().segmentColumns().size()));
 
       metadata.getColumnsStatistics().entrySet().stream()
           .sorted(Comparator.comparing(e -> e.getKey().getRootSegmentPath()))
@@ -231,7 +232,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
   private ResultSetLoader getResultSetLoaderForMetadata(BaseMetadata baseMetadata) {
     SchemaBuilder schemaBuilder = new SchemaBuilder()
         .addNullable(MetadataAggBatch.LOCATION_FIELD, MinorType.VARCHAR);
-    for (String segmentColumn : popConfig.getSegmentColumns()) {
+    for (String segmentColumn : popConfig.getMetadataHandlerContext().segmentColumns()) {
       schemaBuilder.addNullable(segmentColumn, MinorType.VARCHAR);
     }
 
@@ -301,7 +302,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       List<Object> arguments = new ArrayList<>();
       for (VectorWrapper<?> vectorWrapper : container) {
 
-        String[] identifierValues = Arrays.copyOf(MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()), popConfig.getSegmentColumns().size());
+        String[] identifierValues = Arrays.copyOf(MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()), popConfig.getMetadataHandlerContext().segmentColumns().size());
 
         // TODO: too ugly, find the way to rewrite it without if-else chain
         MaterializedField field = vectorWrapper.getField();
@@ -316,8 +317,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           } else {
             arguments.add(null);
           }
-        } else if (popConfig.getSegmentColumns().contains(fieldName)) {
-          arguments.add(identifierValues[popConfig.getSegmentColumns().indexOf(fieldName)]);
+        } else if (popConfig.getMetadataHandlerContext().segmentColumns().contains(fieldName)) {
+          arguments.add(identifierValues[popConfig.getMetadataHandlerContext().segmentColumns().indexOf(fieldName)]);
         } else if (ColumnNameStatisticsHandler.columnStatisticsField(fieldName)) {
           arguments.add(
               metadata.getColumnStatistics(SchemaPath.parseFromString(ColumnNameStatisticsHandler.getColumnName(fieldName)))
@@ -367,7 +368,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           || fieldName.equals(rgsField)
           || fieldName.equals(rglField)
           || fieldName.equals(MetadataAggBatch.METADATA_TYPE)
-          || popConfig.getSegmentColumns().contains(fieldName)) {
+          || popConfig.getMetadataHandlerContext().segmentColumns().contains(fieldName)) {
         schemaBuilder.add(fieldName, field.getType().getMinorType(), field.getDataMode());
       } else if (ColumnNameStatisticsHandler.columnStatisticsField(fieldName)
           || ColumnNameStatisticsHandler.metadataStatisticsField(fieldName)) {
@@ -405,7 +406,6 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
   protected IterOutcome doWorkInternal() {
     container.transferIn(incoming.getContainer());
-    container.setRecordCount(incoming.getRecordCount());
     VarCharVector valueVector = container.addOrGet(
         MaterializedField.create(MetadataAggBatch.METADATA_TYPE, Types.required(MinorType.VARCHAR)));
     valueVector.allocateNew();
@@ -413,6 +413,9 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     for (int i = 0; i < incoming.getRecordCount(); i++) {
       valueVector.getMutator().setSafe(i, metadataType.name().getBytes());
     }
+
+    valueVector.getMutator().setValueCount(incoming.getRecordCount());
+    container.setRecordCount(incoming.getRecordCount());
 
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
     updateMetadataToHandle();
@@ -428,7 +431,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
         case ROW_GROUP: {
           String rgiColumnName = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
           while (reader.next() && !metadataToHandle.isEmpty()) {
-            List<String> partitionValues = popConfig.getSegmentColumns().stream()
+            List<String> partitionValues = popConfig.getMetadataHandlerContext().segmentColumns().stream()
                 .map(columnName -> reader.column(columnName).scalar().getString())
                 .collect(Collectors.toList());
             Path location = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
@@ -439,7 +442,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
         }
         case FILE: {
           while (reader.next() && !metadataToHandle.isEmpty()) {
-            List<String> partitionValues = popConfig.getSegmentColumns().stream()
+            List<String> partitionValues = popConfig.getMetadataHandlerContext().segmentColumns().stream()
                 .map(columnName -> reader.column(columnName).scalar().getString())
                 .collect(Collectors.toList());
             Path location = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
@@ -450,8 +453,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
         }
         case SEGMENT: {
           while (reader.next() && !metadataToHandle.isEmpty()) {
-            List<String> partitionValues = popConfig.getSegmentColumns().stream()
-                .limit(popConfig.getDepthLevel())
+            List<String> partitionValues = popConfig.getMetadataHandlerContext().segmentColumns().stream()
+                .limit(popConfig.getMetadataHandlerContext().depthLevel())
                 .map(columnName -> reader.column(columnName).scalar().getString())
                 .collect(Collectors.toList());
             metadataToHandle.remove(MetadataIdentifierUtils.getMetadataIdentifierKey(partitionValues));

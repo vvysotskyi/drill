@@ -17,17 +17,17 @@
  */
 package org.apache.drill.exec.planner.sql.handlers;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlSelect;
-import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.RelConversionException;
@@ -96,6 +96,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -106,8 +108,6 @@ import static org.apache.drill.exec.planner.logical.DrillRelFactories.LOGICAL_BU
  */
 public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   private static final Logger logger = LoggerFactory.getLogger(MetastoreAnalyzeTableHandler.class);
-
-  private static final String METADATA_IDENTIFIER_SEPARATOR = "/";
 
   public MetastoreAnalyzeTableHandler(SqlHandlerConfig config, Pointer<String> textPlan) {
     super(config, textPlan);
@@ -135,8 +135,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
             .build(logger);
       }
 
-      TableType tableType = getTableType(table.getGroupScan());
-      AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(tableType);
+      AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(getTableType(table.getGroupScan()));
 
       SqlIdentifier tableIdentifier = sqlAnalyzeTable.getTableIdentifier();
       SqlSelect scanSql = new SqlSelect(
@@ -157,41 +156,6 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       final RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
 
       RelNode relScan = convertedRelNode.getConvertedNode();
-
-//    if(! (table instanceof DrillTable)) {
-//      return DrillStatsTable.notSupported(context, tableName);
-//    }
-//
-//    if (table instanceof DrillTable) {
-//      DrillTable drillTable = (DrillTable) table;
-//      final Object selection = drillTable.getSelection();
-//      if (!(selection instanceof FormatSelection)) {
-//        return DrillStatsTable.notSupported(context, tableName);
-//      }
-//      // Do not support non-parquet tables
-//      FormatSelection formatSelection = (FormatSelection) selection;
-//      FormatPluginConfig formatConfig = formatSelection.getFormat();
-//      if (!((formatConfig instanceof ParquetFormatConfig)
-//            || ((formatConfig instanceof NamedFormatPluginConfig)
-//                 && ((NamedFormatPluginConfig) formatConfig).name.equals("parquet")))) {
-//        return DrillStatsTable.notSupported(context, tableName);
-//      }
-//
-//      FileSystemPlugin plugin = (FileSystemPlugin) drillTable.getPlugin();
-//      DrillFileSystem fs = new DrillFileSystem(plugin.getFormatPlugin(
-//          formatSelection.getFormat()).getFsConf());
-//
-//      Path selectionRoot = formatSelection.getSelection().getSelectionRoot();
-//      if (!selectionRoot.toUri().getPath().endsWith(tableName) || !fs.getFileStatus(selectionRoot).isDirectory()) {
-//        return DrillStatsTable.notSupported(context, tableName);
-//      }
-//      // Do not recompute statistics, if stale
-//      Path statsFilePath = new Path(selectionRoot, DotDrillType.STATS.getEnding());
-//      if (fs.exists(statsFilePath) && !isStatsStale(fs, statsFilePath)) {
-//       return DrillStatsTable.notRequired(context, tableName);
-//      }
-//    }
-      // Convert the query to Drill Logical plan and insert a writer operator on top.
 
       DrillRel drel = convertToDrel(relScan, drillSchema, table, sqlAnalyzeTable);
 
@@ -239,12 +203,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
   /* Generates the column list specified in the ANALYZE statement */
   private SqlNodeList getColumnList(SqlMetastoreAnalyzeTable sqlAnalyzeTable, AnalyzeInfoProvider analyzeInfoProvider) {
-    SqlNodeList columnList = sqlAnalyzeTable.getFieldList();
-    // TODO: issue when columns list specified without partition columns
-    if (columnList == null || columnList.size() <= 0 || true) {
-      columnList = new SqlNodeList(SqlParserPos.ZERO);
-      columnList.add(new SqlIdentifier(SchemaPath.STAR_COLUMN.rootName(), SqlParserPos.ZERO));
-    }
+    SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
+    columnList.add(new SqlIdentifier(SchemaPath.STAR_COLUMN.rootName(), SqlParserPos.ZERO));
     MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
     for (SqlIdentifier field : analyzeInfoProvider.getProjectionFields(metadataLevel, context.getPlannerSettings().getOptions())) {
       columnList.add(field);
@@ -258,11 +218,10 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   /* Converts to Drill logical plan */
-  @SuppressWarnings("unchecked")
-  protected DrillRel convertToDrel(RelNode relNode, AbstractSchema schema, DrillTable table, SqlMetastoreAnalyzeTable sqlAnalyzeTable) throws SqlUnsupportedException, IOException {
+  private DrillRel convertToDrel(RelNode relNode, AbstractSchema schema,
+      DrillTable table, SqlMetastoreAnalyzeTable sqlAnalyzeTable) throws SqlUnsupportedException, IOException {
     RelBuilder relBuilder = LOGICAL_BUILDER.create(relNode.getCluster(), null);
 
-    // TODO: add logic to create required partition descriptor depending on the table type, i.e. file system, hive, parquet etc.
     MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
 
     TableType tableType = getTableType(table.getGroupScan());
@@ -297,20 +256,12 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     MetastoreTableInfo metastoreTableInfo = tables.basicRequests().metastoreTableInfo(tableInfo);
 
-    // add partition columns to the projection for the case when
-    // columns list was provided in analyze statement
-    SqlNodeList analyzeFieldList = sqlAnalyzeTable.getFieldList();
-    if (analyzeFieldList != null && analyzeFieldList.size() > 0 && false) {
-      relNode = addProjectWithPartitionColumns(relNode, relBuilder, segmentExpressions);
-    }
-
     List<MetadataInfo> allMetaToHandle = new ArrayList<>();
     List<MetadataInfo> metadataToRemove = new ArrayList<>();
 
     if (metastoreTableInfo.isExists()) {
       TableMetadataUnit tableMetadataUnit = tables.basicRequests().interestingColumnsAndPartitionKeys(tableInfo);
       List<String> metastoreInterestingColumns = tableMetadataUnit.interestingColumns();
-      Map<String, String> metastorePartitionKeys = tableMetadataUnit.partitionKeys();
 
       Map<String, Long> filesNamesLastModifiedTime = tables.basicRequests().filesLastModifiedTime(tableInfo, null, null);
 
@@ -528,9 +479,13 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           new MetadataHandlerRel(convertedRelNode.getCluster(),
               convertedRelNode.getTraitSet(),
               convertedRelNode,
-              tableInfo,
-              rowGroupsInfo,
-              MetadataType.ROW_GROUP, segmentExpressions.size(), null, segmentColumns); // TODO: pass locations here
+              MetadataHandlerContext.builder()
+                  .tableInfo(tableInfo)
+                  .metadataToHandle(rowGroupsInfo)
+                  .metadataType(MetadataType.ROW_GROUP)
+                  .depthLevel(segmentExpressions.size())
+                  .segmentColumns(segmentColumns)
+                  .build());
 
       createNewAggregations = false;
       locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
@@ -555,9 +510,13 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           new MetadataHandlerRel(convertedRelNode.getCluster(),
               convertedRelNode.getTraitSet(),
               convertedRelNode,
-              tableInfo,
-              filesInfo,
-              MetadataType.FILE, segmentExpressions.size(), null, segmentColumns);
+              MetadataHandlerContext.builder()
+                  .tableInfo(tableInfo)
+                  .metadataToHandle(filesInfo)
+                  .metadataType(MetadataType.FILE)
+                  .depthLevel(segmentExpressions.size())
+                  .segmentColumns(segmentColumns)
+                  .build());
 
       locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
 
@@ -588,9 +547,13 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
             new MetadataHandlerRel(convertedRelNode.getCluster(),
                 convertedRelNode.getTraitSet(),
                 convertedRelNode,
-                tableInfo,
-                new ArrayList<>(segments.get(i - 1)),
-                MetadataType.SEGMENT, i, null, segmentColumns.subList(0, i));
+                MetadataHandlerContext.builder()
+                    .tableInfo(tableInfo)
+                    .metadataToHandle(new ArrayList<>(segments.get(i - 1)))
+                    .metadataType(MetadataType.SEGMENT)
+                    .depthLevel(i)
+                    .segmentColumns(segmentColumns.subList(0, i))
+                    .build());
 
         locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
 
@@ -612,9 +575,13 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           new MetadataHandlerRel(convertedRelNode.getCluster(),
               convertedRelNode.getTraitSet(),
               convertedRelNode,
-              tableInfo,
-              Collections.singletonList(new MetadataInfo(MetadataType.TABLE, MetadataInfo.GENERAL_INFO_KEY, null)),
-              MetadataType.TABLE, segmentExpressions.size(), null, segmentColumns);
+              MetadataHandlerContext.builder()
+                  .tableInfo(tableInfo)
+                  .metadataToHandle(Collections.emptyList())
+                  .metadataType(MetadataType.TABLE)
+                  .depthLevel(segmentExpressions.size())
+                  .segmentColumns(segmentColumns)
+                  .build());
 
       convertedRelNode = new MetadataControllerRel(convertedRelNode.getCluster(),
           convertedRelNode.getTraitSet(),
@@ -637,33 +604,111 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     return fileSelection;
   }
 
-  private RelNode addProjectWithPartitionColumns(RelNode relNode, RelBuilder relBuilder, List<NamedExpression> segmentExpressions) {
-    RelNode input = relNode.getInput(0);
-    Preconditions.checkState(input.getRowType().getFieldList().get(0).isDynamicStar(), "First field should be dynamic star");
-    relBuilder.push(input);
-
-    List<String> fieldNames = segmentExpressions.stream()
-        .map(e -> e.getRef().getRootSegmentPath())
-        .collect(Collectors.toList());
-    List<RexNode> projections = segmentExpressions.stream()
-        .map(namedExpression -> relBuilder.call(SqlStdOperatorTable.ITEM,
-            relBuilder.field(0), relBuilder.literal(namedExpression.getRef().getRootSegmentPath())))
-        .collect(Collectors.toList());
-
-    for (RelDataTypeField relDataTypeField : relNode.getRowType().getFieldList()) {
-      projections.add(relBuilder.field(relDataTypeField.getName()));
-      fieldNames.add(relDataTypeField.getName());
-    }
-
-    relNode = relBuilder.project(projections, fieldNames).build();
-    return relNode;
-  }
-
   private TableType getTableType(GroupScan groupScan) {
     if (groupScan instanceof ParquetGroupScan) {
       return TableType.PARQUET;
     }
     throw new UnsupportedOperationException("Unsupported table type");
+  }
+
+  @JsonDeserialize(builder = MetadataHandlerContext.MetadataHandlerContextBuilder.class)
+  public static class MetadataHandlerContext {
+    private final TableInfo tableInfo;
+    private final List<MetadataInfo> metadataToHandle;
+    private final MetadataType metadataType;
+    private final int depthLevel;
+    private final List<String> segmentColumns;
+
+    private MetadataHandlerContext(MetadataHandlerContextBuilder builder) {
+      this.tableInfo = builder.tableInfo;
+      this.metadataToHandle = builder.metadataToHandle;
+      this.metadataType = builder.metadataType;
+      this.depthLevel = builder.depthLevel;
+      this.segmentColumns = builder.segmentColumns;
+    }
+
+    @JsonProperty
+    public TableInfo tableInfo() {
+      return tableInfo;
+    }
+
+    @JsonProperty
+    public List<MetadataInfo> metadataToHandle() {
+      return metadataToHandle;
+    }
+
+    @JsonProperty
+    public MetadataType metadataType() {
+      return metadataType;
+    }
+
+    @JsonProperty
+    public int depthLevel() {
+      return depthLevel;
+    }
+
+    @JsonProperty
+    public List<String> segmentColumns() {
+      return segmentColumns;
+    }
+
+    @Override
+    public String toString() {
+      return new StringJoiner(",\n", MetadataHandlerContext.class.getSimpleName() + "[", "]")
+          .add("tableInfo=" + tableInfo)
+          .add("metadataToHandle=" + metadataToHandle)
+          .add("metadataType=" + metadataType)
+          .add("depthLevel=" + depthLevel)
+          .add("segmentColumns=" + segmentColumns)
+          .toString();
+    }
+
+    public static MetadataHandlerContextBuilder builder() {
+      return new MetadataHandlerContextBuilder();
+    }
+
+    @JsonPOJOBuilder(withPrefix = "")
+    public static class MetadataHandlerContextBuilder {
+      private TableInfo tableInfo;
+      private List<MetadataInfo> metadataToHandle;
+      private MetadataType metadataType;
+      private Integer depthLevel;
+      private List<String> segmentColumns;
+
+      public MetadataHandlerContextBuilder tableInfo(TableInfo tableInfo) {
+        this.tableInfo = tableInfo;
+        return this;
+      }
+
+      public MetadataHandlerContextBuilder metadataToHandle(List<MetadataInfo> metadataToHandle) {
+        this.metadataToHandle = metadataToHandle;
+        return this;
+      }
+
+      public MetadataHandlerContextBuilder metadataType(MetadataType metadataType) {
+        this.metadataType = metadataType;
+        return this;
+      }
+
+      public MetadataHandlerContextBuilder depthLevel(int depthLevel) {
+        this.depthLevel = depthLevel;
+        return this;
+      }
+
+      public MetadataHandlerContextBuilder segmentColumns(List<String> segmentColumns) {
+        this.segmentColumns = segmentColumns;
+        return this;
+      }
+
+      public MetadataHandlerContext build() {
+        Objects.requireNonNull(tableInfo, "tableInfo was not set");
+        Objects.requireNonNull(metadataToHandle, "metadataToHandle was not set");
+        Objects.requireNonNull(metadataType, "metadataType was not set");
+        Objects.requireNonNull(depthLevel, "depthLevel was not set");
+        Objects.requireNonNull(segmentColumns, "segmentColumns were not set");
+        return new MetadataHandlerContext(this);
+      }
+    }
   }
 
   public enum TableType {
@@ -761,13 +806,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
       switch (metadataType) {
         case ROW_GROUP: {
-          String key = values.size() > 1 ? values.iterator().next() : MetadataInfo.DEFAULT_SEGMENT_KEY;
-          return MetadataInfo.builder()
-              .type(metadataType)
-              .key(key)
-              // TODO: append row group indexes to have a correct RG meta info
-              .identifier(MetadataIdentifierUtils.getMetadataIdentifierKey(values))
-              .build();
+          throw new UnsupportedOperationException("MetadataInfo cannot be obtained for row group using file location only");
         }
         case FILE: {
           String key = values.size() > 1 ? values.iterator().next() : MetadataInfo.DEFAULT_SEGMENT_KEY;
@@ -799,6 +838,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   public static class MetadataIdentifierUtils {
+    private static final String METADATA_IDENTIFIER_SEPARATOR = "/";
+
     public static String getMetadataIdentifierKey(List<String> values) {
       return String.join(METADATA_IDENTIFIER_SEPARATOR, values);
     }

@@ -79,14 +79,17 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.apache.drill.exec.physical.impl.metadata.MetadataControllerBatch.ColumnNameStatisticsHandler.getStatisticsKind;
-
 public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataControllerPOP> {
   private static final Logger logger = LoggerFactory.getLogger(MetadataControllerBatch.class);
 
   private final Tables tables;
   private final TableInfo tableInfo;
   private final Map<String, MetadataInfo> metadataToHandle;
+  private final List<TableMetadataUnit> metadataUnits;
+
+  private boolean first = true;
+  private boolean finished = false;
+  private int recordCount = 0;
 
   protected MetadataControllerBatch(MetadataControllerPOP popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
     super(popConfig, context, incoming);
@@ -96,6 +99,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
         ? null
         : popConfig.getMetadataToHandle().stream()
             .collect(Collectors.toMap(MetadataInfo::identifier, Function.identity()));
+    this.metadataUnits = new ArrayList<>();
   }
 
   @Override
@@ -111,7 +115,62 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
   }
 
   @Override
+  public IterOutcome innerNext() {
+    IterOutcome outcome;
+    boolean didSomeWork;
+    if (finished) {
+      return IterOutcome.NONE;
+    }
+    outer:
+    while (true) {
+      outcome = next(incoming);
+      switch (outcome) {
+        case NONE:
+          // all incoming data was processed when returned OK_NEW_SCHEMA
+          didSomeWork = !first;
+          break outer;
+        case OUT_OF_MEMORY:
+        case NOT_YET:
+        case STOP:
+          return outcome;
+        case OK_NEW_SCHEMA:
+          if (first) {
+            first = false;
+            if (!setupNewSchema()) {
+              outcome = IterOutcome.OK;
+            }
+            doWork();
+            return outcome;
+          }
+          //fall through
+        case OK:
+          assert !first : "First batch should be OK_NEW_SCHEMA";
+          IterOutcome out = doWork();
+          if (out != IterOutcome.OK) {
+            return out;
+          }
+          break;
+        default:
+          throw new UnsupportedOperationException("Unsupported upstream state " + outcome);
+      }
+    }
+
+    if (didSomeWork) {
+      IterOutcome out = writeToMetastore();
+      finished = true;
+      return out;
+    } else {
+      return outcome;
+    }
+  }
+
+  @Override
   protected IterOutcome doWork() {
+    metadataUnits.addAll(getMetadataUnits(incoming.getContainer()));
+    return IterOutcome.OK;
+  }
+
+  private IterOutcome writeToMetastore() {
     FilterExpression deleteFilter = popConfig.getTableInfo().toFilter();
 
     for (MetadataInfo metadataInfo : popConfig.getMetadataToRemove()) {
@@ -123,7 +182,8 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     if (!popConfig.getMetadataToRemove().isEmpty()) {
       modify.delete(deleteFilter);
     }
-    modify.overwrite(getMetadataUnits(incoming.getContainer()))
+
+    modify.overwrite(metadataUnits)
         .execute();
 
     BitVector bitVector = container.addOrGet("ok", Types.required(TypeProtos.MinorType.BIT), null);
@@ -141,7 +201,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
 
     bitVector.getMutator().setValueCount(1);
     varCharVector.getMutator().setValueCount(1);
-    container.setRecordCount(1);
+    container.setRecordCount(++recordCount);
 
     return IterOutcome.OK;
   }
@@ -237,7 +297,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
       String fieldName = ColumnNameStatisticsHandler.getColumnName(column.name());
 
       if (ColumnNameStatisticsHandler.columnStatisticsField(column.name())) {
-        StatisticsKind statisticsKind = getStatisticsKind(column.name());
+        StatisticsKind statisticsKind = ColumnNameStatisticsHandler.getStatisticsKind(column.name());
         columnStatistics.put(fieldName,
             new StatisticsHolder(getConvertedColumnValue(reader.column(column.name())), statisticsKind));
         if (statisticsKind.getName().equalsIgnoreCase(ColumnStatisticsKind.MIN_VALUE.getName())
@@ -245,7 +305,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
           columnTypes.putIfAbsent(fieldName, column.type());
         }
       } else if (ColumnNameStatisticsHandler.metadataStatisticsField(column.name())) {
-        metadataStatistics.add(new StatisticsHolder(reader.column(column.name()).getObject(), getStatisticsKind(column.name())));
+        metadataStatistics.add(new StatisticsHolder(reader.column(column.name()).getObject(), ColumnNameStatisticsHandler.getStatisticsKind(column.name())));
       } else if (column.name().equals(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL))) {
         metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()), new BaseStatisticsKind(ExactStatisticsConstants.START, true)));
       } else if (column.name().equals(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL))) {
@@ -498,7 +558,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
 
   @Override
   public int getRecordCount() {
-    return container.getRecordCount();
+    return recordCount;
   }
 
   public static class ColumnNameStatisticsHandler {

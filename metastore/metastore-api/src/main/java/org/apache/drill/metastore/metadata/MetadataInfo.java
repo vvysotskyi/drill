@@ -17,9 +17,10 @@
  */
 package org.apache.drill.metastore.metadata;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import org.apache.drill.metastore.components.tables.TableMetadataUnit;
 
 import java.util.Objects;
@@ -33,6 +34,7 @@ import java.util.StringJoiner;
  * {@code MetadataInfo[MetadataType.TABLE, MetadataInfo.GENERAL_INFO_KEY, null]}.
  */
 @JsonTypeName("metadataInfo")
+@JsonDeserialize(builder = MetadataInfo.MetadataInfoBuilder.class)
 public class MetadataInfo {
 
   public static final String GENERAL_INFO_KEY = "GENERAL_INFO";
@@ -50,15 +52,6 @@ public class MetadataInfo {
     this.type = builder.type;
     this.key = builder.key;
     this.identifier = builder.identifier;
-  }
-
-  @JsonCreator
-  public MetadataInfo(@JsonProperty("type") MetadataType type,
-      @JsonProperty("key") String key,
-      @JsonProperty("identifier") String identifier) {
-    this.type = type;
-    this.key = key;
-    this.identifier = identifier;
   }
 
   @JsonProperty
@@ -116,6 +109,7 @@ public class MetadataInfo {
     return new MetadataInfoBuilder();
   }
 
+  @JsonPOJOBuilder(withPrefix = "")
   public static class MetadataInfoBuilder {
     private MetadataType type;
     private String key;

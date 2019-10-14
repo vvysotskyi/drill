@@ -36,7 +36,8 @@ public class MetadataAggPrule extends Prule {
   public void onMatch(RelOptRuleCall call) {
     MetadataAggRel relNode = call.rel(0);
     RelNode input = relNode.getInput();
-    RelTraitSet traits = input.getTraitSet().plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.DEFAULT);
+    // TODO: update DrillDistributionTrait when implemented parallelization for metadata collecting
+    RelTraitSet traits = input.getTraitSet().plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
     RelNode convertedInput = convert(input, traits);
     call.transformTo(
         new MetadataAggPrel(relNode.getCluster(), relNode.getTraitSet().plus(Prel.DRILL_PHYSICAL),

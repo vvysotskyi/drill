@@ -23,42 +23,23 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.physical.base.AbstractSingle;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataHandlerContext;
 import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.metastore.metadata.MetadataInfo;
-import org.apache.drill.metastore.metadata.MetadataType;
-import org.apache.drill.metastore.metadata.TableInfo;
-
-import java.util.List;
 
 @JsonTypeName("metadataHandler")
 public class MetadataHandlerPOP extends AbstractSingle {
-  private final TableInfo tableInfo;
-  private final List<MetadataInfo> metadataToHandle;
-  private final MetadataType metadataType;
-  private final int depthLevel;
-  private final List<String> segmentColumns;
-  private final List<String> locations;
+  private final MetadataHandlerContext metadataHandlerContext;
 
   @JsonCreator
   public MetadataHandlerPOP(@JsonProperty("child") PhysicalOperator child,
-      @JsonProperty("tableInfo") TableInfo tableInfo,
-      @JsonProperty("metadataToHandle") List<MetadataInfo> metadataToHandle,
-      @JsonProperty("metadataType") MetadataType metadataType,
-      @JsonProperty("depthLevel") int depthLevel,
-      @JsonProperty("segmentColumns") List<String> segmentColumns,
-      @JsonProperty("locations") List<String> locations) {
+      @JsonProperty("metadataHandlerContext") MetadataHandlerContext metadataHandlerContext) {
     super(child);
-    this.tableInfo = tableInfo;
-    this.metadataToHandle = metadataToHandle;
-    this.metadataType = metadataType;
-    this.depthLevel = depthLevel;
-    this.segmentColumns = segmentColumns;
-    this.locations = locations;
+    this.metadataHandlerContext = metadataHandlerContext;
   }
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new MetadataHandlerPOP(child, tableInfo, metadataToHandle, metadataType, depthLevel, segmentColumns, locations);
+    return new MetadataHandlerPOP(child, metadataHandlerContext);
   }
 
   @Override
@@ -71,23 +52,7 @@ public class MetadataHandlerPOP extends AbstractSingle {
     return UserBitShared.CoreOperatorType.METADATA_HANDLER_VALUE;
   }
 
-  public TableInfo getTableInfo() {
-    return tableInfo;
-  }
-
-  public List<MetadataInfo> getMetadataToHandle() {
-    return metadataToHandle;
-  }
-
-  public MetadataType getMetadataType() {
-    return metadataType;
-  }
-
-  public int getDepthLevel() {
-    return depthLevel;
-  }
-
-  public List<String> getSegmentColumns() {
-    return segmentColumns;
+  public MetadataHandlerContext getMetadataHandlerContext() {
+    return metadataHandlerContext;
   }
 }

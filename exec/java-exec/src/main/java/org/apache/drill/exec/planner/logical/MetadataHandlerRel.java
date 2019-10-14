@@ -28,30 +28,17 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.drill.common.logical.data.LogicalOperator;
 import org.apache.drill.common.logical.data.MetadataHandler;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
-import org.apache.drill.metastore.metadata.MetadataInfo;
-import org.apache.drill.metastore.metadata.MetadataType;
-import org.apache.drill.metastore.metadata.TableInfo;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataHandlerContext;
 
 import java.util.List;
 
 public class MetadataHandlerRel extends SingleRel implements DrillRel {
-  private final TableInfo tableInfo;
-  private final List<MetadataInfo> metadataToHandle;
-  private final MetadataType metadataType;
-  private final int depthLevel;
-  private final List<String> locations;
-  private final List<String> segmentColumns;
+  private final MetadataHandlerContext metadataHandlerContext;
 
   public MetadataHandlerRel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      TableInfo tableInfo, List<MetadataInfo> metadataToHandle, MetadataType metadataType,
-      int depthLevel, List<String> locations, List<String> segmentColumns) {
+      MetadataHandlerContext metadataHandlerContext) {
     super(cluster, traits, input);
-    this.tableInfo = tableInfo;
-    this.metadataToHandle = metadataToHandle;
-    this.metadataType = metadataType;
-    this.depthLevel = depthLevel;
-    this.locations = locations;
-    this.segmentColumns = segmentColumns;
+    this.metadataHandlerContext = metadataHandlerContext;
   }
 
   @Override
@@ -64,7 +51,7 @@ public class MetadataHandlerRel extends SingleRel implements DrillRel {
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    return new MetadataHandlerRel(getCluster(), traitSet, sole(inputs), tableInfo, metadataToHandle, metadataType, depthLevel, locations, segmentColumns);
+    return new MetadataHandlerRel(getCluster(), traitSet, sole(inputs), metadataHandlerContext);
   }
 
   @Override
@@ -75,37 +62,12 @@ public class MetadataHandlerRel extends SingleRel implements DrillRel {
     return rel;
   }
 
-  public TableInfo getTableInfo() {
-    return tableInfo;
-  }
-
-  public List<MetadataInfo> getMetadataToHandle() {
-    return metadataToHandle;
-  }
-
-  public MetadataType getMetadataType() {
-    return metadataType;
-  }
-
-  public List<String> getLocations() {
-    return locations;
-  }
-
-  public int getDepthLevel() {
-    return depthLevel;
-  }
-
-  public List<String> getSegmentColumns() {
-    return segmentColumns;
+  public MetadataHandlerContext getMetadataHandlerContext() {
+    return metadataHandlerContext;
   }
 
   @Override
   public RelWriter explainTerms(RelWriter pw) {
-    return super.explainTerms(pw).item("tableInfo: ", tableInfo)
-        .item("metadataToHandle: ", metadataToHandle)
-        .item("metadataType: ", metadataType)
-        .item("depthLevel: ", depthLevel)
-        .item("locations: ", locations)
-        .item("segmentColumns: ", segmentColumns);
+    return super.explainTerms(pw).item("metadataHandlerContext: ", metadataHandlerContext);
   }
 }

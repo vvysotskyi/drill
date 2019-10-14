@@ -176,6 +176,7 @@ public class TestMetastoreCommands extends ClusterTest {
     ClusterFixtureBuilder builder = ClusterFixture.builder(dirTestWatcher);
     builder.configProperty(ExecConstants.ZK_ROOT, defaultFolder.getRoot().getPath());
     builder.sessionOption(ExecConstants.METASTORE_ENABLED, true);
+//    builder.sessionOption(ExecConstants.SLICE_TARGET, 1);
     startCluster(builder);
 
     dirTestWatcher.copyResourceToRoot(Paths.get("multilevel/parquet"));
