@@ -25,29 +25,21 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.LogicalOperator;
 import org.apache.drill.common.logical.data.MetadataAggregate;
-import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataAggregateContext;
 
 import java.util.List;
 
 public class MetadataAggRel extends SingleRel implements DrillRel {
 
-  private final List<NamedExpression> keys;
-  private final List<SchemaPath> interestingColumns;
-  private final boolean createNewAggregations;
-  private final List<SchemaPath> excludedColumns;
+  private final MetadataAggregateContext context;
 
   public MetadataAggRel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      List<NamedExpression> keys, List<SchemaPath> interestingColumns,
-      boolean createNewAggregations, List<SchemaPath> excludedColumns) {
+      MetadataAggregateContext context) {
     super(cluster, traits, input);
-    this.keys = keys;
-    this.interestingColumns = interestingColumns;
-    this.createNewAggregations = createNewAggregations;
-    this.excludedColumns = excludedColumns;
+    this.context = context;
   }
 
   @Override
@@ -60,7 +52,7 @@ public class MetadataAggRel extends SingleRel implements DrillRel {
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    return new MetadataAggRel(getCluster(), traitSet, sole(inputs), keys, interestingColumns, createNewAggregations, excludedColumns);
+    return new MetadataAggRel(getCluster(), traitSet, sole(inputs), context);
   }
 
   @Override
@@ -71,26 +63,12 @@ public class MetadataAggRel extends SingleRel implements DrillRel {
     return rel;
   }
 
-  public List<NamedExpression> getKeys() {
-    return keys;
-  }
-
-  public List<SchemaPath> getInterestingColumns() {
-    return interestingColumns;
-  }
-
-  public boolean createNewAggregations() {
-    return createNewAggregations;
-  }
-
-  public List<SchemaPath> getExcludedColumns() {
-    return excludedColumns;
+  public MetadataAggregateContext getContext() {
+    return context;
   }
 
   @Override
   public RelWriter explainTerms(RelWriter pw) {
-    return super.explainTerms(pw).item("keys: ", keys)
-        .item("interestingColumns: ", interestingColumns)
-        .item("createNewAggregations: ", createNewAggregations);
+    return super.explainTerms(pw).item("context: ", context);
   }
 }

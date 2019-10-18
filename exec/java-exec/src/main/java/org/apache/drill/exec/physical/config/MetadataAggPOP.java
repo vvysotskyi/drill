@@ -20,46 +20,29 @@ package org.apache.drill.exec.physical.config;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataAggregateContext;
 
 import java.util.Collections;
-import java.util.List;
 
 @JsonTypeName("metadataAggregate")
 public class MetadataAggPOP extends StreamingAggregate {
-  private final List<SchemaPath> interestingColumns;
-  private final boolean createNewAggregations;
-  private final List<SchemaPath> excludedColumns;
+  private final MetadataAggregateContext context;
 
   @JsonCreator
   public MetadataAggPOP(@JsonProperty("child") PhysicalOperator child,
-      @JsonProperty("keys") List<NamedExpression> keys,
-      @JsonProperty("interestingColumns") List<SchemaPath> interestingColumns,
-      @JsonProperty("createNewAggregations") boolean createNewAggregations,
-      @JsonProperty("excludedColumns") List<SchemaPath> excludedColumns) {
-    super(child, keys, Collections.emptyList());
-    this.interestingColumns = interestingColumns;
-    this.createNewAggregations = createNewAggregations;
-    this.excludedColumns = excludedColumns;
+      @JsonProperty("context") MetadataAggregateContext context) {
+    super(child, context.groupByExpressions(), Collections.emptyList());
+    this.context = context;
   }
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new MetadataAggPOP(child, getKeys(), interestingColumns, createNewAggregations, excludedColumns);
+    return new MetadataAggPOP(child, context);
   }
 
-  public List<SchemaPath> getInterestingColumns() {
-    return interestingColumns;
-  }
-
-  @JsonProperty("createNewAggregations")
-  public boolean createNewAggregations() {
-    return createNewAggregations;
-  }
-
-  public List<SchemaPath> getExcludedColumns() {
-    return excludedColumns;
+  @JsonProperty
+  public MetadataAggregateContext getContext() {
+    return context;
   }
 }

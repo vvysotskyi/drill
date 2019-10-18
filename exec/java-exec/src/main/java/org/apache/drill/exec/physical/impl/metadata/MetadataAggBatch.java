@@ -71,9 +71,8 @@ public class MetadataAggBatch extends StreamingAggBatch {
       throws SchemaChangeException, ClassTransformationException, IOException {
     valueExpressions = new ArrayList<>();
     MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
-    List<SchemaPath> interestingColumns = popConfig.getInterestingColumns();
 
-    List<SchemaPath> excludedColumns = popConfig.getExcludedColumns();
+    List<SchemaPath> excludedColumns = popConfig.getContext().excludedColumns();
 
     BatchSchema schema = incoming.getSchema();
     // Iterates through input expressions, to add aggregation calls for table fields
@@ -91,9 +90,9 @@ public class MetadataAggBatch extends StreamingAggBatch {
           fieldsList.add(FieldReference.getWithQuotedRef(filedName));
         });
 
-    if (popConfig.createNewAggregations()) {
+    if (popConfig.getContext().createNewAggregations()) {
       addNewAggregations(fieldsList);
-    } else if (!popConfig.createNewAggregations()) {
+    } else if (!popConfig.getContext().createNewAggregations()) {
       // for the case when aggregate on top of non-aggregated data is added, no need to collect raw data into the map
       addAggregationsToCollectAndMergeData(fieldsList);
     }
@@ -129,7 +128,7 @@ public class MetadataAggBatch extends StreamingAggBatch {
 
   private void addAggregationsToCollectAndMergeData(ArrayList<LogicalExpression> fieldsList) {
     MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
-    List<SchemaPath> excludedColumns = popConfig.getExcludedColumns();
+    List<SchemaPath> excludedColumns = popConfig.getContext().excludedColumns();
     // populate columns which weren't included to the schema, but should be collected to the COLLECTED_MAP_FIELD
     for (SchemaPath logicalExpressions : excludedColumns) {
       fieldsList.add(ValueExpressions.getChar(logicalExpressions.getRootSegmentPath(),
@@ -179,7 +178,7 @@ public class MetadataAggBatch extends StreamingAggBatch {
       // statistics collecting is not supported for array types
       if (field.getType().getMode() != TypeProtos.DataMode.REPEATED) {
         MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
-        List<SchemaPath> excludedColumns = popConfig.getExcludedColumns();
+        List<SchemaPath> excludedColumns = popConfig.getContext().excludedColumns();
         // excludedColumns are applied for root fields only
         if (parentFields != null || !excludedColumns.contains(SchemaPath.getSimplePath(field.getName()))) {
           List<String> currentPath;
@@ -189,12 +188,12 @@ public class MetadataAggBatch extends StreamingAggBatch {
             currentPath = new ArrayList<>(parentFields);
             currentPath.add(field.getName());
           }
-          if (field.getType().getMinorType() == TypeProtos.MinorType.MAP && popConfig.createNewAggregations()) {
+          if (field.getType().getMinorType() == TypeProtos.MinorType.MAP && popConfig.getContext().createNewAggregations()) {
             fieldNameRefMap.putAll(getUnflattenedFileds(field.getChildren(), currentPath));
           } else {
             SchemaPath schemaPath = SchemaPath.getCompoundPath(currentPath.toArray(new String[0]));
             // adds backticks for popConfig.createNewAggregations() to ensure that field will be parsed correctly
-            String name = popConfig.createNewAggregations() ? schemaPath.toExpr() : schemaPath.getRootSegmentPath();
+            String name = popConfig.getContext().createNewAggregations() ? schemaPath.toExpr() : schemaPath.getRootSegmentPath();
             fieldNameRefMap.put(name, new FieldReference(schemaPath));
           }
         }
@@ -206,8 +205,8 @@ public class MetadataAggBatch extends StreamingAggBatch {
 
   private void addColumnAggregateExpressions(FieldReference fieldRef, String fieldName) {
     MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
-    List<SchemaPath> interestingColumns = popConfig.getInterestingColumns();
-    if (popConfig.createNewAggregations()) {
+    List<SchemaPath> interestingColumns = popConfig.getContext().interestingColumns();
+    if (popConfig.getContext().createNewAggregations()) {
       if (interestingColumns == null || interestingColumns.contains(fieldRef)) {
         // collect statistics for all or only interesting columns if they are specified
         ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {

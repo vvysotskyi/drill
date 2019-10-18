@@ -56,6 +56,7 @@ import org.apache.drill.exec.planner.logical.MetadataHandlerRel;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.planner.physical.Prel;
 import org.apache.drill.exec.planner.sql.SchemaUtilites;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext.MetadataControllerContextBuilder;
 import org.apache.drill.exec.planner.sql.parser.SqlMetastoreAnalyzeTable;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.AbstractSchema;
@@ -102,6 +103,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.apache.drill.exec.planner.logical.DrillRelFactories.LOGICAL_BUILDER;
+import static org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataAggregateContext.*;
 
 /**
  * Constructs plan to be executed for collecting metadata and storing it to the metastore.
@@ -467,25 +469,30 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
               FieldReference.getWithQuotedRef(rowGroupIndexColumn)));
 
       rowGroupGroupByExpressions.add(new NamedExpression(locationField, FieldReference.getWithQuotedRef(MetadataAggBatch.LOCATION_FIELD)));
+
+      MetadataAggregateContext aggregateContext = builder()
+          .groupByExpressions(rowGroupGroupByExpressions)
+          .interestingColumns(statisticsColumns)
+          .createNewAggregations(createNewAggregations)
+          .excludedColumns(excludedColumns)
+          .build();
+
       convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
-          convertedRelNode.getTraitSet(),
-          convertedRelNode,
-          rowGroupGroupByExpressions,
-          statisticsColumns,
-          createNewAggregations,
-          excludedColumns);
+          convertedRelNode.getTraitSet(), convertedRelNode, aggregateContext);
+
+      MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
+          .tableInfo(tableInfo)
+          .metadataToHandle(rowGroupsInfo)
+          .metadataType(MetadataType.ROW_GROUP)
+          .depthLevel(segmentExpressions.size())
+          .segmentColumns(segmentColumns)
+          .build();
 
       convertedRelNode =
           new MetadataHandlerRel(convertedRelNode.getCluster(),
               convertedRelNode.getTraitSet(),
               convertedRelNode,
-              MetadataHandlerContext.builder()
-                  .tableInfo(tableInfo)
-                  .metadataToHandle(rowGroupsInfo)
-                  .metadataType(MetadataType.ROW_GROUP)
-                  .depthLevel(segmentExpressions.size())
-                  .segmentColumns(segmentColumns)
-                  .build());
+              handlerContext);
 
       createNewAggregations = false;
       locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
@@ -499,24 +506,29 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       ArrayList<NamedExpression> fileGroupByExpressions = new ArrayList<>(segmentExpressions);
       fileGroupByExpressions.add(locationExpression);
 
+      MetadataAggregateContext aggregateContext = builder()
+          .groupByExpressions(fileGroupByExpressions)
+          .interestingColumns(statisticsColumns)
+          .createNewAggregations(createNewAggregations)
+          .excludedColumns(excludedColumns)
+          .build();
+
       convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
-          convertedRelNode.getTraitSet(),
-          convertedRelNode,
-          fileGroupByExpressions,
-          statisticsColumns,
-          createNewAggregations, excludedColumns);
+          convertedRelNode.getTraitSet(), convertedRelNode, aggregateContext);
+
+      MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
+          .tableInfo(tableInfo)
+          .metadataToHandle(filesInfo)
+          .metadataType(MetadataType.FILE)
+          .depthLevel(segmentExpressions.size())
+          .segmentColumns(segmentColumns)
+          .build();
 
       convertedRelNode =
           new MetadataHandlerRel(convertedRelNode.getCluster(),
               convertedRelNode.getTraitSet(),
               convertedRelNode,
-              MetadataHandlerContext.builder()
-                  .tableInfo(tableInfo)
-                  .metadataToHandle(filesInfo)
-                  .metadataType(MetadataType.FILE)
-                  .depthLevel(segmentExpressions.size())
-                  .segmentColumns(segmentColumns)
-                  .build());
+              handlerContext);
 
       locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
 
@@ -536,24 +548,29 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
         groupByExpressions.addAll(segmentExpressions);
 
+        MetadataAggregateContext aggregateContext = builder()
+            .groupByExpressions(groupByExpressions.subList(0, i + 1))
+            .interestingColumns(statisticsColumns)
+            .createNewAggregations(createNewAggregations)
+            .excludedColumns(excludedColumns)
+            .build();
+
         convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
-            convertedRelNode.getTraitSet(),
-            convertedRelNode,
-            groupByExpressions.subList(0, i + 1),
-            statisticsColumns,
-            createNewAggregations, excludedColumns);
+            convertedRelNode.getTraitSet(), convertedRelNode, aggregateContext);
+
+        MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
+            .tableInfo(tableInfo)
+            .metadataToHandle(new ArrayList<>(segments.get(i - 1)))
+            .metadataType(MetadataType.SEGMENT)
+            .depthLevel(i)
+            .segmentColumns(segmentColumns.subList(0, i))
+            .build();
 
         convertedRelNode =
             new MetadataHandlerRel(convertedRelNode.getCluster(),
                 convertedRelNode.getTraitSet(),
                 convertedRelNode,
-                MetadataHandlerContext.builder()
-                    .tableInfo(tableInfo)
-                    .metadataToHandle(new ArrayList<>(segments.get(i - 1)))
-                    .metadataType(MetadataType.SEGMENT)
-                    .depthLevel(i)
-                    .segmentColumns(segmentColumns.subList(0, i))
-                    .build());
+                handlerContext);
 
         locationField = SchemaPath.getSimplePath(MetadataAggBatch.LOCATION_FIELD);
 
@@ -564,24 +581,29 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     if (metadataLevel.compareTo(MetadataType.TABLE) >= 0) {
       excludedColumns = Arrays.asList(locationField, lastModifiedTimeField);
 
+      MetadataAggregateContext aggregateContext = builder()
+          .groupByExpressions(Collections.emptyList())
+          .interestingColumns(statisticsColumns)
+          .createNewAggregations(createNewAggregations)
+          .excludedColumns(excludedColumns)
+          .build();
+
       convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
-          convertedRelNode.getTraitSet(),
-          convertedRelNode,
-          Collections.emptyList(),
-          statisticsColumns,
-          createNewAggregations, excludedColumns);
+          convertedRelNode.getTraitSet(), convertedRelNode, aggregateContext);
+
+      MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
+          .tableInfo(tableInfo)
+          .metadataToHandle(Collections.emptyList())
+          .metadataType(MetadataType.TABLE)
+          .depthLevel(segmentExpressions.size())
+          .segmentColumns(segmentColumns)
+          .build();
 
       convertedRelNode =
           new MetadataHandlerRel(convertedRelNode.getCluster(),
               convertedRelNode.getTraitSet(),
               convertedRelNode,
-              MetadataHandlerContext.builder()
-                  .tableInfo(tableInfo)
-                  .metadataToHandle(Collections.emptyList())
-                  .metadataType(MetadataType.TABLE)
-                  .depthLevel(segmentExpressions.size())
-                  .segmentColumns(segmentColumns)
-                  .build());
+              handlerContext);
 
       MetadataControllerContext metadataControllerContext = MetadataControllerContext.builder()
           .tableInfo(tableInfo)
@@ -719,7 +741,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     }
   }
 
-  @JsonDeserialize(builder = MetadataControllerContext.MetadataControllerContextBuilder.class)
+  @JsonDeserialize(builder = MetadataControllerContextBuilder.class)
   public static class MetadataControllerContext {
     private final TableInfo tableInfo;
     private final MetastoreTableInfo metastoreTableInfo;
@@ -842,6 +864,90 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         Objects.requireNonNull(metadataToHandle, "metadataToHandle was not set");
         Objects.requireNonNull(metadataToRemove, "metadataToRemove was not set");
         return new MetadataControllerContext(this);
+      }
+    }
+  }
+
+  @JsonDeserialize(builder = MetadataAggregateContextBuilder.class)
+  public static class MetadataAggregateContext {
+    private final List<NamedExpression> groupByExpressions;
+    private final List<SchemaPath> interestingColumns;
+    private final List<SchemaPath> excludedColumns;
+    private final boolean createNewAggregations;
+
+    public MetadataAggregateContext(MetadataAggregateContextBuilder builder) {
+      this.groupByExpressions = builder.groupByExpressions;
+      this.interestingColumns = builder.interestingColumns;
+      this.createNewAggregations = builder.createNewAggregations;
+      this.excludedColumns = builder.excludedColumns;
+    }
+
+    @JsonProperty
+    public List<NamedExpression> groupByExpressions() {
+      return groupByExpressions;
+    }
+
+    @JsonProperty
+    public List<SchemaPath> interestingColumns() {
+      return interestingColumns;
+    }
+
+    @JsonProperty
+    public boolean createNewAggregations() {
+      return createNewAggregations;
+    }
+
+    @JsonProperty
+    public List<SchemaPath> excludedColumns() {
+      return excludedColumns;
+    }
+
+    @Override
+    public String toString() {
+      return new StringJoiner(",\n", MetadataAggregateContext.class.getSimpleName() + "[", "]")
+          .add("groupByExpressions=" + groupByExpressions)
+          .add("interestingColumns=" + interestingColumns)
+          .add("createNewAggregations=" + createNewAggregations)
+          .add("excludedColumns=" + excludedColumns)
+          .toString();
+    }
+
+    public static MetadataAggregateContextBuilder builder() {
+      return new MetadataAggregateContextBuilder();
+    }
+
+    @JsonPOJOBuilder(withPrefix = "")
+    public static class MetadataAggregateContextBuilder {
+      private List<NamedExpression> groupByExpressions;
+      private List<SchemaPath> interestingColumns;
+      private Boolean createNewAggregations;
+      private List<SchemaPath> excludedColumns;
+
+      public MetadataAggregateContextBuilder groupByExpressions(List<NamedExpression> groupByExpressions) {
+        this.groupByExpressions = groupByExpressions;
+        return this;
+      }
+
+      public MetadataAggregateContextBuilder interestingColumns(List<SchemaPath> interestingColumns) {
+        this.interestingColumns = interestingColumns;
+        return this;
+      }
+
+      public MetadataAggregateContextBuilder createNewAggregations(boolean createNewAggregations) {
+        this.createNewAggregations = createNewAggregations;
+        return this;
+      }
+
+      public MetadataAggregateContextBuilder excludedColumns(List<SchemaPath> excludedColumns) {
+        this.excludedColumns = excludedColumns;
+        return this;
+      }
+
+      public MetadataAggregateContext build() {
+        Objects.requireNonNull(groupByExpressions, "groupByExpressions were not set");
+        Objects.requireNonNull(createNewAggregations, "createNewAggregations was not set");
+        Objects.requireNonNull(excludedColumns, "excludedColumns were not set");
+        return new MetadataAggregateContext(this);
       }
     }
   }

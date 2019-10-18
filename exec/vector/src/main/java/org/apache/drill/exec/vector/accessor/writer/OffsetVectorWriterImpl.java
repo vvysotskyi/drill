@@ -310,7 +310,9 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
     // Value count is in row positions.
 
     fillEmpties(valueCount - lastWriteIndex - 1);
-    vector().getBuffer().writerIndex((valueCount + 1) * VALUE_WIDTH);
+    if (valueCount > 0) {
+      vector().getBuffer().writerIndex((valueCount + 1) * VALUE_WIDTH);
+    }
   }
 
   @Override

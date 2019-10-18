@@ -21,12 +21,11 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.MetadataAggPOP;
 import org.apache.drill.exec.planner.common.DrillRelNode;
 import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataAggregateContext;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -35,25 +34,18 @@ import java.util.Iterator;
 import java.util.List;
 
 public class MetadataAggPrel extends SingleRel implements DrillRelNode, Prel {
-  private final List<NamedExpression> keys;
-  private final List<SchemaPath> interestingColumns;
-  private final boolean createNewAggregations;
-  private final List<SchemaPath> excludedColumns;
+  private final MetadataAggregateContext context;
 
   public MetadataAggPrel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      List<NamedExpression> keys, List<SchemaPath> interestingColumns,
-      boolean createNewAggregations, List<SchemaPath> excludedColumns) {
+      MetadataAggregateContext context) {
     super(cluster, traits, input);
-    this.keys = keys;
-    this.interestingColumns = interestingColumns;
-    this.createNewAggregations = createNewAggregations;
-    this.excludedColumns = excludedColumns;
+    this.context = context;
   }
 
   @Override
   public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) throws IOException {
     Prel child = (Prel) this.getInput();
-    MetadataAggPOP physicalOperator = new MetadataAggPOP(child.getPhysicalOperator(creator), keys, interestingColumns, createNewAggregations, excludedColumns);
+    MetadataAggPOP physicalOperator = new MetadataAggPOP(child.getPhysicalOperator(creator), context);
     return creator.addMetadata(this, physicalOperator);
   }
 
@@ -64,7 +56,7 @@ public class MetadataAggPrel extends SingleRel implements DrillRelNode, Prel {
 
   @Override
   public BatchSchema.SelectionVectorMode[] getSupportedEncodings() {
-    return BatchSchema.SelectionVectorMode.ALL;
+    return BatchSchema.SelectionVectorMode.DEFAULT;
   }
 
   @Override
@@ -85,6 +77,6 @@ public class MetadataAggPrel extends SingleRel implements DrillRelNode, Prel {
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     Preconditions.checkState(inputs.size() == 1);
-    return new MetadataAggPrel(getCluster(), traitSet, inputs.iterator().next(), keys, interestingColumns, createNewAggregations, excludedColumns);
+    return new MetadataAggPrel(getCluster(), traitSet, inputs.iterator().next(), context);
   }
 }

@@ -19,10 +19,16 @@ package org.apache.drill.exec.planner.physical;
 
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.MetadataAggRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
+
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class MetadataAggPrule extends Prule {
   public static MetadataAggPrule INSTANCE = new MetadataAggPrule();
@@ -36,11 +42,19 @@ public class MetadataAggPrule extends Prule {
   public void onMatch(RelOptRuleCall call) {
     MetadataAggRel relNode = call.rel(0);
     RelNode input = relNode.getInput();
+
+    int groupByExprsSize = relNode.getContext().groupByExpressions().size();
+
+    // group by expressions will be returned first
+    RelCollation collation = RelCollations.of(IntStream.range(1, groupByExprsSize)
+        .mapToObj(RelFieldCollation::new)
+        .collect(Collectors.toList()));
+
     // TODO: update DrillDistributionTrait when implemented parallelization for metadata collecting
-    RelTraitSet traits = input.getTraitSet().plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
+    RelTraitSet traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
+    traits = groupByExprsSize > 0 ? traits.plus(collation) : traits;
     RelNode convertedInput = convert(input, traits);
     call.transformTo(
-        new MetadataAggPrel(relNode.getCluster(), relNode.getTraitSet().plus(Prel.DRILL_PHYSICAL),
-            convertedInput, relNode.getKeys(), relNode.getInterestingColumns(), relNode.createNewAggregations(), relNode.getExcludedColumns()));
+        new MetadataAggPrel(relNode.getCluster(), traits, convertedInput, relNode.getContext()));
   }
 }
