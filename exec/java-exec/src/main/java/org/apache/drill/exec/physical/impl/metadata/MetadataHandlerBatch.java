@@ -404,17 +404,17 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     return true;
   }
 
-  protected IterOutcome doWorkInternal() {
+  private IterOutcome doWorkInternal() {
     container.transferIn(incoming.getContainer());
-    VarCharVector valueVector = container.addOrGet(
+    VarCharVector metadataTypeVector = container.addOrGet(
         MaterializedField.create(MetadataAggBatch.METADATA_TYPE, Types.required(MinorType.VARCHAR)));
-    valueVector.allocateNew();
+    metadataTypeVector.allocateNew();
     // TODO: replace with adequate solution
     for (int i = 0; i < incoming.getRecordCount(); i++) {
-      valueVector.getMutator().setSafe(i, metadataType.name().getBytes());
+      metadataTypeVector.getMutator().setSafe(i, metadataType.name().getBytes());
     }
 
-    valueVector.getMutator().setValueCount(incoming.getRecordCount());
+    metadataTypeVector.getMutator().setValueCount(incoming.getRecordCount());
     container.setRecordCount(incoming.getRecordCount());
 
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);

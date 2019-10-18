@@ -41,6 +41,7 @@ import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
 import org.apache.drill.metastore.components.tables.TableMetadataUnit;
 import org.apache.drill.metastore.components.tables.Tables;
 import org.apache.drill.metastore.expressions.FilterExpression;
@@ -94,10 +95,10 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
   protected MetadataControllerBatch(MetadataControllerPOP popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
     super(popConfig, context, incoming);
     this.tables = context.getMetastoreRegistry().get().tables();
-    this.tableInfo = popConfig.getTableInfo();
-    this.metadataToHandle = popConfig.getMetadataToHandle() == null
+    this.tableInfo = popConfig.getContext().tableInfo();
+    this.metadataToHandle = popConfig.getContext().metadataToHandle() == null
         ? null
-        : popConfig.getMetadataToHandle().stream()
+        : popConfig.getContext().metadataToHandle().stream()
             .collect(Collectors.toMap(MetadataInfo::identifier, Function.identity()));
     this.metadataUnits = new ArrayList<>();
   }
@@ -171,16 +172,30 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
   }
 
   private IterOutcome writeToMetastore() {
-    FilterExpression deleteFilter = popConfig.getTableInfo().toFilter();
+    FilterExpression deleteFilter = popConfig.getContext().tableInfo().toFilter();
 
-    for (MetadataInfo metadataInfo : popConfig.getMetadataToRemove()) {
+    for (MetadataInfo metadataInfo : popConfig.getContext().metadataToRemove()) {
       deleteFilter = FilterExpression.and(deleteFilter,
           FilterExpression.equal(MetadataInfo.METADATA_KEY, metadataInfo.key()));
     }
 
     Modify<TableMetadataUnit> modify = tables.modify();
-    if (!popConfig.getMetadataToRemove().isEmpty()) {
+    if (!popConfig.getContext().metadataToRemove().isEmpty()) {
       modify.delete(deleteFilter);
+    }
+
+    MetastoreTableInfo metastoreTableInfo = popConfig.getContext().metastoreTableInfo();
+
+    MetastoreTableInfo currentMetastoreTableInfo = tables.basicRequests().metastoreTableInfo(tableInfo);
+    if (metastoreTableInfo.isExists() && !currentMetastoreTableInfo.isExists()) {
+      throw new IllegalStateException(String.format("Metadata for table [%s] was removed before incremental analyze is finished", tableInfo.name()));
+    }
+
+    if (!metastoreTableInfo.isExists() && currentMetastoreTableInfo.isExists()
+        || (metastoreTableInfo.isExists() && currentMetastoreTableInfo.isExists()
+            && metastoreTableInfo.metastoreVersion() < currentMetastoreTableInfo.metastoreVersion()
+            && metastoreTableInfo.lastModifiedTime() < currentMetastoreTableInfo.lastModifiedTime())) {
+      throw new IllegalStateException(String.format("Metadata for table [%s] was already collected", tableInfo.name()));
     }
 
     modify.overwrite(metadataUnits)
@@ -195,9 +210,9 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
     bitVector.getMutator().set(0, 1);
     varCharVector.getMutator().setSafe(0,
         String.format("Collected / refreshed metadata for table [%s.%s.%s]",
-            popConfig.getTableInfo().storagePlugin(),
-            popConfig.getTableInfo().workspace(),
-            popConfig.getTableInfo().name()).getBytes());
+            popConfig.getContext().tableInfo().storagePlugin(),
+            popConfig.getContext().tableInfo().workspace(),
+            popConfig.getContext().tableInfo().name()).getBytes());
 
     bitVector.getMutator().setValueCount(1);
     varCharVector.getMutator().setValueCount(1);
@@ -230,7 +245,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
 
       List<TableMetadataUnit> metadata = metadataToHandle.isEmpty()
           ? Collections.emptyList()
-          : tables.basicRequests().metadata(popConfig.getTableInfo(), metadataToHandle.values());
+          : tables.basicRequests().metadata(popConfig.getContext().tableInfo(), metadataToHandle.values());
 
       metadataUnits.addAll(metadata);
     }
@@ -342,7 +357,7 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
 
     MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.scalar().getString());
 
-    List<String> segmentColumns = popConfig.getSegmentColumns();
+    List<String> segmentColumns = popConfig.getContext().segmentColumns();
 
     BaseMetadata metadata;
 
@@ -365,8 +380,8 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
             .columnsStatistics(resultingStats)
             .metadataStatistics(metadataStatistics)
             .partitionKeys(Collections.emptyMap())
-            .interestingColumns(popConfig.getInterestingColumns())
-            .location(popConfig.getLocation())
+            .interestingColumns(popConfig.getContext().interestingColumns())
+            .location(popConfig.getContext().location())
             .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
             .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
             .build();

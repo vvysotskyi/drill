@@ -20,46 +20,26 @@ package org.apache.drill.exec.physical.config;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.AbstractSingle;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext;
 import org.apache.drill.exec.proto.UserBitShared;
-import org.apache.drill.metastore.metadata.MetadataInfo;
-import org.apache.drill.metastore.metadata.TableInfo;
-import org.apache.hadoop.fs.Path;
-
-import java.util.List;
 
 @JsonTypeName("metadataController")
 public class MetadataControllerPOP extends AbstractSingle {
-  private final TableInfo tableInfo;
-  private final Path location;
-  private final List<SchemaPath> interestingColumns;
-  private final List<String> segmentColumns;
-  private final List<MetadataInfo> metadataToHandle;
-  private final List<MetadataInfo> metadataToRemove;
+  private final MetadataControllerContext context;
 
   @JsonCreator
   public MetadataControllerPOP(@JsonProperty("child") PhysicalOperator child,
-      @JsonProperty("tableInfo") TableInfo tableInfo,
-      @JsonProperty("location") Path location,
-      @JsonProperty("interestingColumns") List<SchemaPath> interestingColumns,
-      @JsonProperty("segmentColumns") List<String> segmentColumns,
-      @JsonProperty("metadataToHandle") List<MetadataInfo> metadataToHandle,
-      @JsonProperty("metadataToRemove") List<MetadataInfo> metadataToRemove) {
+      @JsonProperty("context") MetadataControllerContext context) {
     super(child);
-    this.tableInfo = tableInfo;
-    this.location = location;
-    this.interestingColumns = interestingColumns;
-    this.segmentColumns = segmentColumns;
-    this.metadataToHandle = metadataToHandle;
-    this.metadataToRemove = metadataToRemove;
+    this.context = context;
   }
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new MetadataControllerPOP(child, tableInfo, location, interestingColumns, segmentColumns, metadataToHandle, metadataToRemove);
+    return new MetadataControllerPOP(child, context);
   }
 
   @Override
@@ -72,32 +52,8 @@ public class MetadataControllerPOP extends AbstractSingle {
     return UserBitShared.CoreOperatorType.METADATA_CONTROLLER_VALUE;
   }
 
-  public Path getLocation() {
-    return location;
-  }
-
-  @JsonProperty("interestingColumns")
-  public List<SchemaPath> getInterestingColumns() {
-    return interestingColumns;
-  }
-
-  @JsonProperty("tableInfo")
-  public TableInfo getTableInfo() {
-    return tableInfo;
-  }
-
-  @JsonProperty("segmentColumns")
-  public List<String> getSegmentColumns() {
-    return segmentColumns;
-  }
-
-  @JsonProperty("metadataToHandle")
-  public List<MetadataInfo> getMetadataToHandle() {
-    return metadataToHandle;
-  }
-
-  @JsonProperty("metadataToRemove")
-  public List<MetadataInfo> getMetadataToRemove() {
-    return metadataToRemove;
+  @JsonProperty
+  public MetadataControllerContext getContext() {
+    return context;
   }
 }

@@ -583,12 +583,20 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
                   .segmentColumns(segmentColumns)
                   .build());
 
+      MetadataControllerContext metadataControllerContext = MetadataControllerContext.builder()
+          .tableInfo(tableInfo)
+          .metastoreTableInfo(metastoreTableInfo)
+          .location(((FormatSelection) table.getSelection()).getSelection().getSelectionRoot())
+          .interestingColumns(interestingColumns)
+          .segmentColumns(segmentColumns)
+          .metadataToHandle(allMetaToHandle)
+          .metadataToRemove(metadataToRemove)
+          .build();
+
       convertedRelNode = new MetadataControllerRel(convertedRelNode.getCluster(),
           convertedRelNode.getTraitSet(),
           convertedRelNode,
-          tableInfo,
-          ((FormatSelection) table.getSelection()).getSelection().getSelectionRoot(),
-          interestingColumns, segmentColumns, allMetaToHandle, metadataToRemove);
+          metadataControllerContext);
     } else {
       throw new IllegalStateException("Analyze table with NONE level");
     }
@@ -707,6 +715,133 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         Objects.requireNonNull(depthLevel, "depthLevel was not set");
         Objects.requireNonNull(segmentColumns, "segmentColumns were not set");
         return new MetadataHandlerContext(this);
+      }
+    }
+  }
+
+  @JsonDeserialize(builder = MetadataControllerContext.MetadataControllerContextBuilder.class)
+  public static class MetadataControllerContext {
+    private final TableInfo tableInfo;
+    private final MetastoreTableInfo metastoreTableInfo;
+    private final Path location;
+    private final List<SchemaPath> interestingColumns;
+    private final List<String> segmentColumns;
+    private final List<MetadataInfo> metadataToHandle;
+    private final List<MetadataInfo> metadataToRemove;
+
+    private MetadataControllerContext(MetadataControllerContextBuilder builder) {
+      this.tableInfo = builder.tableInfo;
+      this.metastoreTableInfo = builder.metastoreTableInfo;
+      this.location = builder.location;
+      this.interestingColumns = builder.interestingColumns;
+      this.segmentColumns = builder.segmentColumns;
+      this.metadataToHandle = builder.metadataToHandle;
+      this.metadataToRemove = builder.metadataToRemove;
+    }
+
+    @JsonProperty
+    public TableInfo tableInfo() {
+      return tableInfo;
+    }
+
+    @JsonProperty
+    public MetastoreTableInfo metastoreTableInfo() {
+      return metastoreTableInfo;
+    }
+
+    @JsonProperty
+    public Path location() {
+      return location;
+    }
+
+    @JsonProperty
+    public List<SchemaPath> interestingColumns() {
+      return interestingColumns;
+    }
+
+    @JsonProperty
+    public List<String> segmentColumns() {
+      return segmentColumns;
+    }
+
+    @JsonProperty
+    public List<MetadataInfo> metadataToHandle() {
+      return metadataToHandle;
+    }
+
+    @JsonProperty
+    public List<MetadataInfo> metadataToRemove() {
+      return metadataToRemove;
+    }
+
+    @Override
+    public String toString() {
+      return new StringJoiner(",\n", MetadataControllerContext.class.getSimpleName() + "[", "]")
+          .add("tableInfo=" + tableInfo)
+          .add("location=" + location)
+          .add("interestingColumns=" + interestingColumns)
+          .add("segmentColumns=" + segmentColumns)
+          .add("metadataToHandle=" + metadataToHandle)
+          .add("metadataToRemove=" + metadataToRemove)
+          .toString();
+    }
+
+    public static MetadataControllerContextBuilder builder() {
+      return new MetadataControllerContextBuilder();
+    }
+
+    @JsonPOJOBuilder(withPrefix = "")
+    public static class MetadataControllerContextBuilder {
+      private TableInfo tableInfo;
+      private MetastoreTableInfo metastoreTableInfo;
+      private Path location;
+      private List<SchemaPath> interestingColumns;
+      private List<String> segmentColumns;
+      private List<MetadataInfo> metadataToHandle;
+      private List<MetadataInfo> metadataToRemove;
+
+      public MetadataControllerContextBuilder tableInfo(TableInfo tableInfo) {
+        this.tableInfo = tableInfo;
+        return this;
+      }
+
+      public MetadataControllerContextBuilder metastoreTableInfo(MetastoreTableInfo metastoreTableInfo) {
+        this.metastoreTableInfo = metastoreTableInfo;
+        return this;
+      }
+
+      public MetadataControllerContextBuilder location(Path location) {
+        this.location = location;
+        return this;
+      }
+
+      public MetadataControllerContextBuilder interestingColumns(List<SchemaPath> interestingColumns) {
+        this.interestingColumns = interestingColumns;
+        return this;
+      }
+
+      public MetadataControllerContextBuilder segmentColumns(List<String> segmentColumns) {
+        this.segmentColumns = segmentColumns;
+        return this;
+      }
+
+      public MetadataControllerContextBuilder metadataToHandle(List<MetadataInfo> metadataToHandle) {
+        this.metadataToHandle = metadataToHandle;
+        return this;
+      }
+
+      public MetadataControllerContextBuilder metadataToRemove(List<MetadataInfo> metadataToRemove) {
+        this.metadataToRemove = metadataToRemove;
+        return this;
+      }
+
+      public MetadataControllerContext build() {
+        Objects.requireNonNull(tableInfo, "tableInfo was not set");
+        Objects.requireNonNull(location, "location was not set");
+        Objects.requireNonNull(segmentColumns, "segmentColumns were not set");
+        Objects.requireNonNull(metadataToHandle, "metadataToHandle was not set");
+        Objects.requireNonNull(metadataToRemove, "metadataToRemove was not set");
+        return new MetadataControllerContext(this);
       }
     }
   }

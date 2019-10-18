@@ -40,8 +40,6 @@ public class MetadataControllerPrule extends Prule {
         .plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
     RelNode convertedInput = convert(input, traits);
     call.transformTo(new MetadataControllerPrel(relNode.getCluster(),
-        relNode.getTraitSet().plus(Prel.DRILL_PHYSICAL), convertedInput, relNode.getTableInfo(),
-        relNode.getLocation(), relNode.getInterestingColumns(), relNode.getSegmentColumns(),
-        relNode.getMetadataToHandle(), relNode.getMetadataToRemove()));
+        relNode.getTraitSet().plus(Prel.DRILL_PHYSICAL), convertedInput, relNode.getContext()));
   }
 }

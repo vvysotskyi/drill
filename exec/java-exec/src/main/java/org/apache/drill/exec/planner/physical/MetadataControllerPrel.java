@@ -24,44 +24,31 @@ import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.MetadataControllerPOP;
 import org.apache.drill.exec.planner.common.DrillRelNode;
 import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.metastore.metadata.MetadataInfo;
-import org.apache.drill.metastore.metadata.TableInfo;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
 public class MetadataControllerPrel extends SingleRel implements DrillRelNode, Prel {
-  private final TableInfo tableInfo;
-  private final Path location;
-  private final List<SchemaPath> interestingColumns;
-  private final List<String> segmentColumns;
-  private final List<MetadataInfo> metadataToHandle;
-  private final List<MetadataInfo> metadataToRemove;
+  private final MetadataControllerContext context;
 
   protected MetadataControllerPrel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      TableInfo tableInfo, Path location, List<SchemaPath> interestingColumns, List<String> segmentColumns, List<MetadataInfo> metadataToHandle, List<MetadataInfo> metadataToRemove) {
+      MetadataControllerContext context) {
     super(cluster, traits, input);
-    this.tableInfo = tableInfo;
-    this.location = location;
-    this.interestingColumns = interestingColumns;
-    this.segmentColumns = segmentColumns;
-    this.metadataToHandle = metadataToHandle;
-    this.metadataToRemove = metadataToRemove;
+    this.context = context;
   }
 
   @Override
   public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) throws IOException {
     Prel child = (Prel) this.getInput();
-    MetadataControllerPOP physicalOperator = new MetadataControllerPOP(child.getPhysicalOperator(creator), tableInfo, location, interestingColumns, segmentColumns, metadataToHandle, metadataToRemove);
+    MetadataControllerPOP physicalOperator = new MetadataControllerPOP(child.getPhysicalOperator(creator), context);
     return creator.addMetadata(this, physicalOperator);
   }
 
@@ -83,8 +70,7 @@ public class MetadataControllerPrel extends SingleRel implements DrillRelNode, P
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     Preconditions.checkState(inputs.size() == 1);
-    return new MetadataControllerPrel(getCluster(), traitSet, inputs.iterator().next(),
-        tableInfo, location, interestingColumns, segmentColumns, metadataToHandle, metadataToRemove);
+    return new MetadataControllerPrel(getCluster(), traitSet, inputs.iterator().next(), context);
   }
 
   @Override
