@@ -20,6 +20,7 @@ package org.apache.drill.exec.sql;
 import org.apache.commons.io.FileUtils;
 import org.apache.drill.categories.MetastoreTest;
 import org.apache.drill.categories.SlowTest;
+import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.ExecConstants;
@@ -46,11 +47,14 @@ import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterFixtureBuilder;
 import org.apache.drill.test.ClusterTest;
 import org.apache.hadoop.fs.Path;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
+import org.junit.rules.ExpectedException;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
@@ -172,6 +176,9 @@ public class TestMetastoreCommands extends ClusterTest {
   @ClassRule
   public static TemporaryFolder defaultFolder = new TemporaryFolder();
 
+  @Rule
+  public ExpectedException thrown = ExpectedException.none();
+
   @BeforeClass
   public static void setUp() throws Exception {
     ClusterFixtureBuilder builder = ClusterFixture.builder(dirTestWatcher);
@@ -182,6 +189,63 @@ public class TestMetastoreCommands extends ClusterTest {
 
     dirTestWatcher.copyResourceToRoot(Paths.get("multilevel/parquet"));
     dirTestWatcher.copyResourceToRoot(Paths.get("multilevel/parquet2"));
+  }
+
+  @Before
+  public void prepare() {
+    client.alterSession(ExecConstants.METASTORE_ENABLED, true);
+    client.alterSession(ExecConstants.SLICE_TARGET, 1);
+  }
+
+  @Test
+  public void testAnalyzeWithDisabledMetastore() throws Exception {
+    dirTestWatcher.copyResourceToRoot(Paths.get("multilevel/parquet"));
+    client.alterSession(ExecConstants.METASTORE_ENABLED, false);
+
+    try {
+      thrown.expect(UserRemoteException.class);
+      thrown.expectMessage("Running ANALYZE command when metastore is disabled");
+      queryBuilder().sql("ANALYZE TABLE dfs.`multilevel/parquet` REFRESH METADATA").run();
+    } finally {
+      client.resetSession(ExecConstants.METASTORE_ENABLED);
+    }
+  }
+
+  @Test
+  public void testSelectWithDisabledMetastore() throws Exception {
+    String tableName = "region_parquet";
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+    try {
+      queryBuilder().sql("create table dfs.tmp.`%s` as\n" +
+          "select * from cp.`tpch/region.parquet`", tableName).run();
+
+      queryBuilder().sql("analyze table dfs.tmp.`%s` columns none REFRESH METADATA", tableName).run();
+
+      String query = "select mykey from dfs.tmp.`%s` where mykey is null";
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals("Row count does not match the expected value", 5, actualRowCount);
+      String usedMetaPattern = "usedMetastore=true";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(usedMetaPattern));
+
+      client.alterSession(ExecConstants.METASTORE_ENABLED, false);
+
+      queryBuilder().sql(query, tableName).run().recordCount();
+      assertEquals("Row count does not match the expected value", 5, actualRowCount);
+      usedMetaPattern = "usedMetastore=false";
+
+      plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(usedMetaPattern));
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .delete(tableInfo.toFilter())
+          .execute();
+      queryBuilder().sql("drop table if exists dfs.tmp.`%s`", tableName).run();
+      client.resetSession(ExecConstants.METASTORE_ENABLED);
+    }
   }
 
   @Test
@@ -514,6 +578,239 @@ public class TestMetastoreCommands extends ClusterTest {
       queryBuilder().sql("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus) REFRESH METADATA 'row_group' LEVEL", tableName).run();
 
       BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .basicRequests().tableMetadata(tableInfo);
+
+      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .delete(tableInfo.toFilter())
+          .execute();
+    }
+  }
+
+  @Test
+  public void testAnalyzeWithNoColumns() throws Exception {
+    String tableName = "multilevel/parquetNoColumns";
+    File table = dirTestWatcher.copyResourceToTestTmp(Paths.get("multilevel/parquet"), Paths.get(tableName));
+    Path tablePath = new Path(table.toURI().getPath());
+
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+
+    Map<SchemaPath, ColumnStatistics> updatedTableColumnStatistics = new HashMap<>();
+
+    SchemaPath dir0Path = SchemaPath.getSimplePath("dir0");
+    SchemaPath dir1Path = SchemaPath.getSimplePath("dir1");
+
+    updatedTableColumnStatistics.put(dir0Path, TABLE_COLUMN_STATISTICS.get(dir0Path));
+    updatedTableColumnStatistics.put(dir1Path, TABLE_COLUMN_STATISTICS.get(dir1Path));
+
+    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(TABLE_META_INFO)
+        .schema(SCHEMA)
+        .location(tablePath)
+        .columnsStatistics(updatedTableColumnStatistics)
+        .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(120L, TableStatisticsKind.ROW_COUNT)))
+        .partitionKeys(Collections.emptyMap())
+        .lastModifiedTime(table.lastModified())
+        .interestingColumns(Collections.emptyList())
+        .build()
+        .toMetadataUnit();
+
+    try {
+      queryBuilder().sql("ANALYZE TABLE dfs.tmp.`%s` columns NONE REFRESH METADATA 'row_group' LEVEL", tableName).run();
+
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .basicRequests().tableMetadata(tableInfo);
+
+      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .delete(tableInfo.toFilter())
+          .execute();
+    }
+  }
+
+  @Test
+  public void testIncrementalAnalyzeWithFewerColumns() throws Exception {
+    String tableName = "multilevel/parquetFewerColumns";
+    File table = dirTestWatcher.copyResourceToTestTmp(Paths.get("multilevel/parquet"), Paths.get(tableName));
+    Path tablePath = new Path(table.toURI().getPath());
+
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+
+    Map<SchemaPath, ColumnStatistics> updatedTableColumnStatistics = new HashMap<>();
+
+    SchemaPath orderStatusPath = SchemaPath.getSimplePath("o_orderstatus");
+    SchemaPath orderDatePath = SchemaPath.getSimplePath("o_orderdate");
+    SchemaPath dir0Path = SchemaPath.getSimplePath("dir0");
+    SchemaPath dir1Path = SchemaPath.getSimplePath("dir1");
+
+    updatedTableColumnStatistics.put(orderStatusPath, TABLE_COLUMN_STATISTICS.get(orderStatusPath));
+    updatedTableColumnStatistics.put(orderDatePath, TABLE_COLUMN_STATISTICS.get(orderDatePath));
+    updatedTableColumnStatistics.put(dir0Path, TABLE_COLUMN_STATISTICS.get(dir0Path));
+    updatedTableColumnStatistics.put(dir1Path, TABLE_COLUMN_STATISTICS.get(dir1Path));
+
+    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(TABLE_META_INFO)
+        .schema(SCHEMA)
+        .location(tablePath)
+        .columnsStatistics(updatedTableColumnStatistics)
+        .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(120L, TableStatisticsKind.ROW_COUNT)))
+        .partitionKeys(Collections.emptyMap())
+        .lastModifiedTime(table.lastModified())
+        .interestingColumns(Arrays.asList(orderStatusPath, orderDatePath))
+        .build()
+        .toMetadataUnit();
+
+    try {
+      queryBuilder().sql("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus, o_orderdate) REFRESH METADATA 'row_group' LEVEL", tableName).run();
+
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .basicRequests().tableMetadata(tableInfo);
+
+      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+
+      // checks that analyze wasn't produced though interesting columns list differs, but it is a sublist of previously analyzed table
+      testBuilder()
+          .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus) REFRESH METADATA 'row_group' LEVEL", tableName)
+          .unOrdered()
+          .baselineColumns("ok", "Summary")
+          .baselineValues(false, "Analyze is so cool, it knows that table wasn't changed!")
+          .go();
+
+      actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .basicRequests().tableMetadata(tableInfo);
+
+      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .delete(tableInfo.toFilter())
+          .execute();
+    }
+  }
+
+  @Test
+  public void testIncrementalAnalyzeWithMoreColumns() throws Exception {
+    String tableName = "multilevel/parquetMoreColumns";
+    File table = dirTestWatcher.copyResourceToTestTmp(Paths.get("multilevel/parquet"), Paths.get(tableName));
+    Path tablePath = new Path(table.toURI().getPath());
+
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+
+    Map<SchemaPath, ColumnStatistics> updatedTableColumnStatistics = new HashMap<>();
+
+    SchemaPath orderStatusPath = SchemaPath.getSimplePath("o_orderstatus");
+    SchemaPath orderDatePath = SchemaPath.getSimplePath("o_orderdate");
+    SchemaPath dir0Path = SchemaPath.getSimplePath("dir0");
+    SchemaPath dir1Path = SchemaPath.getSimplePath("dir1");
+
+    updatedTableColumnStatistics.put(orderStatusPath, TABLE_COLUMN_STATISTICS.get(orderStatusPath));
+    updatedTableColumnStatistics.put(dir0Path, TABLE_COLUMN_STATISTICS.get(dir0Path));
+    updatedTableColumnStatistics.put(dir1Path, TABLE_COLUMN_STATISTICS.get(dir1Path));
+
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(TABLE_META_INFO)
+        .schema(SCHEMA)
+        .location(tablePath)
+        .columnsStatistics(updatedTableColumnStatistics)
+        .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(120L, TableStatisticsKind.ROW_COUNT)))
+        .partitionKeys(Collections.emptyMap())
+        .lastModifiedTime(table.lastModified())
+        .interestingColumns(Collections.singletonList(orderStatusPath))
+        .build();
+
+    try {
+      queryBuilder().sql("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus) REFRESH METADATA 'row_group' LEVEL", tableName).run();
+
+      TableMetadataUnit actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .basicRequests().tableMetadata(tableInfo).toMetadataUnit();
+
+      assertEquals(expectedTableMetadata.toMetadataUnit(), actualTableMetadata);
+
+      // checks that analyze was produced since interesting columns list differs, and second columns list isn't a sublist of previously analyzed table
+      testBuilder()
+          .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus, o_orderdate) REFRESH METADATA 'row_group' LEVEL", tableName)
+          .unOrdered()
+          .baselineColumns("ok", "Summary")
+          .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
+          .go();
+
+      actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .basicRequests().tableMetadata(tableInfo).toMetadataUnit();
+
+      updatedTableColumnStatistics.put(orderDatePath, TABLE_COLUMN_STATISTICS.get(orderDatePath));
+
+      assertEquals(
+          expectedTableMetadata.toBuilder()
+              .columnsStatistics(updatedTableColumnStatistics)
+              .interestingColumns(Arrays.asList(orderStatusPath, orderDatePath))
+              .build()
+              .toMetadataUnit(),
+          actualTableMetadata);
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .delete(tableInfo.toFilter())
+          .execute();
+    }
+  }
+
+  @Test
+  public void testIncrementalAnalyzeWithEmptyColumns() throws Exception {
+    String tableName = "multilevel/parquetEmptyColumns";
+    File table = dirTestWatcher.copyResourceToTestTmp(Paths.get("multilevel/parquet"), Paths.get(tableName));
+    Path tablePath = new Path(table.toURI().getPath());
+
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+
+    Map<SchemaPath, ColumnStatistics> updatedTableColumnStatistics = new HashMap<>();
+
+    SchemaPath orderStatusPath = SchemaPath.getSimplePath("o_orderstatus");
+    SchemaPath orderDatePath = SchemaPath.getSimplePath("o_orderdate");
+    SchemaPath dir0Path = SchemaPath.getSimplePath("dir0");
+    SchemaPath dir1Path = SchemaPath.getSimplePath("dir1");
+
+    updatedTableColumnStatistics.put(orderStatusPath, TABLE_COLUMN_STATISTICS.get(orderStatusPath));
+    updatedTableColumnStatistics.put(orderDatePath, TABLE_COLUMN_STATISTICS.get(orderDatePath));
+    updatedTableColumnStatistics.put(dir0Path, TABLE_COLUMN_STATISTICS.get(dir0Path));
+    updatedTableColumnStatistics.put(dir1Path, TABLE_COLUMN_STATISTICS.get(dir1Path));
+
+    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+        .tableInfo(tableInfo)
+        .metadataInfo(TABLE_META_INFO)
+        .schema(SCHEMA)
+        .location(tablePath)
+        .columnsStatistics(updatedTableColumnStatistics)
+        .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(120L, TableStatisticsKind.ROW_COUNT)))
+        .partitionKeys(Collections.emptyMap())
+        .lastModifiedTime(table.lastModified())
+        .interestingColumns(Arrays.asList(orderStatusPath, orderDatePath))
+        .build()
+        .toMetadataUnit();
+
+    try {
+      queryBuilder().sql("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus, o_orderdate) REFRESH METADATA 'row_group' LEVEL", tableName).run();
+
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .basicRequests().tableMetadata(tableInfo);
+
+      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+
+      // checks that analyze wasn't produced though interesting columns list differs, but it is a sublist of previously analyzed table
+      testBuilder()
+          .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` columns NONE REFRESH METADATA 'row_group' LEVEL", tableName)
+          .unOrdered()
+          .baselineColumns("ok", "Summary")
+          .baselineValues(false, "Analyze is so cool, it knows that table wasn't changed!")
+          .go();
+
+      actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
           .basicRequests().tableMetadata(tableInfo);
 
       assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
@@ -1822,7 +2119,7 @@ public class TestMetastoreCommands extends ClusterTest {
 
   @Test
   public void testSelectAfterAnalyzeWithNonRowGroupLevel() throws Exception {
-    String tableName = "multilevel/parquetAnalyzeWithNonRowGroupLevel";
+    String tableName = "parquetAnalyzeWithNonRowGroupLevel";
 
     TableInfo tableInfo = getTableInfo(tableName, "tmp");
 
@@ -1831,8 +2128,7 @@ public class TestMetastoreCommands extends ClusterTest {
     try {
       queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA 'file' level", tableName).run();
 
-      String query =
-          "select * from dfs.`%s`";
+      String query = "select * from dfs.`%s`";
       long expectedRowCount = 120;
       int expectedNumFiles = 12;
 
@@ -1852,6 +2148,82 @@ public class TestMetastoreCommands extends ClusterTest {
           .modify()
           .delete(tableInfo.toFilter())
           .execute();
+    }
+  }
+
+  @Test
+  public void testAnalyzeWithFallbackError() throws Exception {
+    String tableName = "parquetAnalyzeWithFallback";
+
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+
+    dirTestWatcher.copyResourceToRoot(Paths.get("multilevel/parquet"), Paths.get(tableName));
+
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA 'file' level", tableName).run();
+      client.alterSession(ExecConstants.METASTORE_FALLBACK_TO_FILE_METADATA, false);
+
+      thrown.expect(UserRemoteException.class);
+      thrown.expectMessage("Metastore hasn't metadata for row groups and `metastore.metadata.fallback_to_file_metadata` is disabled.");
+      queryBuilder().sql("select * from dfs.`%s`", tableName).run();
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .delete(tableInfo.toFilter())
+          .execute();
+      client.resetSession(ExecConstants.METASTORE_FALLBACK_TO_FILE_METADATA);
+    }
+  }
+
+  @Test
+  public void testAnalyzeWithSchemaError() throws Exception {
+    String tableName = "parquetAnalyzeWithSchemaError";
+
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+
+    dirTestWatcher.copyResourceToRoot(Paths.get("multilevel/parquet"), Paths.get(tableName));
+
+    try {
+      queryBuilder().sql("analyze table dfs.`%s` REFRESH METADATA", tableName).run();
+      client.alterSession(ExecConstants.METASTORE_USE_SCHEMA_METADATA, false);
+
+      thrown.expect(UserRemoteException.class);
+      thrown.expectMessage("Table schema wasn't provided and `metastore.metadata.use_schema` is disabled.");
+      queryBuilder().sql("select * from dfs.`%s`", tableName).run();
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .delete(tableInfo.toFilter())
+          .execute();
+      client.resetSession(ExecConstants.METASTORE_USE_SCHEMA_METADATA);
+    }
+  }
+
+  @Test
+  public void testAnalyzeWithSchema() throws Exception {
+    String tableName = "parquetAnalyzeWithSchema";
+
+    TableInfo tableInfo = getTableInfo(tableName, "tmp");
+
+    String table = String.format("dfs.tmp.%s", tableName);
+
+    try {
+      client.alterSession(ExecConstants.METASTORE_USE_SCHEMA_METADATA, false);
+      client.alterSession(ExecConstants.STORE_TABLE_USE_SCHEMA_FILE, true);
+      run("create table %s as select 'a' as c from (values(1))", table);
+      run("analyze table %s REFRESH METADATA", table);
+
+      run("create schema (o_orderstatus varchar) for table %s", table);
+
+      run("select * from %s", table);
+    } finally {
+      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+          .modify()
+          .delete(tableInfo.toFilter())
+          .execute();
+      client.resetSession(ExecConstants.METASTORE_USE_SCHEMA_METADATA);
+      client.resetSession(ExecConstants.STORE_TABLE_USE_SCHEMA_FILE);
+      run("drop table if exists %s", table);
     }
   }
 

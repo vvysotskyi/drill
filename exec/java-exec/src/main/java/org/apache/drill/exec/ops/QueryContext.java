@@ -361,11 +361,10 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
     }
   }
 
-  /*
-   * Clears the type {@link SqlStatementType} of the statement. Ideally we should not clear the statement type
-   * so this should never be exposed outside the QueryContext
+  /**
+   * Clears the type {@link SqlStatementType} of the statement.
    */
-  private void clearSQLStatementType() {
+  public void clearSQLStatementType() {
     this.stmtType = null;
   }
 

@@ -186,16 +186,8 @@ public class MetadataControllerBatch extends AbstractSingleRecordBatch<MetadataC
 
     MetastoreTableInfo metastoreTableInfo = popConfig.getContext().metastoreTableInfo();
 
-    MetastoreTableInfo currentMetastoreTableInfo = tables.basicRequests().metastoreTableInfo(tableInfo);
-    if (metastoreTableInfo.isExists() && !currentMetastoreTableInfo.isExists()) {
-      throw new IllegalStateException(String.format("Metadata for table [%s] was removed before incremental analyze is finished", tableInfo.name()));
-    }
-
-    if (!metastoreTableInfo.isExists() && currentMetastoreTableInfo.isExists()
-        || (metastoreTableInfo.isExists() && currentMetastoreTableInfo.isExists()
-            && metastoreTableInfo.metastoreVersion() < currentMetastoreTableInfo.metastoreVersion()
-            && metastoreTableInfo.lastModifiedTime() < currentMetastoreTableInfo.lastModifiedTime())) {
-      throw new IllegalStateException(String.format("Metadata for table [%s] was already collected", tableInfo.name()));
+    if (tables.basicRequests().hasMetastoreTableInfoChanged(metastoreTableInfo)) {
+      throw new IllegalStateException(String.format("Metadata for table [%s] was changed before analyze is finished", tableInfo.name()));
     }
 
     modify.overwrite(metadataUnits)

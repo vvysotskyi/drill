@@ -54,6 +54,7 @@ import org.apache.drill.exec.dotdrill.View;
 import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.exec.metastore.MetastoreMetadataProviderManager;
+import org.apache.drill.exec.metastore.MetastoreMetadataProviderManager.MetastoreMetadataProviderConfig;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.planner.logical.CreateTableEntry;
 import org.apache.drill.exec.planner.logical.DrillTable;
@@ -451,7 +452,10 @@ public class WorkspaceSchemaFactory {
               .name(tableName)
               .build();
           if (metastoreRegistry.get().tables().basicRequests().metastoreTableInfo(tableInfo).isExists()) {
-            providerManager = new MetastoreMetadataProviderManager(metastoreRegistry, tableInfo);
+            providerManager = new MetastoreMetadataProviderManager(metastoreRegistry, tableInfo,
+                new MetastoreMetadataProviderConfig(schemaConfig.getOption(ExecConstants.METASTORE_USE_SCHEMA_METADATA).bool_val,
+                    schemaConfig.getOption(ExecConstants.METASTORE_USE_STATISTICS_METADATA).bool_val,
+                    schemaConfig.getOption(ExecConstants.METASTORE_FALLBACK_TO_FILE_METADATA).bool_val));
           } else {
             providerManager = FileSystemMetadataProviderManager.init();
           }

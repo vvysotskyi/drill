@@ -1075,8 +1075,7 @@ public final class ExecConstants {
   public static final BooleanValidator METASTORE_ENABLED_VALIDATOR = new BooleanValidator(METASTORE_ENABLED,
       new OptionDescription("Enables Drill Metastore usage to be able to store table metadata " +
           "during ANALYZE TABLE commands execution and to be able to read table metadata during regular " +
-          "queries execution or when querying some INFORMATION_SCHEMA tables. " +
-          "This option is not active for now. Default is false. (Drill 1.17+)"));
+          "queries execution or when querying some INFORMATION_SCHEMA tables. Default is false. (Drill 1.17+)"));
 
   /**
    * Option for specifying maximum level depth for collecting metadata
@@ -1086,7 +1085,7 @@ public final class ExecConstants {
   public static final String METASTORE_METADATA_STORE_DEPTH_LEVEL = "metastore.metadata.store.depth_level";
   public static final EnumeratedStringValidator METASTORE_METADATA_STORE_DEPTH_LEVEL_VALIDATOR = new EnumeratedStringValidator(METASTORE_METADATA_STORE_DEPTH_LEVEL,
       new OptionDescription("Specifies maximum level depth for collecting metadata. " +
-          "This option is not active for now. Default is 'ROW_GROUP'. (Drill 1.17+)"),
+          "Default is 'ROW_GROUP'. (Drill 1.17+)"),
       "TABLE", "SEGMENT", "PARTITION", "FILE", "ROW_GROUP");
 
   /**
@@ -1094,16 +1093,14 @@ public final class ExecConstants {
    */
   public static final String METASTORE_USE_SCHEMA_METADATA = "metastore.metadata.use_schema";
   public static final BooleanValidator METASTORE_USE_SCHEMA_METADATA_VALIDATOR = new BooleanValidator(METASTORE_USE_SCHEMA_METADATA,
-      new OptionDescription("Enables schema usage, stored to the Metastore. " +
-          "This option is not active for now. Default is false. (Drill 1.17+)"));
+      new OptionDescription("Enables schema usage, stored to the Metastore. Default is false. (Drill 1.17+)"));
 
   /**
    * Option for enabling statistics usage, stored in the Metastore, at the planning stage.
    */
   public static final String METASTORE_USE_STATISTICS_METADATA = "metastore.metadata.use_statistics";
   public static final BooleanValidator METASTORE_USE_STATISTICS_METADATA_VALIDATOR = new BooleanValidator(METASTORE_USE_STATISTICS_METADATA,
-      new OptionDescription("Enables statistics usage, stored in the Metastore, at the planning stage. " +
-          "This option is not active for now. Default is false. (Drill 1.17+)"));
+      new OptionDescription("Enables statistics usage, stored in the Metastore, at the planning stage. Default is false. (Drill 1.17+)"));
 
   /**
    * Option for collecting schema and / or column statistics for every table after CTAS and CTTAS execution.
@@ -1121,7 +1118,7 @@ public final class ExecConstants {
   public static final String METASTORE_FALLBACK_TO_FILE_METADATA = "metastore.metadata.fallback_to_file_metadata";
   public static final BooleanValidator METASTORE_FALLBACK_TO_FILE_METADATA_VALIDATOR = new BooleanValidator(METASTORE_FALLBACK_TO_FILE_METADATA,
       new OptionDescription("Allows using file metadata cache for the case when required metadata is absent in the Metastore. " +
-          "This option is not active for now. Default is true. (Drill 1.17+)"));
+          "Default is true. (Drill 1.17+)"));
 
   /**
    * Option for specifying the number of attempts for retrying query planning after detecting that query metadata is changed.
@@ -1130,7 +1127,7 @@ public final class ExecConstants {
   public static final IntegerValidator METASTORE_RETRIVAL_RETRY_ATTEMPTS_VALIDATOR = new IntegerValidator(METASTORE_RETRIVAL_RETRY_ATTEMPTS,
       new OptionDescription("Specifies the number of attempts for retrying query planning after detecting that query metadata is changed. " +
           "If the number of retries was exceeded, query will be planned without metadata information from the Metastore. " +
-          "This option is not active for now. Default is 5. (Drill 1.17+)"));
+          "Default is 5. (Drill 1.17+)"));
 
   public static final String PARQUET_READER_ENABLE_MAP_SUPPORT = "store.parquet.reader.enable_map_support";
   public static final BooleanValidator PARQUET_READER_ENABLE_MAP_SUPPORT_VALIDATOR = new BooleanValidator(

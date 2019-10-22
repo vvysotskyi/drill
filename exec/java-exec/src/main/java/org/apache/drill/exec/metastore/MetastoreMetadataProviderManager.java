@@ -28,15 +28,18 @@ public class MetastoreMetadataProviderManager implements MetadataProviderManager
 
   private final MetastoreRegistry metastoreRegistry;
   private final TableInfo tableInfo;
+  private final MetastoreMetadataProviderConfig config;
 
   private TableMetadataProvider tableMetadataProvider;
 
   private SchemaProvider schemaProvider;
   private DrillStatsTable statsProvider;
 
-  public MetastoreMetadataProviderManager(MetastoreRegistry metastoreRegistry, TableInfo tableInfo) {
+  public MetastoreMetadataProviderManager(MetastoreRegistry metastoreRegistry,
+      TableInfo tableInfo, MetastoreMetadataProviderConfig config) {
     this.metastoreRegistry = metastoreRegistry;
     this.tableInfo = tableInfo;
+    this.config = config;
   }
 
   @Override
@@ -77,6 +80,10 @@ public class MetastoreMetadataProviderManager implements MetadataProviderManager
     return tableInfo;
   }
 
+  public MetastoreMetadataProviderConfig getConfig() {
+    return config;
+  }
+
   @Override
   public TableMetadataProviderBuilder builder(MetadataProviderKind kind) {
     switch (kind) {
@@ -84,5 +91,29 @@ public class MetastoreMetadataProviderManager implements MetadataProviderManager
         return new MetastoreParquetTableMetadataProvider.Builder(this);
     }
     return null;
+  }
+
+  public static class MetastoreMetadataProviderConfig {
+    private final boolean useSchema;
+    private final boolean useStatistics;
+    private final boolean fallbackToFileMetadata;
+
+    public MetastoreMetadataProviderConfig(boolean useSchema, boolean useStatistics, boolean fallbackToFileMetadata) {
+      this.useSchema = useSchema;
+      this.useStatistics = useStatistics;
+      this.fallbackToFileMetadata = fallbackToFileMetadata;
+    }
+
+    public boolean useSchema() {
+      return useSchema;
+    }
+
+    public boolean useStatistics() {
+      return useStatistics;
+    }
+
+    public boolean fallbackToFileMetadata() {
+      return fallbackToFileMetadata;
+    }
   }
 }

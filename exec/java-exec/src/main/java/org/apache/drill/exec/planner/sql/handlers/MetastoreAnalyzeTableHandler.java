@@ -38,6 +38,7 @@ import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.NamedExpression;
+import org.apache.drill.common.util.function.CheckedSupplier;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.physical.base.GroupScan;
@@ -56,6 +57,7 @@ import org.apache.drill.exec.planner.logical.MetadataHandlerRel;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.planner.physical.Prel;
 import org.apache.drill.exec.planner.sql.SchemaUtilites;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataAggregateContext.MetadataAggregateContextBuilder;
 import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext.MetadataControllerContextBuilder;
 import org.apache.drill.exec.planner.sql.parser.SqlMetastoreAnalyzeTable;
 import org.apache.drill.exec.server.options.OptionManager;
@@ -72,12 +74,10 @@ import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
 import org.apache.drill.metastore.components.tables.BasicTablesRequests;
 import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
-import org.apache.drill.metastore.components.tables.TableMetadataUnit;
 import org.apache.drill.metastore.components.tables.Tables;
 import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.MetadataType;
 import org.apache.drill.metastore.metadata.TableInfo;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
@@ -98,12 +98,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.StringJoiner;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.apache.drill.exec.planner.logical.DrillRelFactories.LOGICAL_BUILDER;
-import static org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataAggregateContext.*;
 
 /**
  * Constructs plan to be executed for collecting metadata and storing it to the metastore.
@@ -118,8 +119,11 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   @Override
   public PhysicalPlan getPlan(SqlNode sqlNode)
       throws ValidationException, RelConversionException, IOException, ForemanSetupException {
-    Preconditions.checkState(context.getOptions().getOption(ExecConstants.METASTORE_ENABLED_VALIDATOR),
-        "Running ANALYZE command when metastore is disabled");
+    if (!context.getOptions().getOption(ExecConstants.METASTORE_ENABLED_VALIDATOR)) {
+      throw UserException.validationError()
+          .message("Running ANALYZE command when metastore is disabled")
+          .build(logger);
+    }
     try {
       // disables during analyze to prevent using locations from the metastore
       context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, false);
@@ -137,7 +141,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
             .build(logger);
       }
 
-      AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(getTableType(table.getGroupScan()));
+      AnalyzeInfoProvider analyzeInfoProvider = getAnalyzeInfoProvider(getTableType(table.getGroupScan()));
 
       SqlIdentifier tableIdentifier = sqlAnalyzeTable.getTableIdentifier();
       SqlSelect scanSql = new SqlSelect(
@@ -224,11 +228,10 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       DrillTable table, SqlMetastoreAnalyzeTable sqlAnalyzeTable) throws SqlUnsupportedException, IOException {
     RelBuilder relBuilder = LOGICAL_BUILDER.create(relNode.getCluster(), null);
 
-    MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
 
     TableType tableType = getTableType(table.getGroupScan());
 
-    AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(tableType);
+    AnalyzeInfoProvider analyzeInfoProvider = getAnalyzeInfoProvider(tableType);
 
     List<String> schemaPath = schema.getSchemaPath();
     String pluginName = schemaPath.get(0);
@@ -256,173 +259,40 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     Tables tables = context.getMetastoreRegistry().get().tables();
 
+    SqlNodeList fieldList = sqlAnalyzeTable.getFieldList();
+    List<SchemaPath> interestingColumns = fieldList == null
+        ? null
+        : StreamSupport.stream(fieldList.spliterator(), false)
+            .map(sqlNode -> SchemaPath.parseFromString(sqlNode.toString()))
+            .collect(Collectors.toList());
+
     MetastoreTableInfo metastoreTableInfo = tables.basicRequests().metastoreTableInfo(tableInfo);
 
     List<MetadataInfo> allMetaToHandle = new ArrayList<>();
     List<MetadataInfo> metadataToRemove = new ArrayList<>();
 
     if (metastoreTableInfo.isExists()) {
-      TableMetadataUnit tableMetadataUnit = tables.basicRequests().interestingColumnsAndPartitionKeys(tableInfo);
-      List<String> metastoreInterestingColumns = tableMetadataUnit.interestingColumns();
+      RelNode finalRelNode = relNode;
+      CheckedSupplier<TableScan, SqlUnsupportedException> tableScanSupplier = () -> AnalyzeTableHandler.findScan(convertToDrel(finalRelNode.getInput(0)));
 
-      Map<String, Long> filesNamesLastModifiedTime = tables.basicRequests().filesLastModifiedTime(tableInfo, null, null);
+      MetadataInfoCollector metadataInfoCollector = analyzeInfoProvider.getMetadataInfoCollector(tables.basicRequests(), tableInfo,
+          (FormatSelection) table.getSelection(), context.getPlannerSettings(), tableScanSupplier, interestingColumns, segmentColumns.size());
 
-      FormatSelection selection = (FormatSelection) table.getSelection();
-
-      FileSelection fileSelection = selection.getSelection();
-
-      if (!fileSelection.isExpandedFully()) {
-        fileSelection = getExpandedFileSelection(fileSelection);
-      }
-      List<FileStatus> fileStatuses = fileSelection.getFileStatuses();
-
-      List<String> newFiles = new ArrayList<>();
-      List<String> updatedFiles = new ArrayList<>();
-      List<String> removedFiles = new ArrayList<>(filesNamesLastModifiedTime.keySet());
-      List<String> allFiles = new ArrayList<>();
-
-      for (FileStatus fileStatus : fileStatuses) {
-        // TODO: investigate whether it is possible to store all path attributes
-        String path = Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()).toUri().getPath();
-        Long lastModificationTime = filesNamesLastModifiedTime.get(path);
-        if (lastModificationTime == null) {
-          newFiles.add(path);
-        } else if (lastModificationTime < fileStatus.getModificationTime()) {
-          updatedFiles.add(path);
-        }
-        removedFiles.remove(path);
-        allFiles.add(path);
-      }
-
-      if (newFiles.isEmpty() && updatedFiles.isEmpty() && removedFiles.isEmpty()) {
-        // TODO: handle case when specified columns differ from the stored ones
-
+      if (!metadataInfoCollector.isChanged()) {
         DrillRel convertedRelNode = convertToRawDrel(
             relBuilder.values(new String[]{"ok", "Summary"}, false, "Analyze is so cool, it knows that table wasn't changed!").build());
         return new DrillScreenRel(convertedRelNode.getCluster(), convertedRelNode.getTraitSet(), convertedRelNode);
       }
 
       // updates scan to read updated / new files, pass removed files into metadata handler
+      relNode = relNode.copy(relNode.getTraitSet(), Collections.singletonList(metadataInfoCollector.getPrunedScan()));
 
-      List<String> scanFiles = new ArrayList<>(newFiles);
-      scanFiles.addAll(updatedFiles);
-      TableScan tableScan = (TableScan) relNode.getInput(0);
-      tableScan = analyzeInfoProvider.getPrunedScan(scanFiles, context.getPlannerSettings(), AnalyzeTableHandler.findScan(convertToDrel(tableScan)));
+      filesInfo = metadataInfoCollector.getFilesInfo();
+      segments = metadataInfoCollector.getSegmentsInfo();
+      rowGroupsInfo = metadataInfoCollector.getRowGroupsInfo();
 
-      relNode = relNode.copy(relNode.getTraitSet(), Collections.singletonList(tableScan));
-
-      String selectionRoot = ((FormatSelection) table.getSelection()).getSelection().getSelectionRoot().toUri().getPath();
-
-      // iterates from the end;
-      // takes deepest updated segments,
-      // finds their parents:
-      //  - fetches all segments for parent level;
-      //  - filters segments to leave parents only;
-      // obtains all children segments;
-      // filters child segments for filtered parent segments
-
-      Multimap<Integer, MetadataInfo> allSegments = ArrayListMultimap.create();
-
-      int lastSegmentIndex = segmentExpressions.size() - 1;
-      List<String> presentAndRemovedFiles = new ArrayList<>(allFiles);
-      presentAndRemovedFiles.addAll(removedFiles);
-      if (lastSegmentIndex > 0) {
-        allSegments.putAll(lastSegmentIndex, ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex));
-      }
-      List<String> scanAndRemovedFiles = new ArrayList<>(scanFiles);
-      scanAndRemovedFiles.addAll(removedFiles);
-
-      // 1. Obtain files info for files from the same folder without removed files
-      // 2. Get segments for obtained files + segments for removed files
-      // 3. Get parent segments
-      // 4. Get other segments for the same parent segment
-      // 5. Remove segments which have only removed files (matched for removedFileInfo and don't match to filesInfo)
-      // 6. Do the same for parent segments
-
-      List<MetadataInfo> allFilesInfo = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, allFiles, MetadataType.FILE, 0);
-
-      // first pass: collect updated segments even without files, they will be removed at the second path
-      List<MetadataInfo> leafSegments = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex);
-      List<MetadataInfo> removedFilesMetadata = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, removedFiles, MetadataType.FILE, 0);
-
-      List<MetadataInfo> scanFilesInfo = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.FILE, 0);
-      // files from scan + files from the same folder without removed files
-      filesInfo = leafSegments.stream()
-          .filter(parent -> scanFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-          .flatMap(parent ->
-              allFilesInfo.stream()
-                  .filter(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-          .collect(Collectors.toList());
-
-      List<MetadataInfo> finalFilesInfo = filesInfo;
-      for (int i = lastSegmentIndex - 1; i >= 0; i--) {
-        List<MetadataInfo> currentChildSegments = leafSegments;
-        List<MetadataInfo> allParentSegments = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, i);
-        allSegments.putAll(i, allParentSegments);
-
-        // segments, parent for segments from currentChildSegments
-        List<MetadataInfo> parentSegments = allParentSegments.stream()
-            .filter(parent -> currentChildSegments.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-            .collect(Collectors.toList());
-
-        // all segments children for parentSegments segments except empty segments
-        List<MetadataInfo> childSegments = allSegments.get(i + 1).stream()
-            .filter(child -> parentSegments.stream().anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-            .filter(parent ->
-                removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
-                    || finalFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-            .collect(Collectors.toList());
-
-        segments.putAll(i + 1, childSegments);
-        leafSegments = childSegments;
-      }
-      segments.putAll(0, ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, 0).stream()
-          .filter(parent ->
-              removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
-                  || finalFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-          .collect(Collectors.toList()));
-
-      List<String> metadataKeys = filesInfo.stream()
-          .map(MetadataInfo::key)
-          .distinct()
-          .collect(Collectors.toList());
-
-      BasicTablesRequests.RequestMetadata requestMetadata = BasicTablesRequests.RequestMetadata.builder()
-          .tableInfo(tableInfo)
-          .metadataKeys(metadataKeys)
-          .paths(allFiles)
-          .metadataType(MetadataType.ROW_GROUP.name())
-          .requestColumns(Arrays.asList(MetadataInfo.METADATA_KEY, MetadataInfo.METADATA_IDENTIFIER, MetadataInfo.METADATA_TYPE))
-          .build();
-
-
-      List<MetadataInfo> allRowGroupsInfo = tables.basicRequests().request(requestMetadata).stream()
-          .map(unit -> MetadataInfo.builder().metadataUnit(unit).build())
-          .collect(Collectors.toList());
-
-      rowGroupsInfo = allRowGroupsInfo.stream()
-          .filter(child -> finalFilesInfo.stream()
-              .map(MetadataInfo::identifier)
-              .anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent, child.identifier())))
-          .collect(Collectors.toList());
-
-      List<MetadataInfo> segmentsToUpdate = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.SEGMENT, 0);
-      Streams.concat(allSegments.values().stream(), allFilesInfo.stream(), allRowGroupsInfo.stream())
-          .filter(child -> segmentsToUpdate.stream().anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-          .filter(parent ->
-              removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
-                  || finalFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-          .forEach(allMetaToHandle::add);
-
-      allMetaToHandle.addAll(segmentsToUpdate);
-
-      // is handled separately since it is not overridden when writing the metadata
-      List<MetadataInfo> removedTopSegments = ((AnalyzeFileInfoProvider) analyzeInfoProvider).getMetadataInfoList(selectionRoot, removedFiles, MetadataType.SEGMENT, 0).stream()
-          .filter(parent ->
-              removedFilesMetadata.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
-                  && allFilesInfo.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
-          .collect(Collectors.toList());
-      metadataToRemove.addAll(removedTopSegments);
+      allMetaToHandle = metadataInfoCollector.getAllMetaToHandle();
+      metadataToRemove = metadataInfoCollector.getMetadataToRemove();
     }
 
     DrillRel convertedRelNode = convertToRawDrel(relNode);
@@ -431,13 +301,6 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     // columns which are not added to the schema and for which statistics is not calculated
     List<SchemaPath> excludedColumns;
-
-    SqlNodeList fieldList = sqlAnalyzeTable.getFieldList();
-    List<SchemaPath> interestingColumns = fieldList == null
-        ? null
-        : StreamSupport.stream(fieldList.spliterator(), false)
-            .map(sqlNode -> SchemaPath.parseFromString(sqlNode.toString()))
-            .collect(Collectors.toList());
 
     // List of columns for which statistics should be collected: interesting columns + segment columns
     List<SchemaPath> statisticsColumns = interestingColumns == null
@@ -454,6 +317,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     SchemaPath locationField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL));
     SchemaPath lastModifiedTimeField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL));
 
+    MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
+
     if (tableType == TableType.PARQUET && metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
       String rowGroupIndexColumn = config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
       SchemaPath rowGroupStartField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL));
@@ -463,14 +328,14 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       excludedColumns = Arrays.asList(lastModifiedTimeField, locationField, rgiField, rowGroupStartField, rowGroupLengthField);
 
       // adds aggregation for collecting row group level metadata
-      ArrayList<NamedExpression> rowGroupGroupByExpressions = new ArrayList<>(segmentExpressions);
+      List<NamedExpression> rowGroupGroupByExpressions = new ArrayList<>(segmentExpressions);
       rowGroupGroupByExpressions.add(
           new NamedExpression(rgiField,
               FieldReference.getWithQuotedRef(rowGroupIndexColumn)));
 
       rowGroupGroupByExpressions.add(new NamedExpression(locationField, FieldReference.getWithQuotedRef(MetadataAggBatch.LOCATION_FIELD)));
 
-      MetadataAggregateContext aggregateContext = builder()
+      MetadataAggregateContext aggregateContext = MetadataAggregateContext.builder()
           .groupByExpressions(rowGroupGroupByExpressions)
           .interestingColumns(statisticsColumns)
           .createNewAggregations(createNewAggregations)
@@ -503,18 +368,15 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       excludedColumns = Arrays.asList(lastModifiedTimeField, locationField);
 
       NamedExpression locationExpression = new NamedExpression(locationField, FieldReference.getWithQuotedRef(MetadataAggBatch.LOCATION_FIELD));
-      ArrayList<NamedExpression> fileGroupByExpressions = new ArrayList<>(segmentExpressions);
+      List<NamedExpression> fileGroupByExpressions = new ArrayList<>(segmentExpressions);
       fileGroupByExpressions.add(locationExpression);
 
-      MetadataAggregateContext aggregateContext = builder()
+      MetadataAggregateContext aggregateContext = MetadataAggregateContext.builder()
           .groupByExpressions(fileGroupByExpressions)
           .interestingColumns(statisticsColumns)
           .createNewAggregations(createNewAggregations)
           .excludedColumns(excludedColumns)
           .build();
-
-      convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
-          convertedRelNode.getTraitSet(), convertedRelNode, aggregateContext);
 
       MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
           .tableInfo(tableInfo)
@@ -523,6 +385,9 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           .depthLevel(segmentExpressions.size())
           .segmentColumns(segmentColumns)
           .build();
+
+      convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
+          convertedRelNode.getTraitSet(), convertedRelNode, aggregateContext);
 
       convertedRelNode =
           new MetadataHandlerRel(convertedRelNode.getCluster(),
@@ -548,7 +413,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
         groupByExpressions.addAll(segmentExpressions);
 
-        MetadataAggregateContext aggregateContext = builder()
+        MetadataAggregateContext aggregateContext = MetadataAggregateContext.builder()
             .groupByExpressions(groupByExpressions.subList(0, i + 1))
             .interestingColumns(statisticsColumns)
             .createNewAggregations(createNewAggregations)
@@ -581,7 +446,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     if (metadataLevel.compareTo(MetadataType.TABLE) >= 0) {
       excludedColumns = Arrays.asList(locationField, lastModifiedTimeField);
 
-      MetadataAggregateContext aggregateContext = builder()
+      MetadataAggregateContext aggregateContext = MetadataAggregateContext.builder()
           .groupByExpressions(Collections.emptyList())
           .interestingColumns(statisticsColumns)
           .createNewAggregations(createNewAggregations)
@@ -956,59 +821,272 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     PARQUET
   }
 
-  public interface AnalyzeInfoProvider {
-    List<SchemaPath> getSegmentColumns(DrillTable table, OptionManager options) throws IOException;
-    List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options);
+  public static AnalyzeInfoProvider getAnalyzeInfoProvider(TableType tableType) {
+    switch (tableType) {
+      case PARQUET:
+        return AnalyzeFileInfoProvider.INSTANCE;
+      default:
+        throw new UnsupportedOperationException("Unsupported table type");
+    }
+  }
 
-    static AnalyzeInfoProvider getAnalyzeInfoProvider(TableType tableType) {
-      switch (tableType) {
-        case PARQUET:
-          return AnalyzeFileInfoProvider.INSTANCE;
-        default:
-          throw new UnsupportedOperationException("Unsupported table type");
+  public interface MetadataInfoCollector {
+    List<MetadataInfo> getRowGroupsInfo();
+    List<MetadataInfo> getFilesInfo();
+    Multimap<Integer, MetadataInfo> getSegmentsInfo();
+    List<MetadataInfo> getAllMetaToHandle();
+    List<MetadataInfo> getMetadataToRemove();
+    TableScan getPrunedScan();
+    boolean isChanged();
+  }
+
+  public static class FileMetadataInfoCollector implements MetadataInfoCollector {
+    private final BasicTablesRequests basicRequests;
+    private final TableInfo tableInfo;
+
+    private List<MetadataInfo> rowGroupsInfo = Collections.emptyList();
+    private List<MetadataInfo> filesInfo = Collections.emptyList();
+    private Multimap<Integer, MetadataInfo> segmentsInfo = ArrayListMultimap.create();
+
+    private final List<MetadataInfo> allMetaToHandle = new ArrayList<>();
+    private final List<MetadataInfo> metadataToRemove = new ArrayList<>();
+
+    private TableScan tableScan;
+
+    private boolean isChanged = true;
+
+    public FileMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo, FormatSelection selection,
+        PlannerSettings settings, Supplier<TableScan> tableScanSupplier, List<SchemaPath> interestingColumns, int segmentColumnsCount) throws IOException {
+      this.basicRequests = basicRequests;
+      this.tableInfo = tableInfo;
+      init(selection, settings, tableScanSupplier, interestingColumns, segmentColumnsCount);
+    }
+
+    @Override
+    public List<MetadataInfo> getRowGroupsInfo() {
+      return rowGroupsInfo;
+    }
+
+    @Override
+    public List<MetadataInfo> getFilesInfo() {
+      return filesInfo;
+    }
+
+    @Override
+    public Multimap<Integer, MetadataInfo> getSegmentsInfo() {
+      return segmentsInfo;
+    }
+
+    @Override
+    public List<MetadataInfo> getAllMetaToHandle() {
+      return allMetaToHandle;
+    }
+
+    @Override
+    public List<MetadataInfo> getMetadataToRemove() {
+      return metadataToRemove;
+    }
+
+    @Override
+    public TableScan getPrunedScan() {
+      return tableScan;
+    }
+
+    @Override
+    public boolean isChanged() {
+      return isChanged;
+    }
+
+    private void init(FormatSelection selection, PlannerSettings settings, Supplier<TableScan> tableScanSupplier,
+        List<SchemaPath> interestingColumns, int segmentColumnsCount) throws IOException {
+      List<SchemaPath> metastoreInterestingColumns =
+          Optional.ofNullable(basicRequests.interestingColumnsAndPartitionKeys(tableInfo).interestingColumns())
+              .map(metastoreInterestingColumnNames -> metastoreInterestingColumnNames.stream()
+                  .map(SchemaPath::parseFromString)
+                  .collect(Collectors.toList()))
+          .orElse(null);
+
+      Map<String, Long> filesNamesLastModifiedTime = basicRequests.filesLastModifiedTime(tableInfo, null, null);
+
+      List<String> newFiles = new ArrayList<>();
+      List<String> updatedFiles = new ArrayList<>();
+      List<String> removedFiles = new ArrayList<>(filesNamesLastModifiedTime.keySet());
+      List<String> allFiles = new ArrayList<>();
+
+      for (FileStatus fileStatus : getFileStatuses(selection)) {
+        // TODO: investigate whether it is possible to store all path attributes. Is it essential?
+        String path = Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()).toUri().getPath();
+        Long lastModificationTime = filesNamesLastModifiedTime.get(path);
+        if (lastModificationTime == null) {
+          newFiles.add(path);
+        } else if (lastModificationTime < fileStatus.getModificationTime()) {
+          updatedFiles.add(path);
+        }
+        removedFiles.remove(path);
+        allFiles.add(path);
+      }
+
+      String selectionRoot = selection.getSelection().getSelectionRoot().toUri().getPath();
+
+      if (!Objects.equals(metastoreInterestingColumns, interestingColumns)
+          && (metastoreInterestingColumns == null || !metastoreInterestingColumns.containsAll(interestingColumns))) {
+        // do not update table scan and lists of segments / files / row groups,
+        // everything should be recalculated
+        tableScan = tableScanSupplier.get();
+        metadataToRemove.addAll(getMetadataInfoList(selectionRoot, removedFiles, MetadataType.SEGMENT, 0));
+        return;
+      }
+
+      // checks whether there are no new, updated and removed files
+      if (!newFiles.isEmpty() || !updatedFiles.isEmpty() || !removedFiles.isEmpty()) {
+        List<String> scanFiles = new ArrayList<>(newFiles);
+        scanFiles.addAll(updatedFiles);
+
+        // updates scan to read updated / new files
+        tableScan = getTableScan(settings, tableScanSupplier.get(), scanFiles);
+
+        // iterates from the end;
+        // takes deepest updated segments,
+        // finds their parents:
+        //  - fetches all segments for parent level;
+        //  - filters segments to leave parents only;
+        // obtains all children segments;
+        // filters child segments for filtered parent segments
+
+        int lastSegmentIndex = segmentColumnsCount - 1;
+
+        List<String> scanAndRemovedFiles = new ArrayList<>(scanFiles);
+        scanAndRemovedFiles.addAll(removedFiles);
+
+        // 1. Obtain files info for files from the same folder without removed files
+        // 2. Get segments for obtained files + segments for removed files
+        // 3. Get parent segments
+        // 4. Get other segments for the same parent segment
+        // 5. Remove segments which have only removed files (matched for removedFileInfo and don't match to filesInfo)
+        // 6. Do the same for parent segments
+
+        List<MetadataInfo> allFilesInfo = getMetadataInfoList(selectionRoot, allFiles, MetadataType.FILE, 0);
+
+        // first pass: collect updated segments even without files, they will be removed later
+        List<MetadataInfo> leafSegments = getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex);
+        List<MetadataInfo> removedFilesMetadata = getMetadataInfoList(selectionRoot, removedFiles, MetadataType.FILE, 0);
+
+        List<MetadataInfo> scanFilesInfo = getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.FILE, 0);
+        // files from scan + files from the same folder without removed files
+        filesInfo = leafSegments.stream()
+            .filter(parent -> scanFilesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .flatMap(parent ->
+                allFilesInfo.stream()
+                    .filter(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .collect(Collectors.toList());
+
+        Multimap<Integer, MetadataInfo> allSegments = populateSegments(removedFiles, allFiles, selectionRoot, lastSegmentIndex, leafSegments, removedFilesMetadata);
+
+        List<MetadataInfo> allRowGroupsInfo = getAllRowGroupsMetadataInfos(allFiles);
+
+        rowGroupsInfo = allRowGroupsInfo.stream()
+            .filter(child -> filesInfo.stream()
+                .map(MetadataInfo::identifier)
+                .anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent, child.identifier())))
+            .collect(Collectors.toList());
+
+        List<MetadataInfo> segmentsToUpdate = getMetadataInfoList(selectionRoot, scanAndRemovedFiles, MetadataType.SEGMENT, 0);
+        Streams.concat(allSegments.values().stream(), allFilesInfo.stream(), allRowGroupsInfo.stream())
+            .filter(child -> segmentsToUpdate.stream().anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .filter(parent ->
+                removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
+                    || filesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .forEach(allMetaToHandle::add);
+
+        allMetaToHandle.addAll(segmentsToUpdate);
+
+        // is handled separately since it is not overridden when writing the metadata
+        List<MetadataInfo> removedTopSegments = getMetadataInfoList(selectionRoot, removedFiles, MetadataType.SEGMENT, 0).stream()
+            .filter(parent ->
+                removedFilesMetadata.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
+                    && allFilesInfo.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .collect(Collectors.toList());
+        metadataToRemove.addAll(removedTopSegments);
+      } else {
+        // table metadata may still actual
+        isChanged = false;
       }
     }
 
-    TableScan getPrunedScan(List<String> newFiles, PlannerSettings plannerSettings, TableScan tableScan);
-  }
-
-  private static class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
-    public static final AnalyzeInfoProvider INSTANCE = new AnalyzeFileInfoProvider();
-
-    @Override
-    public List<SchemaPath> getSegmentColumns(DrillTable table, OptionManager options) throws IOException {
-      FormatSelection selection = (FormatSelection) table.getSelection();
-
-      FileSelection fileSelection = selection.getSelection();
-      if (!fileSelection.isExpandedFully()) {
-        fileSelection = getExpandedFileSelection(fileSelection);
+    private Multimap<Integer, MetadataInfo> populateSegments(List<String> removedFiles, List<String> allFiles,
+        String selectionRoot, int lastSegmentIndex, List<MetadataInfo> leafSegments, List<MetadataInfo> removedFilesMetadata) {
+      List<String> presentAndRemovedFiles = new ArrayList<>(allFiles);
+      presentAndRemovedFiles.addAll(removedFiles);
+      Multimap<Integer, MetadataInfo> allSegments = ArrayListMultimap.create();
+      if (lastSegmentIndex > 0) {
+        allSegments.putAll(lastSegmentIndex, getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, lastSegmentIndex));
       }
 
-      return ColumnExplorer.getPartitionColumnNames(fileSelection, options).stream()
-          .map(SchemaPath::getSimplePath)
+      for (int i = lastSegmentIndex - 1; i >= 0; i--) {
+        List<MetadataInfo> currentChildSegments = leafSegments;
+        List<MetadataInfo> allParentSegments = getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, i);
+        allSegments.putAll(i, allParentSegments);
+
+        // segments, parent for segments from currentChildSegments
+        List<MetadataInfo> parentSegments = allParentSegments.stream()
+            .filter(parent -> currentChildSegments.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .collect(Collectors.toList());
+
+        // all segments children for parentSegments segments except empty segments
+        List<MetadataInfo> childSegments = allSegments.get(i + 1).stream()
+            .filter(child -> parentSegments.stream().anyMatch(parent -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .filter(parent ->
+                removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
+                    || filesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+            .collect(Collectors.toList());
+
+        segmentsInfo.putAll(i + 1, childSegments);
+        leafSegments = childSegments;
+      }
+      segmentsInfo.putAll(0, getMetadataInfoList(selectionRoot, presentAndRemovedFiles, MetadataType.SEGMENT, 0).stream()
+          .filter(parent ->
+              removedFilesMetadata.stream().noneMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
+                  || filesInfo.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier())))
+          .collect(Collectors.toList()));
+      return allSegments;
+    }
+
+    private List<MetadataInfo> getAllRowGroupsMetadataInfos(List<String> allFiles) {
+      List<String> metadataKeys = filesInfo.stream()
+          .map(MetadataInfo::key)
+          .distinct()
+          .collect(Collectors.toList());
+
+      BasicTablesRequests.RequestMetadata requestMetadata = BasicTablesRequests.RequestMetadata.builder()
+          .tableInfo(tableInfo)
+          .metadataKeys(metadataKeys)
+          .paths(allFiles)
+          .metadataType(MetadataType.ROW_GROUP.name())
+          .requestColumns(Arrays.asList(MetadataInfo.METADATA_KEY, MetadataInfo.METADATA_IDENTIFIER, MetadataInfo.METADATA_TYPE))
+          .build();
+
+      return basicRequests.request(requestMetadata).stream()
+          .map(unit -> MetadataInfo.builder().metadataUnit(unit).build())
           .collect(Collectors.toList());
     }
 
-    @Override
-    public List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options) {
-      List<SqlIdentifier> columnList = new ArrayList<>();
-      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL), SqlParserPos.ZERO));
-      if (metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
-        columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL), SqlParserPos.ZERO));
-        columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL), SqlParserPos.ZERO));
-        columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL), SqlParserPos.ZERO));
+    private List<FileStatus> getFileStatuses(FormatSelection selection) throws IOException {
+      FileSelection fileSelection = selection.getSelection();
+
+      if (!fileSelection.isExpandedFully()) {
+        fileSelection = getExpandedFileSelection(fileSelection);
       }
-      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL), SqlParserPos.ZERO));
-      return columnList;
+      return fileSelection.getFileStatuses();
     }
 
-    public TableScan getPrunedScan(List<String> newPaths, PlannerSettings settings, TableScan scanRel) {
+    private TableScan getTableScan(PlannerSettings settings, TableScan scanRel, List<String> scanFiles) {
       FileSystemPartitionDescriptor descriptor =
           new FileSystemPartitionDescriptor(settings, scanRel);
+
       List<PartitionLocation> newPartitions = Lists.newArrayList(descriptor.iterator()).stream()
           .flatMap(Collection::stream)
           .flatMap(p -> p.getPartitionLocationRecursive().stream())
-          .filter(p -> newPaths.contains(p.getEntirePartitionLocation().toUri().getPath()))
+          .filter(p -> scanFiles.contains(p.getEntirePartitionLocation().toUri().getPath()))
           .collect(Collectors.toList());
 
       try {
@@ -1031,18 +1109,14 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       }
     }
 
-    // move logic for determining outdated metadata and recreating new scan here?
-
-
-    // metadata info may not be dependent on location, find more generic way...
-    public List<MetadataInfo> getMetadataInfoList(String parent, List<String> locations, MetadataType metadataType, int level) {
+    private List<MetadataInfo> getMetadataInfoList(String parent, List<String> locations, MetadataType metadataType, int level) {
       return locations.stream()
           .map(location -> getMetadataInfo(parent, location, metadataType, level))
           .distinct()
           .collect(Collectors.toList());
     }
 
-    public MetadataInfo getMetadataInfo(String parent, String location, MetadataType metadataType, int level) {
+    private MetadataInfo getMetadataInfo(String parent, String location, MetadataType metadataType, int level) {
       List<String> values = ColumnExplorer.listPartitionValues(new Path(location), new Path(parent), true);
 
       switch (metadataType) {
@@ -1075,6 +1149,54 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           throw new UnsupportedOperationException(metadataType.name());
       }
 
+    }
+  }
+
+  public interface AnalyzeInfoProvider {
+    List<SchemaPath> getSegmentColumns(DrillTable table, OptionManager options) throws IOException;
+    List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options);
+
+    MetadataInfoCollector getMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo,
+        FormatSelection selection, PlannerSettings settings, Supplier<TableScan> scanRel,
+        List<SchemaPath> interestingColumns, int segmentColumnsCount) throws IOException;
+  }
+
+  private static class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
+    public static final AnalyzeInfoProvider INSTANCE = new AnalyzeFileInfoProvider();
+
+    @Override
+    public List<SchemaPath> getSegmentColumns(DrillTable table, OptionManager options) throws IOException {
+      FormatSelection selection = (FormatSelection) table.getSelection();
+
+      FileSelection fileSelection = selection.getSelection();
+      if (!fileSelection.isExpandedFully()) {
+        fileSelection = getExpandedFileSelection(fileSelection);
+      }
+
+      return ColumnExplorer.getPartitionColumnNames(fileSelection, options).stream()
+          .map(SchemaPath::getSimplePath)
+          .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options) {
+      List<SqlIdentifier> columnList = new ArrayList<>();
+      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL), SqlParserPos.ZERO));
+      if (metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
+        columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL), SqlParserPos.ZERO));
+        columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL), SqlParserPos.ZERO));
+        columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL), SqlParserPos.ZERO));
+      }
+      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL), SqlParserPos.ZERO));
+      return columnList;
+    }
+
+    @Override
+    public MetadataInfoCollector getMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo,
+        FormatSelection selection, PlannerSettings settings, Supplier<TableScan> tableScanSupplier,
+        List<SchemaPath> interestingColumns, int segmentColumnsCount) throws IOException {
+      return new FileMetadataInfoCollector(basicRequests, tableInfo, selection,
+          settings, tableScanSupplier, interestingColumns, segmentColumnsCount);
     }
   }
 

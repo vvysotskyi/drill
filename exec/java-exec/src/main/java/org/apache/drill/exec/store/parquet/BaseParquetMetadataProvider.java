@@ -540,9 +540,4 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
   }
 
   protected abstract void initInternal() throws IOException;
-
-  @Override
-  public BaseParquetMetadataProvider getFallbackTableMetadataProvider() {
-    return null;
-  }
 }

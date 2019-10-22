@@ -132,6 +132,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     if (outcome != NONE && outcome != STOP) {
       outcome = super.innerNext();
     }
+    // if incoming is exhausted, reads metadata which should be obtained from the metastore
+    // and returns OK or NONE if there is no metadata to read
     if (outcome == IterOutcome.NONE && !metadataToHandle.isEmpty()) {
       BasicTablesRequests basicTablesRequests = tables.basicRequests();
 
@@ -188,13 +190,17 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       metadataToHandle.remove(metadata.getMetadataInfo().identifier());
 
       List<Object> arguments = new ArrayList<>();
+      // adds required segment names to the arguments
       arguments.add(metadata.getPath().toUri().getPath());
       Collections.addAll(
           arguments,
-          Arrays.copyOf(MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()), popConfig.getMetadataHandlerContext().segmentColumns().size()));
+          Arrays.copyOf(
+              MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()),
+              popConfig.getMetadataHandlerContext().segmentColumns().size()));
 
+      // adds column statistics values assuming that they are sorted in alphabetic order
       metadata.getColumnsStatistics().entrySet().stream()
-          .sorted(Comparator.comparing(e -> e.getKey().getRootSegmentPath()))
+          .sorted(Comparator.comparing(e -> e.getKey().toExpr()))
           .map(Map.Entry::getValue)
           .flatMap(columnStatistics ->
               ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.keySet().stream()

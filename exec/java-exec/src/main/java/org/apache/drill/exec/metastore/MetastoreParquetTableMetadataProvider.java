@@ -18,6 +18,8 @@
 package org.apache.drill.exec.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.exception.OutdatedMetadataException;
+import org.apache.drill.exec.metastore.MetastoreMetadataProviderManager.MetastoreMetadataProviderConfig;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -31,6 +33,7 @@ import org.apache.drill.exec.store.parquet.ParquetTableMetadataProviderImpl;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
 import org.apache.drill.metastore.MetastoreRegistry;
 import org.apache.drill.metastore.components.tables.BasicTablesRequests;
+import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
 import org.apache.drill.metastore.metadata.BaseTableMetadata;
 import org.apache.drill.metastore.metadata.FileMetadata;
 import org.apache.drill.metastore.metadata.NonInterestingColumnsMetadata;
@@ -64,9 +67,14 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   private final BasicTablesRequests basicTablesRequests;
   private final TableInfo tableInfo;
+  private final MetastoreTableInfo metastoreTableInfo;
   private final TupleMetadata schema;
   private final List<ReadEntryWithPath> entries;
   private final List<String> paths;
+
+  private final boolean useSchema;
+  private final boolean useStatistics;
+  private final boolean fallbackToFileMetadata;
 
   private BaseTableMetadata tableMetadata;
   private Map<Path, SegmentMetadata> segmentsMetadata;
@@ -80,9 +88,13 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   public MetastoreParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
       MetastoreRegistry metastoreRegistry, TableInfo tableInfo, TupleMetadata schema,
-      ParquetFileTableMetadataProviderBuilder fallbackBuilder) {
+      ParquetFileTableMetadataProviderBuilder fallbackBuilder, MetastoreMetadataProviderConfig config) {
     this.basicTablesRequests = metastoreRegistry.get().tables().basicRequests();
     this.tableInfo = tableInfo;
+    this.metastoreTableInfo = basicTablesRequests.metastoreTableInfo(tableInfo);
+    this.useSchema = config.useSchema();
+    this.useStatistics = config.useStatistics();
+    this.fallbackToFileMetadata = config.fallbackToFileMetadata();
     this.schema = schema;
     this.entries = entries == null ? new ArrayList<>() : entries;
     this.fallbackBuilder = fallbackBuilder;
@@ -118,34 +130,68 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   @Override
   public Multimap<Path, RowGroupMetadata> getRowGroupsMetadataMap() {
+    throwIfChanged();
     if (rowGroups == null) {
       rowGroups = LinkedListMultimap.create();
       basicTablesRequests.rowGroupsMetadata(tableInfo, null, paths).stream()
           .collect(Collectors.groupingBy(RowGroupMetadata::getPath, Collectors.toList()))
           .forEach((path, rowGroupMetadata) -> rowGroups.putAll(path, rowGroupMetadata));
+      if (rowGroups.isEmpty()) {
+        if (fallbackToFileMetadata) {
+          try {
+            rowGroups = getFallbackTableMetadataProvider().getRowGroupsMetadataMap();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        } else {
+          throw new IllegalStateException(String.format("Metastore hasn't metadata for row groups " +
+              "and `metastore.metadata.fallback_to_file_metadata` is disabled. " +
+              "Please either execute ANALYZE with 'ROW_GROUP' level " +
+              "for [%s] table or enable `metastore.metadata.fallback_to_file_metadata`.", tableInfo.name()));
+        }
+      }
     }
     return rowGroups;
   }
 
   @Override
   public Set<Path> getFileSet() {
+    throwIfChanged();
     return getFilesMetadataMap().keySet();
   }
 
   @Override
   public TableMetadata getTableMetadata() {
+    throwIfChanged();
     if (tableMetadata == null) {
-      tableMetadata = schema == null
-          ? basicTablesRequests.tableMetadata(tableInfo)
-          : basicTablesRequests.tableMetadata(tableInfo).toBuilder()
-              .schema(schema)
-              .build();
+      if (schema == null) {
+        if (useSchema) {
+          tableMetadata = basicTablesRequests.tableMetadata(tableInfo);
+        } else {
+          throw new IllegalStateException(String.format("Table schema wasn't provided " +
+              "and `metastore.metadata.use_schema` is disabled. " +
+              "Please either provide table schema for [%s] table or enable " +
+              "`metastore.metadata.use_schema`.", tableInfo.name()));
+        }
+      } else {
+        tableMetadata = basicTablesRequests.tableMetadata(tableInfo).toBuilder()
+            .schema(schema)
+            .build();
+      }
+
+      if (!useStatistics) {
+        // removes statistics to avoid its usage
+        tableMetadata = tableMetadata.toBuilder()
+            .columnsStatistics(Collections.emptyMap())
+            .build();
+      }
     }
     return tableMetadata;
   }
 
   @Override
   public List<SchemaPath> getPartitionColumns() {
+    throwIfChanged();
     return basicTablesRequests.interestingColumnsAndPartitionKeys(tableInfo).partitionKeys().values().stream()
         .map(SchemaPath::getSimplePath)
         .collect(Collectors.toList());
@@ -153,6 +199,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   @Override
   public List<PartitionMetadata> getPartitionsMetadata() {
+    throwIfChanged();
     if (partitions == null) {
       partitions = basicTablesRequests.partitionsMetadata(tableInfo, null, null);
     }
@@ -161,11 +208,13 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   @Override
   public List<PartitionMetadata> getPartitionMetadata(SchemaPath columnName) {
+    throwIfChanged();
     return basicTablesRequests.partitionsMetadata(tableInfo, null, columnName.getRootSegmentPath());
   }
 
   @Override
   public Map<Path, FileMetadata> getFilesMetadataMap() {
+    throwIfChanged();
     if (files == null) {
       files = basicTablesRequests.filesMetadata(tableInfo, null, paths).stream()
           .collect(Collectors.toMap(FileMetadata::getPath, Function.identity()));
@@ -175,6 +224,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   @Override
   public Map<Path, SegmentMetadata> getSegmentsMetadataMap() {
+    throwIfChanged();
     if (segmentsMetadata == null) {
       segmentsMetadata = basicTablesRequests.segmentsMetadataByColumn(tableInfo, null, null).stream()
           .collect(Collectors.toMap(SegmentMetadata::getPath, Function.identity()));
@@ -184,11 +234,13 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   @Override
   public FileMetadata getFileMetadata(Path location) {
+    throwIfChanged();
     return basicTablesRequests.fileMetadata(tableInfo, null, location.toUri().getPath());
   }
 
   @Override
   public List<FileMetadata> getFilesForPartition(PartitionMetadata partition) {
+    throwIfChanged();
     List<String> paths = partition.getLocations().stream()
         .map(path -> path.toUri().getPath())
         .collect(Collectors.toList());
@@ -197,6 +249,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   @Override
   public NonInterestingColumnsMetadata getNonInterestingColumnsMetadata() {
+    throwIfChanged();
     if (nonInterestingColumnsMetadata == null) {
       TupleMetadata schema = getTableMetadata().getSchema();
 
@@ -205,9 +258,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
       List<SchemaPath> columnPaths = getColumnPaths(schema, null).stream()
           .map(stringList -> SchemaPath.getCompoundPath(stringList.toArray(new String[0])))
           .collect(Collectors.toList());
-      List<SchemaPath> interestingColumns = getTableMetadata().getInterestingColumns() == null
-          ? columnPaths
-          : getTableMetadata().getInterestingColumns();
+      List<SchemaPath> interestingColumns = getInterestingColumns(columnPaths);
       // populates statistics for non-interesting columns columns for which statistics wasn't collected
       Map<SchemaPath, ColumnStatistics> columnsStatistics = columnPaths.stream()
           .filter(schemaPath -> !interestingColumns.contains(schemaPath)
@@ -220,8 +271,18 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
     return nonInterestingColumnsMetadata;
   }
 
-  @Override
-  public ParquetTableMetadataProvider getFallbackTableMetadataProvider() throws IOException {
+  private List<SchemaPath> getInterestingColumns(List<SchemaPath> columnPaths) {
+    if (useStatistics) {
+      return getTableMetadata().getInterestingColumns() == null
+          ? columnPaths
+          : getTableMetadata().getInterestingColumns();
+    } else {
+      // if metastore.metadata.use_statistics is false, all columns are treat as non-interesting
+      return Collections.emptyList();
+    }
+  }
+
+  private ParquetTableMetadataProvider getFallbackTableMetadataProvider() throws IOException {
     if (fallback == null) {
       fallback = fallbackBuilder == null ? null : fallbackBuilder.build();
     }
@@ -242,6 +303,12 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
       }
     }
     return result;
+  }
+
+  private void throwIfChanged() {
+    if (basicTablesRequests.hasMetastoreTableInfoChanged(metastoreTableInfo)) {
+      throw new OutdatedMetadataException(String.format("Metadata for table %s is outdated", tableInfo.name()));
+    }
   }
 
   public static class Builder implements ParquetFileTableMetadataProviderBuilder {
@@ -339,7 +406,8 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
               .collect(Collectors.toList());
         }
       }
-      provider = new MetastoreParquetTableMetadataProvider(entries, metadataProviderManager.getMetastoreRegistry(), metadataProviderManager.getTableInfo(), schema, fallback);
+      provider = new MetastoreParquetTableMetadataProvider(entries, metadataProviderManager.getMetastoreRegistry(),
+          metadataProviderManager.getTableInfo(), schema, fallback, metadataProviderManager.getConfig());
       // store results into metadataProviderManager to be able to use them when creating new instances
       if (source == null || source.getRowGroupsMeta().size() < provider.getRowGroupsMeta().size()) {
         metadataProviderManager.setTableMetadataProvider(provider);
