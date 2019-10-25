@@ -22,16 +22,13 @@ import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.Util;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.planner.sql.handlers.AbstractSqlHandler;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler;
+import org.apache.drill.exec.planner.sql.handlers.MetastoreDropTableMetadataHandler;
 import org.apache.drill.exec.planner.sql.handlers.SqlHandlerConfig;
 import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -39,32 +36,33 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
-public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
+public class SqlDropTableMetadata extends DrillSqlCall {
 
-  public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("METASTORE_ANALYZE_TABLE", SqlKind.OTHER) {
+  public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("DROP_TABLE_METADATA", SqlKind.OTHER) {
+    @Override
     public SqlCall createCall(SqlLiteral functionQualifier, SqlParserPos pos, SqlNode... operands) {
-      Preconditions.checkArgument(operands.length == 5, "SqlMetastoreAnalyzeTable.createCall() has to get 5 operands.");
-      return new SqlMetastoreAnalyzeTable(pos, (SqlIdentifier) operands[0], (SqlNodeList) operands[1], operands[2],
-          (SqlLiteral) operands[3], (SqlNumericLiteral) operands[4]);
+      Preconditions.checkArgument(operands.length == 3, "SqlMetastoreAnalyzeTable.createCall() has to get 3 operands.");
+      return new SqlDropTableMetadata(pos, (SqlIdentifier) operands[0], (SqlLiteral) operands[1], (SqlLiteral) operands[2]);
     }
   };
 
   private final SqlIdentifier tableName;
-  private final SqlNodeList fieldList;
-  private final SqlNode level;
-  private final SqlLiteral estimate;
-  private final SqlNumericLiteral samplePercent;
+  private final boolean checkMetadataExistence;
+  private final boolean dropMetadata;
 
-  public SqlMetastoreAnalyzeTable(SqlParserPos pos, SqlIdentifier tableName, SqlNodeList fieldList,
-      SqlNode level, SqlLiteral estimate, SqlNumericLiteral samplePercent) {
+  public SqlDropTableMetadata(SqlParserPos pos, SqlIdentifier tableName, SqlLiteral dropMetadata, SqlLiteral checkMetadataExistence) {
     super(pos);
     this.tableName = tableName;
-    this.fieldList = fieldList;
-    this.level = level;
-    this.estimate = estimate;
-    this.samplePercent = samplePercent;
+    this.dropMetadata = dropMetadata.booleanValue();
+    this.checkMetadataExistence = checkMetadataExistence.booleanValue();
+  }
+
+  public SqlDropTableMetadata(SqlParserPos pos, SqlIdentifier tableName, boolean dropMetadata, boolean checkMetadataExistence) {
+    super(pos);
+    this.tableName = tableName;
+    this.dropMetadata = dropMetadata;
+    this.checkMetadataExistence = checkMetadataExistence;
   }
 
   @Override
@@ -74,7 +72,11 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
 
   @Override
   public List<SqlNode> getOperandList() {
-    return Arrays.asList(tableName, fieldList, level, estimate, samplePercent);
+    return Arrays.asList(
+        tableName,
+        SqlLiteral.createBoolean(dropMetadata, SqlParserPos.ZERO),
+        SqlLiteral.createBoolean(checkMetadataExistence, SqlParserPos.ZERO)
+    );
   }
 
   @Override
@@ -82,35 +84,21 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
     writer.keyword("ANALYZE");
     writer.keyword("TABLE");
     tableName.unparse(writer, leftPrec, rightPrec);
-    if (fieldList != null && fieldList.size() > 0) {
-      writer.keyword("COLUMNS");
-      writer.keyword("(");
-      fieldList.get(0).unparse(writer, leftPrec, rightPrec);
-      for (int i = 1; i < fieldList.size(); i++) {
-        writer.keyword(",");
-        fieldList.get(i).unparse(writer, leftPrec, rightPrec);
-      }
-      writer.keyword(")");
-    }
-    writer.keyword("REFRESH");
-    writer.keyword("METADATA");
-    if (level != null) {
-      level.unparse(writer, leftPrec, rightPrec);
-    }
-    if (estimate != null) {
-      writer.keyword(estimate.booleanValue() ? "ESTIMATE" : "COMPUTE");
+    writer.keyword("DROP");
+    if (dropMetadata) {
+      writer.keyword("METADATA");
+    } else {
       writer.keyword("STATISTICS");
     }
-    if (samplePercent != null) {
-      writer.keyword("SAMPLE");
-      samplePercent.unparse(writer, leftPrec, rightPrec);
-      writer.keyword("PERCENT");
+    if (checkMetadataExistence) {
+      writer.keyword("IF");
+      writer.keyword("EXISTS");
     }
   }
 
   @Override
   public AbstractSqlHandler getSqlHandler(SqlHandlerConfig config, Pointer<String> textPlan) {
-    return new MetastoreAnalyzeTableHandler(config, textPlan);
+    return new MetastoreDropTableMetadataHandler(config, textPlan);
   }
 
   @Override
@@ -126,30 +114,15 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
     return tableName.names.subList(0, tableName.names.size() - 1);
   }
 
-  public SqlIdentifier getTableIdentifier() {
-    return tableName;
-  }
-
   public String getName() {
     return Util.last(tableName.names);
   }
 
-  public List<SchemaPath> getFieldNames() {
-    if (fieldList == null) {
-      return null;
-    }
-
-    return fieldList.getList().stream()
-        .map(SqlNode::toString)
-        .map(SchemaPath::parseFromString)
-        .collect(Collectors.toList());
+  public boolean checkMetadataExistence() {
+    return checkMetadataExistence;
   }
 
-  public SqlNodeList getFieldList() {
-    return fieldList;
-  }
-
-  public SqlNode getLevel() {
-    return level;
+  public boolean isDropMetadata() {
+    return dropMetadata;
   }
 }

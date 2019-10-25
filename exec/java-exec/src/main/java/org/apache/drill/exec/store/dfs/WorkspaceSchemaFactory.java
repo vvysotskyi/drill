@@ -74,6 +74,7 @@ import org.apache.drill.exec.store.StorageStrategy;
 import org.apache.drill.exec.store.easy.json.JSONFormatPlugin;
 import org.apache.drill.exec.util.ImpersonationUtil;
 import org.apache.drill.metastore.MetastoreRegistry;
+import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
 import org.apache.drill.metastore.metadata.TableInfo;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -451,7 +452,8 @@ public class WorkspaceSchemaFactory {
               .workspace(schemaName)
               .name(tableName)
               .build();
-          if (metastoreRegistry.get().tables().basicRequests().metastoreTableInfo(tableInfo).isExists()) {
+          MetastoreTableInfo metastoreTableInfo = metastoreRegistry.get().tables().basicRequests().metastoreTableInfo(tableInfo);
+          if (metastoreTableInfo.isExists()) {
             providerManager = new MetastoreMetadataProviderManager(metastoreRegistry, tableInfo,
                 new MetastoreMetadataProviderConfig(schemaConfig.getOption(ExecConstants.METASTORE_USE_SCHEMA_METADATA).bool_val,
                     schemaConfig.getOption(ExecConstants.METASTORE_USE_STATISTICS_METADATA).bool_val,

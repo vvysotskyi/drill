@@ -20,8 +20,9 @@ package org.apache.drill.exec.metastore;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.exception.OutdatedMetadataException;
 import org.apache.drill.exec.metastore.MetastoreMetadataProviderManager.MetastoreMetadataProviderConfig;
+import org.apache.drill.exec.physical.impl.metadata.MetadataControllerBatch;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.SchemaUtil;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.schema.SchemaProvider;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
@@ -71,6 +72,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
   private final TupleMetadata schema;
   private final List<ReadEntryWithPath> entries;
   private final List<String> paths;
+  private final DrillStatsTable statsProvider;
 
   private final boolean useSchema;
   private final boolean useStatistics;
@@ -88,7 +90,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   public MetastoreParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
       MetastoreRegistry metastoreRegistry, TableInfo tableInfo, TupleMetadata schema,
-      ParquetFileTableMetadataProviderBuilder fallbackBuilder, MetastoreMetadataProviderConfig config) {
+      ParquetFileTableMetadataProviderBuilder fallbackBuilder, MetastoreMetadataProviderConfig config, DrillStatsTable statsProvider) {
     this.basicTablesRequests = metastoreRegistry.get().tables().basicRequests();
     this.tableInfo = tableInfo;
     this.metastoreTableInfo = basicTablesRequests.metastoreTableInfo(tableInfo);
@@ -98,6 +100,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
     this.schema = schema;
     this.entries = entries == null ? new ArrayList<>() : entries;
     this.fallbackBuilder = fallbackBuilder;
+    this.statsProvider = statsProvider;
     this.paths = this.entries.stream()
         .map(readEntryWithPath -> readEntryWithPath.getPath().toUri().getPath())
         .collect(Collectors.toList());
@@ -185,6 +188,15 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
             .columnsStatistics(Collections.emptyMap())
             .build();
       }
+
+      if (statsProvider != null) {
+        if (!statsProvider.isMaterialized()) {
+          statsProvider.materialize();
+        }
+        tableMetadata = tableMetadata.cloneWithStats(
+            MetadataControllerBatch.getColumnStatistics(tableMetadata, statsProvider),
+            DrillStatsTable.getEstimatedTableStats(statsProvider));
+      }
     }
     return tableMetadata;
   }
@@ -255,9 +267,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
       List<StatisticsHolder> statistics = Collections.singletonList(new StatisticsHolder<>(Statistic.NO_COLUMN_STATS, ColumnStatisticsKind.NULLS_COUNT));
 
-      List<SchemaPath> columnPaths = getColumnPaths(schema, null).stream()
-          .map(stringList -> SchemaPath.getCompoundPath(stringList.toArray(new String[0])))
-          .collect(Collectors.toList());
+      List<SchemaPath> columnPaths = SchemaUtil.getSchemaPaths(schema);
       List<SchemaPath> interestingColumns = getInterestingColumns(columnPaths);
       // populates statistics for non-interesting columns columns for which statistics wasn't collected
       Map<SchemaPath, ColumnStatistics> columnsStatistics = columnPaths.stream()
@@ -269,6 +279,11 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
       nonInterestingColumnsMetadata = new NonInterestingColumnsMetadata(columnsStatistics);
     }
     return nonInterestingColumnsMetadata;
+  }
+
+  @Override
+  public boolean checkMetadataVersion() {
+    return true;
   }
 
   private List<SchemaPath> getInterestingColumns(List<SchemaPath> columnPaths) {
@@ -289,25 +304,9 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
     return fallback;
   }
 
-  private List<List<String>> getColumnPaths(TupleMetadata schema, List<String> parentNames) {
-    List<List<String>> result = new ArrayList<>();
-    for (ColumnMetadata columnMetadata : schema) {
-      if (columnMetadata.isMap()) {
-        List<String> currentNames = parentNames == null
-            ? new ArrayList<>()
-            : new ArrayList<>(parentNames);
-        currentNames.add(columnMetadata.name());
-        result.addAll(getColumnPaths(columnMetadata.mapSchema(), currentNames));
-      } else {
-        result.add(Collections.singletonList(columnMetadata.name()));
-      }
-    }
-    return result;
-  }
-
   private void throwIfChanged() {
     if (basicTablesRequests.hasMetastoreTableInfoChanged(metastoreTableInfo)) {
-      throw new OutdatedMetadataException(String.format("Metadata for table %s is outdated", tableInfo.name()));
+      throw new OutdatedMetadataException(String.format("Metadata for table %s is outdated", tableInfo.name()), false);
     }
   }
 
@@ -385,7 +384,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
       MetastoreParquetTableMetadataProvider provider;
       SchemaProvider schemaProvider = metadataProviderManager.getSchemaProvider();
       ParquetMetadataProvider source = (ParquetTableMetadataProvider) metadataProviderManager.getTableMetadataProvider();
-      // TODO: incorporate with statistics metadata to merge it with metastore metadata
+
       DrillStatsTable statsProvider = metadataProviderManager.getStatsProvider();
       // schema passed into the builder has greater priority
       try {
@@ -407,7 +406,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
         }
       }
       provider = new MetastoreParquetTableMetadataProvider(entries, metadataProviderManager.getMetastoreRegistry(),
-          metadataProviderManager.getTableInfo(), schema, fallback, metadataProviderManager.getConfig());
+          metadataProviderManager.getTableInfo(), schema, fallback, metadataProviderManager.getConfig(), statsProvider);
       // store results into metadataProviderManager to be able to use them when creating new instances
       if (source == null || source.getRowGroupsMeta().size() < provider.getRowGroupsMeta().size()) {
         metadataProviderManager.setTableMetadataProvider(provider);

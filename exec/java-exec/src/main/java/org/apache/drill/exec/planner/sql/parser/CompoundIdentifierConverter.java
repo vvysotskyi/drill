@@ -65,6 +65,7 @@ public class CompoundIdentifierConverter extends SqlShuttle {
     REWRITE_RULES = ImmutableMap.<Class<? extends SqlCall>, RewriteType[]>builder()
         .put(SqlAnalyzeTable.class, arrayOf(D, D, E, D))
         .put(SqlMetastoreAnalyzeTable.class, arrayOf(D, E, D))
+        .put(SqlDropTableMetadata.class, arrayOf(D, D, D))
         .put(SqlSelect.class, arrayOf(D, E, D, E, E, E, E, E, D, D))
         .put(SqlCreateTable.class, arrayOf(D, D, D, E, D, D))
         .put(SqlCreateView.class, arrayOf(D, E, E, D))

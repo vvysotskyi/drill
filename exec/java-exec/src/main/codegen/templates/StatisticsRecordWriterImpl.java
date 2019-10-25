@@ -39,7 +39,7 @@ import java.util.List;
  * This class is generated using freemarker and the ${.template_name} template.
  */
 
-/** Reads records from the RecordValueAccessor and writes into StatisticsRecordWriter. */
+/** Reads records from the RecordValueAccessor and writes into StatisticsRecordWriterImpl. */
 public class StatisticsRecordWriterImpl {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StatisticsRecordWriterImpl.class);
 
@@ -97,7 +97,7 @@ public class StatisticsRecordWriterImpl {
     }
   }
 
-  public static FieldConverter getConverter(StatisticsRecordWriter recordWriter, int fieldId, String fieldName,
+  public static FieldConverter getConverter(StatisticsRecordCollector recordWriter, int fieldId, String fieldName,
       FieldReader reader) {
     switch (reader.getType().getMinorType()) {
       <#list vv.types as type>

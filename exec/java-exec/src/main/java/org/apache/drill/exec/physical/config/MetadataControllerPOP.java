@@ -20,26 +20,29 @@ package org.apache.drill.exec.physical.config;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.apache.drill.exec.physical.base.AbstractSingle;
+import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext;
 import org.apache.drill.exec.proto.UserBitShared;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
+
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 @JsonTypeName("metadataController")
-public class MetadataControllerPOP extends AbstractSingle {
+public class MetadataControllerPOP extends AbstractBase {
   private final MetadataControllerContext context;
+  private final PhysicalOperator left;
+  private final PhysicalOperator right;
 
   @JsonCreator
-  public MetadataControllerPOP(@JsonProperty("child") PhysicalOperator child,
-      @JsonProperty("context") MetadataControllerContext context) {
-    super(child);
+  public MetadataControllerPOP(@JsonProperty("left") PhysicalOperator left,
+      @JsonProperty("right") PhysicalOperator right, @JsonProperty("context") MetadataControllerContext context) {
     this.context = context;
-  }
-
-  @Override
-  protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new MetadataControllerPOP(child, context);
+    this.left = left;
+    this.right = right;
   }
 
   @Override
@@ -48,12 +51,33 @@ public class MetadataControllerPOP extends AbstractSingle {
   }
 
   @Override
+  public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) {
+    Preconditions.checkArgument(children.size() == 2);
+    return new MetadataControllerPOP(children.get(0), children.get(1), context);
+  }
+
+  @Override
   public int getOperatorType() {
     return UserBitShared.CoreOperatorType.METADATA_CONTROLLER_VALUE;
+  }
+
+  @Override
+  public Iterator<PhysicalOperator> iterator() {
+    return Arrays.asList(left, right).iterator();
   }
 
   @JsonProperty
   public MetadataControllerContext getContext() {
     return context;
+  }
+
+  @JsonProperty
+  public PhysicalOperator getLeft() {
+    return left;
+  }
+
+  @JsonProperty
+  public PhysicalOperator getRight() {
+    return right;
   }
 }

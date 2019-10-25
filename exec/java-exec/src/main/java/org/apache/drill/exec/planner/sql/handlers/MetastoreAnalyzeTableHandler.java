@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
@@ -47,6 +48,7 @@ import org.apache.drill.exec.physical.base.SchemalessScan;
 import org.apache.drill.exec.physical.impl.metadata.MetadataAggBatch;
 import org.apache.drill.exec.planner.FileSystemPartitionDescriptor;
 import org.apache.drill.exec.planner.PartitionLocation;
+import org.apache.drill.exec.planner.logical.DrillAnalyzeRel;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.DrillScanRel;
 import org.apache.drill.exec.planner.logical.DrillScreenRel;
@@ -78,6 +80,7 @@ import org.apache.drill.metastore.components.tables.Tables;
 import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.MetadataType;
 import org.apache.drill.metastore.metadata.TableInfo;
+import org.apache.drill.metastore.statistics.TableStatisticsKind;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
@@ -102,7 +105,6 @@ import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import static org.apache.drill.exec.planner.logical.DrillRelFactories.LOGICAL_BUILDER;
 
@@ -121,23 +123,40 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       throws ValidationException, RelConversionException, IOException, ForemanSetupException {
     if (!context.getOptions().getOption(ExecConstants.METASTORE_ENABLED_VALIDATOR)) {
       throw UserException.validationError()
-          .message("Running ANALYZE command when metastore is disabled")
+          .message("Running ANALYZE TABLE REFRESH METADATA command when metastore is disabled")
           .build(logger);
     }
     try {
       // disables during analyze to prevent using locations from the metastore
       context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, false);
-      final SqlMetastoreAnalyzeTable sqlAnalyzeTable = unwrap(sqlNode, SqlMetastoreAnalyzeTable.class);
+      SqlMetastoreAnalyzeTable sqlAnalyzeTable = unwrap(sqlNode, SqlMetastoreAnalyzeTable.class);
 
-      final String tableName = sqlAnalyzeTable.getName();
-      final AbstractSchema drillSchema = SchemaUtilites.resolveToDrillSchema(
+      String tableName = sqlAnalyzeTable.getName();
+      AbstractSchema drillSchema = SchemaUtilites.resolveToDrillSchema(
           config.getConverter().getDefaultSchema(), sqlAnalyzeTable.getSchemaPath());
-      DrillTable table = (DrillTable) SqlHandlerUtil.getTableFromSchema(drillSchema, tableName);
+      Table tableFromSchema = SqlHandlerUtil.getTableFromSchema(drillSchema, tableName);
 
-      if (table == null) {
+      if (tableFromSchema == null) {
         throw UserException.validationError()
             .message("No table with given name [%s] exists in schema [%s]", tableName,
                 drillSchema.getFullSchemaName())
+            .build(logger);
+      }
+
+      DrillTable table;
+      switch (tableFromSchema.getJdbcTableType()) {
+        case TABLE:
+          if (tableFromSchema instanceof DrillTable) {
+            table = (DrillTable) tableFromSchema;
+          } else {
+            throw UserException.validationError()
+                .message("ANALYZE does not support [%s] table kind", tableFromSchema.getClass().getSimpleName())
+                .build(logger);
+          }
+          break;
+        default:
+          throw UserException.validationError()
+            .message("ANALYZE does not support [%s] object type", tableFromSchema.getJdbcTableType())
             .build(logger);
       }
 
@@ -207,7 +226,9 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     return false;
   }
 
-  /* Generates the column list specified in the ANALYZE statement */
+  /**
+   * Generates the column list specified in the ANALYZE statement
+   */
   private SqlNodeList getColumnList(SqlMetastoreAnalyzeTable sqlAnalyzeTable, AnalyzeInfoProvider analyzeInfoProvider) {
     SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
     columnList.add(new SqlIdentifier(SchemaPath.STAR_COLUMN.rootName(), SqlParserPos.ZERO));
@@ -225,9 +246,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
   /* Converts to Drill logical plan */
   private DrillRel convertToDrel(RelNode relNode, AbstractSchema schema,
-      DrillTable table, SqlMetastoreAnalyzeTable sqlAnalyzeTable) throws SqlUnsupportedException, IOException {
+      DrillTable table, SqlMetastoreAnalyzeTable sqlAnalyzeTable) throws ForemanSetupException, IOException {
     RelBuilder relBuilder = LOGICAL_BUILDER.create(relNode.getCluster(), null);
-
 
     TableType tableType = getTableType(table.getGroupScan());
 
@@ -259,12 +279,9 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     Tables tables = context.getMetastoreRegistry().get().tables();
 
-    SqlNodeList fieldList = sqlAnalyzeTable.getFieldList();
-    List<SchemaPath> interestingColumns = fieldList == null
-        ? null
-        : StreamSupport.stream(fieldList.spliterator(), false)
-            .map(sqlNode -> SchemaPath.parseFromString(sqlNode.toString()))
-            .collect(Collectors.toList());
+    MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
+
+    List<SchemaPath> interestingColumns = sqlAnalyzeTable.getFieldNames();
 
     MetastoreTableInfo metastoreTableInfo = tables.basicRequests().metastoreTableInfo(tableInfo);
 
@@ -276,11 +293,11 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       CheckedSupplier<TableScan, SqlUnsupportedException> tableScanSupplier = () -> AnalyzeTableHandler.findScan(convertToDrel(finalRelNode.getInput(0)));
 
       MetadataInfoCollector metadataInfoCollector = analyzeInfoProvider.getMetadataInfoCollector(tables.basicRequests(), tableInfo,
-          (FormatSelection) table.getSelection(), context.getPlannerSettings(), tableScanSupplier, interestingColumns, segmentColumns.size());
+          (FormatSelection) table.getSelection(), context.getPlannerSettings(), tableScanSupplier, interestingColumns, metadataLevel, segmentColumns.size());
 
       if (!metadataInfoCollector.isChanged()) {
         DrillRel convertedRelNode = convertToRawDrel(
-            relBuilder.values(new String[]{"ok", "Summary"}, false, "Analyze is so cool, it knows that table wasn't changed!").build());
+            relBuilder.values(new String[]{"ok", "summary"}, false, "Analyze is so cool, it knows that table wasn't changed!").build());
         return new DrillScreenRel(convertedRelNode.getCluster(), convertedRelNode.getTraitSet(), convertedRelNode);
       }
 
@@ -307,7 +324,6 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         ? null
         : new ArrayList<>(interestingColumns);
     if (statisticsColumns != null) {
-      //
       statisticsColumns.addAll(
           segmentColumns.stream()
               .map(SchemaPath::getSimplePath)
@@ -316,8 +332,6 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     SchemaPath locationField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL));
     SchemaPath lastModifiedTimeField = SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL));
-
-    MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
 
     if (tableType == TableType.PARQUET && metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
       String rowGroupIndexColumn = config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);
@@ -470,6 +484,12 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
               convertedRelNode,
               handlerContext);
 
+      boolean useStatistics = context.getOptions().getOption(PlannerSettings.STATISTICS_USE);
+      RelNode analyzeRel = useStatistics
+          ? new DrillAnalyzeRel(
+              convertedRelNode.getCluster(), convertedRelNode.getTraitSet(), convertToRawDrel(relNode), 100.0)
+          : convertToRawDrel(relBuilder.values(new String[]{""}, "").build());
+
       MetadataControllerContext metadataControllerContext = MetadataControllerContext.builder()
           .tableInfo(tableInfo)
           .metastoreTableInfo(metastoreTableInfo)
@@ -478,11 +498,13 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           .segmentColumns(segmentColumns)
           .metadataToHandle(allMetaToHandle)
           .metadataToRemove(metadataToRemove)
+          .analyzeMetadataLevel(metadataLevel)
           .build();
 
       convertedRelNode = new MetadataControllerRel(convertedRelNode.getCluster(),
           convertedRelNode.getTraitSet(),
           convertedRelNode,
+          analyzeRel,
           metadataControllerContext);
     } else {
       throw new IllegalStateException("Analyze table with NONE level");
@@ -615,6 +637,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     private final List<String> segmentColumns;
     private final List<MetadataInfo> metadataToHandle;
     private final List<MetadataInfo> metadataToRemove;
+    private final MetadataType analyzeMetadataLevel;
 
     private MetadataControllerContext(MetadataControllerContextBuilder builder) {
       this.tableInfo = builder.tableInfo;
@@ -624,6 +647,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       this.segmentColumns = builder.segmentColumns;
       this.metadataToHandle = builder.metadataToHandle;
       this.metadataToRemove = builder.metadataToRemove;
+      this.analyzeMetadataLevel = builder.analyzeMetadataLevel;
     }
 
     @JsonProperty
@@ -661,6 +685,11 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       return metadataToRemove;
     }
 
+    @JsonProperty
+    public MetadataType analyzeMetadataLevel() {
+      return analyzeMetadataLevel;
+    }
+
     @Override
     public String toString() {
       return new StringJoiner(",\n", MetadataControllerContext.class.getSimpleName() + "[", "]")
@@ -670,6 +699,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           .add("segmentColumns=" + segmentColumns)
           .add("metadataToHandle=" + metadataToHandle)
           .add("metadataToRemove=" + metadataToRemove)
+          .add("analyzeMetadataLevel=" + analyzeMetadataLevel)
           .toString();
     }
 
@@ -686,6 +716,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       private List<String> segmentColumns;
       private List<MetadataInfo> metadataToHandle;
       private List<MetadataInfo> metadataToRemove;
+      private MetadataType analyzeMetadataLevel;
 
       public MetadataControllerContextBuilder tableInfo(TableInfo tableInfo) {
         this.tableInfo = tableInfo;
@@ -719,6 +750,11 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
       public MetadataControllerContextBuilder metadataToRemove(List<MetadataInfo> metadataToRemove) {
         this.metadataToRemove = metadataToRemove;
+        return this;
+      }
+
+      public MetadataControllerContextBuilder analyzeMetadataLevel(MetadataType metadataType) {
+        this.analyzeMetadataLevel = metadataType;
         return this;
       }
 
@@ -826,7 +862,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       case PARQUET:
         return AnalyzeFileInfoProvider.INSTANCE;
       default:
-        throw new UnsupportedOperationException("Unsupported table type");
+        throw new UnsupportedOperationException(String.format("Unsupported table type [%s]", tableType));
     }
   }
 
@@ -843,6 +879,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   public static class FileMetadataInfoCollector implements MetadataInfoCollector {
     private final BasicTablesRequests basicRequests;
     private final TableInfo tableInfo;
+    private final MetadataType metadataLevel;
 
     private List<MetadataInfo> rowGroupsInfo = Collections.emptyList();
     private List<MetadataInfo> filesInfo = Collections.emptyList();
@@ -856,9 +893,11 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     private boolean isChanged = true;
 
     public FileMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo, FormatSelection selection,
-        PlannerSettings settings, Supplier<TableScan> tableScanSupplier, List<SchemaPath> interestingColumns, int segmentColumnsCount) throws IOException {
+        PlannerSettings settings, Supplier<TableScan> tableScanSupplier, List<SchemaPath> interestingColumns,
+        MetadataType metadataLevel, int segmentColumnsCount) throws IOException {
       this.basicRequests = basicRequests;
       this.tableInfo = tableInfo;
+      this.metadataLevel = metadataLevel;
       init(selection, settings, tableScanSupplier, interestingColumns, segmentColumnsCount);
     }
 
@@ -929,9 +968,10 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       String selectionRoot = selection.getSelection().getSelectionRoot().toUri().getPath();
 
       if (!Objects.equals(metastoreInterestingColumns, interestingColumns)
-          && (metastoreInterestingColumns == null || !metastoreInterestingColumns.containsAll(interestingColumns))) {
+          && (metastoreInterestingColumns == null || !metastoreInterestingColumns.containsAll(interestingColumns))
+          || TableStatisticsKind.ANALYZE_METADATA_LEVEL.getValue(basicRequests.tableMetadata(tableInfo)).compareTo(metadataLevel) != 0) {
         // do not update table scan and lists of segments / files / row groups,
-        // everything should be recalculated
+        // metadata should be recalculated
         tableScan = tableScanSupplier.get();
         metadataToRemove.addAll(getMetadataInfoList(selectionRoot, removedFiles, MetadataType.SEGMENT, 0));
         return;
@@ -1158,7 +1198,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     MetadataInfoCollector getMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo,
         FormatSelection selection, PlannerSettings settings, Supplier<TableScan> scanRel,
-        List<SchemaPath> interestingColumns, int segmentColumnsCount) throws IOException;
+        List<SchemaPath> interestingColumns, MetadataType metadataLevel, int segmentColumnsCount) throws IOException;
   }
 
   private static class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
@@ -1194,9 +1234,9 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     @Override
     public MetadataInfoCollector getMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo,
         FormatSelection selection, PlannerSettings settings, Supplier<TableScan> tableScanSupplier,
-        List<SchemaPath> interestingColumns, int segmentColumnsCount) throws IOException {
+        List<SchemaPath> interestingColumns, MetadataType metadataLevel, int segmentColumnsCount) throws IOException {
       return new FileMetadataInfoCollector(basicRequests, tableInfo, selection,
-          settings, tableScanSupplier, interestingColumns, segmentColumnsCount);
+          settings, tableScanSupplier, interestingColumns, metadataLevel, segmentColumnsCount);
     }
   }
 

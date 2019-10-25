@@ -21,15 +21,27 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.common.logical.data.visitors.LogicalVisitor;
 
+import java.util.Arrays;
+import java.util.Iterator;
+
 @JsonTypeName("metadataController")
-public class MetadataController extends SingleInputOperator {
+public class MetadataController extends LogicalOperatorBase {
+  private final LogicalOperator left;
+  private final LogicalOperator right;
 
   @JsonCreator
-  public MetadataController() {
+  public MetadataController(LogicalOperator left, LogicalOperator right) {
+    this.left = left;
+    this.right = right;
   }
 
   @Override
   public <T, X, E extends Throwable> T accept(LogicalVisitor<T, X, E> logicalVisitor, X value) throws E {
     throw new UnsupportedOperationException("MetadataController does not support visitors");
+  }
+
+  @Override
+  public Iterator<LogicalOperator> iterator() {
+    return Arrays.asList(left, right).iterator();
   }
 }

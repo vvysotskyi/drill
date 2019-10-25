@@ -21,26 +21,26 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
-import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.drill.common.logical.data.LogicalOperator;
 import org.apache.drill.common.logical.data.MetadataController;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext;
+import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import java.util.List;
 
-public class MetadataControllerRel extends SingleRel implements DrillRel {
+public class MetadataControllerRel extends BiRel implements DrillRel {
   private final MetadataControllerContext context;
 
-  public MetadataControllerRel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
+  public MetadataControllerRel(RelOptCluster cluster, RelTraitSet traits, RelNode left, RelNode right,
       MetadataControllerContext context) {
-    super(cluster, traits, input);
+    super(cluster, traits, left, right);
     this.context = context;
   }
 
@@ -50,7 +50,7 @@ public class MetadataControllerRel extends SingleRel implements DrillRel {
 
   @Override
   public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
-    double dRows = mq.getRowCount(getInput());
+    double dRows = Math.max(mq.getRowCount(getLeft()), mq.getRowCount(getRight()));
     double dCpu = dRows * DrillCostBase.COMPARE_CPU_COST;
     double dIo = 0;
     return planner.getCostFactory().makeCost(dRows, dCpu, dIo);
@@ -58,23 +58,23 @@ public class MetadataControllerRel extends SingleRel implements DrillRel {
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    return new MetadataControllerRel(getCluster(), traitSet, sole(inputs), context);
+    Preconditions.checkArgument(inputs.size() == 2);
+    return new MetadataControllerRel(getCluster(), traitSet, inputs.get(0), inputs.get(1), context);
   }
 
   @Override
   public LogicalOperator implement(DrillImplementor implementor) {
-    LogicalOperator inputOp = implementor.visitChild(this, 0, getInput());
-    MetadataController rel = new MetadataController();
-    rel.setInput(inputOp);
-    return rel;
+    LogicalOperator left = implementor.visitChild(this, 0, getLeft());
+    LogicalOperator right = implementor.visitChild(this, 1, getRight());
+    return new MetadataController(left, right);
   }
 
   @Override
   protected RelDataType deriveRowType() {
-    RelDataTypeFactory.Builder builder = getCluster().getTypeFactory().builder();
-
-    return builder.add("ok", SqlTypeName.BOOLEAN)
-        .add("Summary", SqlTypeName.VARCHAR).build();
+    return getCluster().getTypeFactory().builder()
+        .add("ok", SqlTypeName.BOOLEAN)
+        .add("summary", SqlTypeName.VARCHAR)
+        .build();
   }
 
   @Override

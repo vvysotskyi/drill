@@ -697,14 +697,13 @@ Pair<SqlNodeList, SqlNodeList> ParenthesizedCompoundIdentifierList() :
 }
 </#if>
 
-
-// TODO: clean up this shit
 /**
- * Parses metastore analyze statement.
- * ANALYZE TABLE [table_name] [COLUMNS (col1, col2, ...)] REFRESH METADATA [partition LEVEL]
-     and
- * ANALYZE TABLE table_name {COMPUTE | ESTIMATE} | STATISTICS
- *      [(column1, column2, ...)] [ SAMPLE numeric PERCENT ]
+ * Parses a analyze statements:
+ * <ul>
+ * <li>ANALYZE TABLE [table_name] [COLUMNS (col1, col2, ...)] REFRESH METADATA [partition LEVEL]
+ * <li>ANALYZE TABLE [table_name] DROP [METADATA|STATISTICS] [IF EXISTS]
+ * <li>ANALYZE TABLE [table_name] {COMPUTE | ESTIMATE} | STATISTICS [(column1, column2, ...)] [ SAMPLE numeric PERCENT ]
+ * </ul>
  */
 SqlNode SqlAnalyzeTable() :
 {
@@ -713,6 +712,8 @@ SqlNode SqlAnalyzeTable() :
     SqlNodeList fieldList = null;
     SqlNode level = null;
     SqlLiteral estimate = null;
+    SqlLiteral dropMetadata = null;
+    SqlLiteral checkMetadataExistence = null;
     SqlNumericLiteral percent = null;
 }
 {
@@ -721,66 +722,90 @@ SqlNode SqlAnalyzeTable() :
     tblName = CompoundIdentifier()
     [
         (
-            <COMPUTE> { estimate = SqlLiteral.createBoolean(false, pos); }
-            |
-            <ESTIMATE> { estimate = SqlLiteral.createBoolean(true, pos); }
-        )
-    ]
-    [
-          {
-              if (estimate != null) {
-    <#--            throw SqlUtil.newContextException(getPos(),-->
-    <#--                RESOURCE.illegalFromEmpty());-->
-                throw new ParseException("Unexpected COLUMNS keyword");
-              }
-          }
-        <COLUMNS>
-        (   fieldList = ParseRequiredFieldList("Table")
-          |
-          <NONE> {fieldList = SqlNodeList.EMPTY;}
-        )
-    ]
-    [
-          {
-              if (fieldList != null) {
-                <#--            throw SqlUtil.newContextException(getPos(),-->
-                <#--                RESOURCE.illegalFromEmpty());-->
-                throw new ParseException("Unexpected STATISTICS keyword");
-              }
-          }
-        <STATISTICS>
-        [
-            (fieldList = ParseRequiredFieldList("Table"))
-        ]
-        [
-            <SAMPLE> percent = UnsignedNumericLiteral() <PERCENT>
-            {
-                BigDecimal rate = percent.bigDecimalValue();
-                if (rate.compareTo(BigDecimal.ZERO) <= 0 ||
-                    rate.compareTo(BigDecimal.valueOf(100L)) > 0)
+            (
+                <COMPUTE> { estimate = SqlLiteral.createBoolean(false, pos); }
+                |
+                <ESTIMATE> { estimate = SqlLiteral.createBoolean(true, pos); }
+            )
+            <STATISTICS>
+            [
+                (fieldList = ParseRequiredFieldList("Table"))
+            ]
+            [
+                <SAMPLE> percent = UnsignedNumericLiteral() <PERCENT>
                 {
-                    throw new ParseException("Invalid percentage for ANALYZE TABLE");
+                    BigDecimal rate = percent.bigDecimalValue();
+                    if (rate.compareTo(BigDecimal.ZERO) <= 0 ||
+                        rate.compareTo(BigDecimal.valueOf(100L)) > 0)
+                    {
+                        throw new ParseException("Invalid percentage for ANALYZE TABLE");
+                    }
                 }
+            ]
+            {
+                if (percent == null) { percent = SqlLiteral.createExactNumeric("100.0", pos); }
+                return new SqlAnalyzeTable(pos, tblName, estimate, fieldList, percent);
             }
-        ]
-        {
-            if (percent == null) {
-              percent = SqlLiteral.createExactNumeric("100.0", pos);
+        )
+        |
+        (
+            [
+                <COLUMNS>
+                (
+                    fieldList = ParseRequiredFieldList("Table")
+                    |
+                    <NONE> {fieldList = SqlNodeList.EMPTY;}
+                )
+            ]
+            <REFRESH>
+            <METADATA>
+            [
+                level = StringLiteral()
+                <LEVEL>
+            ]
+            [
+                (
+                    <COMPUTE> { estimate = SqlLiteral.createBoolean(false, pos); }
+                    |
+                    <ESTIMATE> { estimate = SqlLiteral.createBoolean(true, pos); }
+                )
+                <STATISTICS>
+            ]
+            [
+                <SAMPLE> percent = UnsignedNumericLiteral() <PERCENT>
+                {
+                    BigDecimal rate = percent.bigDecimalValue();
+                    if (rate.compareTo(BigDecimal.ZERO) <= 0 ||
+                        rate.compareTo(BigDecimal.valueOf(100L)) > 0)
+                    {
+                        throw new ParseException("Invalid percentage for ANALYZE TABLE");
+                    }
+                }
+            ]
+            {
+                return new SqlMetastoreAnalyzeTable(pos, tblName, fieldList, level, estimate, percent);
             }
-            return new SqlAnalyzeTable(pos, tblName, estimate, fieldList, percent);
-        }
+        )
+        |
+        (
+            <DROP>
+            [
+                <METADATA> { dropMetadata = SqlLiteral.createBoolean(true, pos); }
+                |
+                <STATISTICS> { dropMetadata = SqlLiteral.createBoolean(false, pos); }
+            ]
+            [
+                <IF>
+                <EXISTS> { checkMetadataExistence = SqlLiteral.createBoolean(false, pos); }
+            ]
+            {
+                if (checkMetadataExistence == null) {
+                  checkMetadataExistence = SqlLiteral.createBoolean(true, pos);
+                }
+                return new SqlDropTableMetadata(pos, tblName, dropMetadata, checkMetadataExistence);
+            }
+        )
     ]
-    [
-        <REFRESH>
-        <METADATA>
-        [
-            level = StringLiteral()
-            <LEVEL>
-        ]
-    ]
-    {
-        return new SqlMetastoreAnalyzeTable(pos, tblName, fieldList, level);
-    }
 }
 
 

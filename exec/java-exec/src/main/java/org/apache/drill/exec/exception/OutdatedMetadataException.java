@@ -23,8 +23,14 @@ import org.apache.drill.common.exceptions.DrillRuntimeException;
  * Exception which indicates that table metadata is outdated.
  */
 public class OutdatedMetadataException extends DrillRuntimeException {
+  private final boolean outdatedMetadata;
 
-  public OutdatedMetadataException(String message) {
+  public OutdatedMetadataException(String message, boolean outdatedMetadata) {
     super(message);
+    this.outdatedMetadata = outdatedMetadata;
+  }
+
+  public boolean isOutdatedMetadata() {
+    return outdatedMetadata;
   }
 }

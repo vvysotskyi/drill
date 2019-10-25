@@ -1084,8 +1084,7 @@ public final class ExecConstants {
    */
   public static final String METASTORE_METADATA_STORE_DEPTH_LEVEL = "metastore.metadata.store.depth_level";
   public static final EnumeratedStringValidator METASTORE_METADATA_STORE_DEPTH_LEVEL_VALIDATOR = new EnumeratedStringValidator(METASTORE_METADATA_STORE_DEPTH_LEVEL,
-      new OptionDescription("Specifies maximum level depth for collecting metadata. " +
-          "Default is 'ROW_GROUP'. (Drill 1.17+)"),
+      new OptionDescription("Specifies maximum level depth for collecting metadata. Default is 'ROW_GROUP'. (Drill 1.17+)"),
       "TABLE", "SEGMENT", "PARTITION", "FILE", "ROW_GROUP");
 
   /**
@@ -1123,8 +1122,8 @@ public final class ExecConstants {
   /**
    * Option for specifying the number of attempts for retrying query planning after detecting that query metadata is changed.
    */
-  public static final String METASTORE_RETRIVAL_RETRY_ATTEMPTS = "metastore.retrival.retry_attempts";
-  public static final IntegerValidator METASTORE_RETRIVAL_RETRY_ATTEMPTS_VALIDATOR = new IntegerValidator(METASTORE_RETRIVAL_RETRY_ATTEMPTS,
+  public static final String METASTORE_RETRIEVAL_RETRY_ATTEMPTS = "metastore.retrieval.retry_attempts";
+  public static final IntegerValidator METASTORE_RETRIEVAL_RETRY_ATTEMPTS_VALIDATOR = new IntegerValidator(METASTORE_RETRIEVAL_RETRY_ATTEMPTS,
       new OptionDescription("Specifies the number of attempts for retrying query planning after detecting that query metadata is changed. " +
           "If the number of retries was exceeded, query will be planned without metadata information from the Metastore. " +
           "Default is 5. (Drill 1.17+)"));

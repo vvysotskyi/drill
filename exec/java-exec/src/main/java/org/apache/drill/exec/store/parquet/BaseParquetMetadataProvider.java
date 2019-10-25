@@ -539,5 +539,10 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
     return rowGroups;
   }
 
+  @Override
+  public boolean checkMetadataVersion() {
+    return false;
+  }
+
   protected abstract void initInternal() throws IOException;
 }

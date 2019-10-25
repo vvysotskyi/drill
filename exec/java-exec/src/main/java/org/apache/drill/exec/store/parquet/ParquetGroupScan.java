@@ -21,7 +21,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import org.apache.drill.exec.exception.OutdatedMetadataException;
 import org.apache.drill.exec.metastore.MetastoreParquetTableMetadataProvider;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
@@ -64,6 +66,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   private Path selectionRoot;
   private Path cacheFileRoot;
 
+  @SuppressWarnings("unused")
   @JsonCreator
   public ParquetGroupScan(@JacksonInject StoragePluginRegistry engineRegistry,
                           @JsonProperty("userName") String userName,
@@ -155,6 +158,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.fileSet = parquetTableMetadataProvider.getFileSet();
 
     init();
+    checkMetadataConsistency();
   }
 
   /**
@@ -298,6 +302,27 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   @Override
   protected List<String> getPartitionValues(LocationProvider locationProvider) {
     return ColumnExplorer.listPartitionValues(locationProvider.getPath(), selectionRoot, false);
+  }
+
+  private void checkMetadataConsistency() throws IOException {
+    if (metadataProvider.checkMetadataVersion()) {
+      DrillFileSystem fileSystem =
+          ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(getUserName()), formatPlugin.getFsConf());
+      List<Path> paths = entries.stream()
+          .map(ReadEntryWithPath::getPath)
+          .collect(Collectors.toList());
+
+      long lastModifiedTime = metadataProvider.getTableMetadata().getLastModifiedTime();
+
+      // TODO: add logic to handle new and removed files correctly
+      //  and decide whether it is possible to continue with fallback
+      //  and investigate how to deal with caching of metadata provider manager for such cases
+      for (Path path : paths) {
+        if (fileSystem.getFileStatus(path).getModificationTime() > lastModifiedTime) {
+          throw new OutdatedMetadataException("Metastore metadata is outdated", true);
+        }
+      }
+    }
   }
 
   // overridden protected methods block end

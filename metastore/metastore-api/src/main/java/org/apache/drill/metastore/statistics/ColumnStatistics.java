@@ -152,12 +152,13 @@ public class ColumnStatistics<T> {
    */
   public ColumnStatistics<T> cloneWith(ColumnStatistics<T> sourceStatistics) {
     Map<String, StatisticsHolder> newStats = new HashMap<>(this.statistics);
-    statistics.values().forEach(statisticsHolder -> {
-      StatisticsKind currentStatisticsKind = statisticsHolder.getStatisticsKind();
-      StatisticsHolder statisticsToMerge = sourceStatistics.statistics.get(currentStatisticsKind.getName());
-      if (statisticsToMerge != null &&
-          (statisticsToMerge.getStatisticsKind().isExact() || !currentStatisticsKind.isExact())) {
-        newStats.put(currentStatisticsKind.getName(), statisticsToMerge);
+    sourceStatistics.statistics.values().forEach(statisticsHolder -> {
+      StatisticsKind statisticsKindToMerge = statisticsHolder.getStatisticsKind();
+      StatisticsHolder oldStatistics = statistics.get(statisticsKindToMerge.getName());
+      if (oldStatistics == null
+          || !oldStatistics.getStatisticsKind().isExact()
+          || statisticsKindToMerge.isExact()) {
+        newStats.put(statisticsKindToMerge.getName(), statisticsHolder);
       }
     });
 

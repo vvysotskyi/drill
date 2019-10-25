@@ -19,8 +19,8 @@ package org.apache.drill.exec.planner.physical;
 
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -36,19 +36,21 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
-public class MetadataControllerPrel extends SingleRel implements DrillRelNode, Prel {
+public class MetadataControllerPrel extends BiRel implements DrillRelNode, Prel {
   private final MetadataControllerContext context;
 
-  protected MetadataControllerPrel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      MetadataControllerContext context) {
-    super(cluster, traits, input);
+  protected MetadataControllerPrel(RelOptCluster cluster, RelTraitSet traits, RelNode left,
+      RelNode right, MetadataControllerContext context) {
+    super(cluster, traits, left, right);
     this.context = context;
   }
 
   @Override
   public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) throws IOException {
-    Prel child = (Prel) this.getInput();
-    MetadataControllerPOP physicalOperator = new MetadataControllerPOP(child.getPhysicalOperator(creator), context);
+    Prel left = (Prel) this.getLeft();
+    Prel right = (Prel) this.getRight();
+    MetadataControllerPOP physicalOperator =
+        new MetadataControllerPOP(left.getPhysicalOperator(creator), right.getPhysicalOperator(creator), context);
     return creator.addMetadata(this, physicalOperator);
   }
 
@@ -69,8 +71,8 @@ public class MetadataControllerPrel extends SingleRel implements DrillRelNode, P
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    Preconditions.checkState(inputs.size() == 1);
-    return new MetadataControllerPrel(getCluster(), traitSet, inputs.iterator().next(), context);
+    Preconditions.checkArgument(inputs.size() == 2);
+    return new MetadataControllerPrel(getCluster(), traitSet, inputs.get(0), inputs.get(1), context);
   }
 
   @Override
@@ -80,7 +82,7 @@ public class MetadataControllerPrel extends SingleRel implements DrillRelNode, P
 
   @Override
   public Iterator<Prel> iterator() {
-    return PrelUtil.iter(getInput());
+    return PrelUtil.iter(getLeft(), getRight());
   }
 
   @Override
@@ -88,6 +90,6 @@ public class MetadataControllerPrel extends SingleRel implements DrillRelNode, P
     RelDataTypeFactory.Builder builder = getCluster().getTypeFactory().builder();
 
     return builder.add("ok", SqlTypeName.BOOLEAN)
-        .add("Summary", SqlTypeName.VARCHAR).build();
+        .add("summary", SqlTypeName.VARCHAR).build();
   }
 }

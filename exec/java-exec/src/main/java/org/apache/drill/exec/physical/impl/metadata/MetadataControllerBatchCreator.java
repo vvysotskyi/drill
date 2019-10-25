@@ -27,12 +27,13 @@ import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import java.util.List;
 
+@SuppressWarnings("unused")
 public class MetadataControllerBatchCreator implements BatchCreator<MetadataControllerPOP> {
 
   @Override
   public CloseableRecordBatch getBatch(ExecutorFragmentContext context,
       MetadataControllerPOP config, List<RecordBatch> children) throws ExecutionSetupException {
-    Preconditions.checkArgument(children.size() == 1);
-    return new MetadataControllerBatch(config, context, children.iterator().next());
+    Preconditions.checkArgument(children.size() == 2);
+    return new MetadataControllerBatch(config, context, children.get(0), children.get(1));
   }
 }
