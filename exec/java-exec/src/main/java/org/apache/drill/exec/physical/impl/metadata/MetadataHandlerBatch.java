@@ -22,16 +22,17 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.apache.drill.exec.metastore.analyze.MetastoreAnalyzeConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.MetadataHandlerPOP;
-import org.apache.drill.exec.physical.impl.metadata.MetadataControllerBatch.ColumnNameStatisticsHandler;
+import org.apache.drill.exec.metastore.analyze.AnalyzeColumnUtils;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.physical.resultSet.RowSetLoader;
 import org.apache.drill.exec.physical.resultSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.DirectRowSet;
 import org.apache.drill.exec.physical.rowSet.RowSetReader;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataIdentifierUtils;
+import org.apache.drill.exec.metastore.analyze.MetadataIdentifierUtils;
 import org.apache.drill.exec.record.AbstractSingleRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -140,17 +141,23 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       switch (metadataType) {
         case ROW_GROUP: {
           List<RowGroupMetadata> rowGroups =
-              basicTablesRequests.rowGroupsMetadata(popConfig.getMetadataHandlerContext().tableInfo(), new ArrayList<>(metadataToHandle.values()));
+              basicTablesRequests.rowGroupsMetadata(
+                  popConfig.getMetadataHandlerContext().tableInfo(),
+                  new ArrayList<>(metadataToHandle.values()));
           return populateContainer(rowGroups);
         }
         case FILE: {
           List<FileMetadata> files =
-              basicTablesRequests.filesMetadata(popConfig.getMetadataHandlerContext().tableInfo(), new ArrayList<>(metadataToHandle.values()));
+              basicTablesRequests.filesMetadata(
+                  popConfig.getMetadataHandlerContext().tableInfo(),
+                  new ArrayList<>(metadataToHandle.values()));
           return populateContainer(files);
         }
         case SEGMENT: {
           List<SegmentMetadata> segments =
-              basicTablesRequests.segmentsMetadata(popConfig.getMetadataHandlerContext().tableInfo(), new ArrayList<>(metadataToHandle.values()));
+              basicTablesRequests.segmentsMetadata(
+                  popConfig.getMetadataHandlerContext().tableInfo(),
+                  new ArrayList<>(metadataToHandle.values()));
           return populateContainer(segments);
         }
       }
@@ -203,11 +210,11 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           .sorted(Comparator.comparing(e -> e.getKey().toExpr()))
           .map(Map.Entry::getValue)
           .flatMap(columnStatistics ->
-              ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.keySet().stream()
+              AnalyzeColumnUtils.COLUMN_STATISTICS_FUNCTIONS.keySet().stream()
                   .map(columnStatistics::get))
           .forEach(arguments::add);
 
-      ColumnNameStatisticsHandler.META_STATISTICS_FUNCTIONS.keySet().stream()
+      AnalyzeColumnUtils.META_STATISTICS_FUNCTIONS.keySet().stream()
           .map(metadata::getStatistic)
           .forEach(arguments::add);
 
@@ -237,37 +244,36 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
   private ResultSetLoader getResultSetLoaderForMetadata(BaseMetadata baseMetadata) {
     SchemaBuilder schemaBuilder = new SchemaBuilder()
-        .addNullable(MetadataAggBatch.LOCATION_FIELD, MinorType.VARCHAR);
+        .addNullable(MetastoreAnalyzeConstants.LOCATION_FIELD, MinorType.VARCHAR);
     for (String segmentColumn : popConfig.getMetadataHandlerContext().segmentColumns()) {
       schemaBuilder.addNullable(segmentColumn, MinorType.VARCHAR);
     }
 
     baseMetadata.getColumnsStatistics().entrySet().stream()
         .sorted(Comparator.comparing(e -> e.getKey().getRootSegmentPath()))
-        // TODO: replace with stream API if possible...
         .forEach(entry -> {
-          for (StatisticsKind statisticsKind : ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.keySet()) {
-            MinorType type = ColumnNameStatisticsHandler.COLUMN_STATISTICS_TYPES.get(statisticsKind);
+          for (StatisticsKind statisticsKind : AnalyzeColumnUtils.COLUMN_STATISTICS_FUNCTIONS.keySet()) {
+            MinorType type = AnalyzeColumnUtils.COLUMN_STATISTICS_TYPES.get(statisticsKind);
             type = type != null ? type : entry.getValue().getComparatorType();
             schemaBuilder.addNullable(
-                ColumnNameStatisticsHandler.getColumnStatisticsFieldName(entry.getKey().getRootSegmentPath(), statisticsKind),
+                AnalyzeColumnUtils.getColumnStatisticsFieldName(entry.getKey().getRootSegmentPath(), statisticsKind),
                 type);
           }
         });
 
-    for (StatisticsKind statisticsKind : ColumnNameStatisticsHandler.META_STATISTICS_FUNCTIONS.keySet()) {
+    for (StatisticsKind statisticsKind : AnalyzeColumnUtils.META_STATISTICS_FUNCTIONS.keySet()) {
       schemaBuilder.addNullable(
-          ColumnNameStatisticsHandler.getMetadataStatisticsFieldName(statisticsKind),
-          ColumnNameStatisticsHandler.COLUMN_STATISTICS_TYPES.get(statisticsKind));
+          AnalyzeColumnUtils.getMetadataStatisticsFieldName(statisticsKind),
+          AnalyzeColumnUtils.COLUMN_STATISTICS_TYPES.get(statisticsKind));
     }
 
     // current code checks whether this field exists, so do not create it if we don't want to populate it???
     schemaBuilder
-        .addMapArray(MetadataAggBatch.COLLECTED_MAP_FIELD)
+        .addMapArray(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD)
         .resumeSchema();
 
     if (metadataType == MetadataType.SEGMENT) {
-      schemaBuilder.addArray(MetadataAggBatch.LOCATIONS_FIELD, MinorType.VARCHAR);
+      schemaBuilder.addArray(MetastoreAnalyzeConstants.LOCATIONS_FIELD, MinorType.VARCHAR);
     }
 
     if (metadataType == MetadataType.ROW_GROUP) {
@@ -277,9 +283,9 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     }
 
     schemaBuilder
-        .addNullable(MetadataAggBatch.SCHEMA_FIELD, MinorType.VARCHAR)
+        .addNullable(MetastoreAnalyzeConstants.SCHEMA_FIELD, MinorType.VARCHAR)
         .addNullable(context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL), MinorType.VARCHAR)
-        .add(MetadataAggBatch.METADATA_TYPE, MinorType.VARCHAR);
+        .add(MetastoreAnalyzeConstants.METADATA_TYPE, MinorType.VARCHAR);
 
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schemaBuilder.buildSchema())
@@ -313,9 +319,9 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
         // TODO: too ugly, find the way to rewrite it without if-else chain
         MaterializedField field = vectorWrapper.getField();
         String fieldName = field.getName();
-        if (fieldName.equals(MetadataAggBatch.LOCATION_FIELD)) {
+        if (fieldName.equals(MetastoreAnalyzeConstants.LOCATION_FIELD)) {
           arguments.add(metadata.getPath().toUri().getPath());
-        } else if (fieldName.equals(MetadataAggBatch.LOCATIONS_FIELD)) {
+        } else if (fieldName.equals(MetastoreAnalyzeConstants.LOCATIONS_FIELD)) {
           if (metadataType == MetadataType.SEGMENT) {
             arguments.add(((SegmentMetadata) metadata).getLocations().stream()
                 .map(path -> path.toUri().getPath())
@@ -325,16 +331,16 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           }
         } else if (popConfig.getMetadataHandlerContext().segmentColumns().contains(fieldName)) {
           arguments.add(identifierValues[popConfig.getMetadataHandlerContext().segmentColumns().indexOf(fieldName)]);
-        } else if (ColumnNameStatisticsHandler.columnStatisticsField(fieldName)) {
+        } else if (AnalyzeColumnUtils.columnStatisticsField(fieldName)) {
           arguments.add(
-              metadata.getColumnStatistics(SchemaPath.parseFromString(ColumnNameStatisticsHandler.getColumnName(fieldName)))
-                  .get(ColumnNameStatisticsHandler.getStatisticsKind(fieldName)));
-        } else if (ColumnNameStatisticsHandler.metadataStatisticsField(fieldName)) {
-          arguments.add(metadata.getStatistic(ColumnNameStatisticsHandler.getStatisticsKind(fieldName)));
-        } else if (fieldName.equals(MetadataAggBatch.COLLECTED_MAP_FIELD)) {
+              metadata.getColumnStatistics(SchemaPath.parseFromString(AnalyzeColumnUtils.getColumnName(fieldName)))
+                  .get(AnalyzeColumnUtils.getStatisticsKind(fieldName)));
+        } else if (AnalyzeColumnUtils.metadataStatisticsField(fieldName)) {
+          arguments.add(metadata.getStatistic(AnalyzeColumnUtils.getStatisticsKind(fieldName)));
+        } else if (fieldName.equals(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD)) {
           // current code checks whether this field exists, so do not create it if we don't want to populate it???
           arguments.add(null);
-        } else if (fieldName.equals(MetadataAggBatch.SCHEMA_FIELD)) {
+        } else if (fieldName.equals(MetastoreAnalyzeConstants.SCHEMA_FIELD)) {
           arguments.add(metadata.getSchema().jsonString());
         } else if (fieldName.equals(lastModifiedTimeField)) {
           arguments.add(Long.toString(metadata.getLastModifiedTime()));
@@ -344,7 +350,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           arguments.add(Long.toString(metadata.getStatistic(() -> ExactStatisticsConstants.START)));
         } else if (fieldName.equals(rglField)) {
           arguments.add(Long.toString(metadata.getStatistic(() -> ExactStatisticsConstants.LENGTH)));
-        } else if (fieldName.equals(MetadataAggBatch.METADATA_TYPE)) {
+        } else if (fieldName.equals(MetastoreAnalyzeConstants.METADATA_TYPE)) {
           arguments.add(metadataType.name());
         } else {
           throw new UnsupportedOperationException(String.format("Found unexpected field [%s] in incoming batch.",  field));
@@ -367,22 +373,22 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     for (VectorWrapper<?> vectorWrapper : container) {
       MaterializedField field = vectorWrapper.getField();
       String fieldName = field.getName();
-      if (fieldName.equals(MetadataAggBatch.LOCATION_FIELD)
-          || fieldName.equals(MetadataAggBatch.SCHEMA_FIELD)
+      if (fieldName.equals(MetastoreAnalyzeConstants.LOCATION_FIELD)
+          || fieldName.equals(MetastoreAnalyzeConstants.SCHEMA_FIELD)
           || fieldName.equals(lastModifiedTimeField)
           || fieldName.equals(rgiField)
           || fieldName.equals(rgsField)
           || fieldName.equals(rglField)
-          || fieldName.equals(MetadataAggBatch.METADATA_TYPE)
+          || fieldName.equals(MetastoreAnalyzeConstants.METADATA_TYPE)
           || popConfig.getMetadataHandlerContext().segmentColumns().contains(fieldName)) {
         schemaBuilder.add(fieldName, field.getType().getMinorType(), field.getDataMode());
-      } else if (ColumnNameStatisticsHandler.columnStatisticsField(fieldName)
-          || ColumnNameStatisticsHandler.metadataStatisticsField(fieldName)) {
+      } else if (AnalyzeColumnUtils.columnStatisticsField(fieldName)
+          || AnalyzeColumnUtils.metadataStatisticsField(fieldName)) {
         schemaBuilder.add(fieldName, field.getType().getMinorType(), field.getType().getMode());
-      } else if (fieldName.equals(MetadataAggBatch.COLLECTED_MAP_FIELD)) {
+      } else if (fieldName.equals(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD)) {
         schemaBuilder.addMapArray(fieldName)
             .resumeSchema();
-      } else if (fieldName.equals(MetadataAggBatch.LOCATIONS_FIELD)) {
+      } else if (fieldName.equals(MetastoreAnalyzeConstants.LOCATIONS_FIELD)) {
         schemaBuilder.addArray(fieldName, MinorType.VARCHAR);
       } else {
         throw new UnsupportedOperationException(String.format("Found unexpected field [%s] in incoming batch.",  field));
@@ -413,7 +419,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
   private IterOutcome doWorkInternal() {
     container.transferIn(incoming.getContainer());
     VarCharVector metadataTypeVector = container.addOrGet(
-        MaterializedField.create(MetadataAggBatch.METADATA_TYPE, Types.required(MinorType.VARCHAR)));
+        MaterializedField.create(MetastoreAnalyzeConstants.METADATA_TYPE, Types.required(MinorType.VARCHAR)));
     metadataTypeVector.allocateNew();
     // TODO: replace with adequate solution
     for (int i = 0; i < incoming.getRecordCount(); i++) {
@@ -440,7 +446,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
             List<String> partitionValues = popConfig.getMetadataHandlerContext().segmentColumns().stream()
                 .map(columnName -> reader.column(columnName).scalar().getString())
                 .collect(Collectors.toList());
-            Path location = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
+            Path location = new Path(reader.column(MetastoreAnalyzeConstants.LOCATION_FIELD).scalar().getString());
             int rgi = Integer.parseInt(reader.column(rgiColumnName).scalar().getString());
             metadataToHandle.remove(MetadataIdentifierUtils.getRowGroupMetadataIdentifier(partitionValues, location, rgi));
           }
@@ -451,7 +457,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
             List<String> partitionValues = popConfig.getMetadataHandlerContext().segmentColumns().stream()
                 .map(columnName -> reader.column(columnName).scalar().getString())
                 .collect(Collectors.toList());
-            Path location = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
+            Path location = new Path(reader.column(MetastoreAnalyzeConstants.LOCATION_FIELD).scalar().getString());
             // use metadata identifier for files since row group indexes are not required when file is updated
             metadataToHandle.remove(MetadataIdentifierUtils.getFileMetadataIdentifier(partitionValues, location));
           }

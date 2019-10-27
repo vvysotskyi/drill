@@ -25,7 +25,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.TableType;
+import org.apache.drill.exec.metastore.analyze.TableType;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.metastore.components.tables.BasicTablesRequests;
 import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
@@ -287,10 +287,10 @@ public class TestMetastoreCommands extends ClusterTest {
         .columnsStatistics(DIR0_1994_SEGMENT_COLUMN_STATISTICS)
         .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(40L, TableStatisticsKind.ROW_COUNT)))
         .locations(ImmutableSet.of(
-            new Path(tablePath, "1994/Q2/orders_94_q2.parquet"),
-            new Path(tablePath, "1994/Q4/orders_94_q4.parquet"),
             new Path(tablePath, "1994/Q1/orders_94_q1.parquet"),
-            new Path(tablePath, "1994/Q3/orders_94_q3.parquet")))
+            new Path(tablePath, "1994/Q2/orders_94_q2.parquet"),
+            new Path(tablePath, "1994/Q3/orders_94_q3.parquet"),
+            new Path(tablePath, "1994/Q4/orders_94_q4.parquet")))
         .partitionValues(Collections.singletonList("1994"))
         .build()
         .toMetadataUnit();
@@ -331,6 +331,7 @@ public class TestMetastoreCommands extends ClusterTest {
     segmentFiles.sort(Comparator.naturalOrder());
     expectedSegmentFilesLocations.add(segmentFiles);
 
+    long dir0q1lastModified = new File(new File(new File(table, "1994"), "Q1"), "orders_94_q1.parquet").lastModified();
     TableMetadataUnit dir01994q1File = FileMetadata.builder()
         .tableInfo(baseTableInfo)
         .metadataInfo(MetadataInfo.builder()
@@ -339,7 +340,7 @@ public class TestMetastoreCommands extends ClusterTest {
             .key("1994")
             .build())
         .schema(SCHEMA)
-        .lastModifiedTime(new File(new File(new File(table, "1994"), "Q1"), "orders_94_q1.parquet").lastModified())
+        .lastModifiedTime(dir0q1lastModified)
         .columnsStatistics(DIR0_1994_Q1_SEGMENT_COLUMN_STATISTICS)
         .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(10L, TableStatisticsKind.ROW_COUNT)))
         .path(new Path(tablePath, "1994/Q1/orders_94_q1.parquet"))
@@ -356,7 +357,7 @@ public class TestMetastoreCommands extends ClusterTest {
         .schema(SCHEMA)
         .rowGroupIndex(0)
         .hostAffinity(Collections.emptyMap())
-        .lastModifiedTime(new File(new File(new File(table, "1994"), "Q1"), "orders_94_q1.parquet").lastModified())
+        .lastModifiedTime(dir0q1lastModified)
         .columnsStatistics(DIR0_1994_Q1_SEGMENT_COLUMN_STATISTICS)
         .metadataStatistics(Arrays.asList(
             new StatisticsHolder<>(10L, TableStatisticsKind.ROW_COUNT),
@@ -380,8 +381,14 @@ public class TestMetastoreCommands extends ClusterTest {
           .map(SegmentMetadata::toMetadataUnit)
           .collect(Collectors.toList());
 
-      // verify segment for 1994
-      assertEquals(dir0, topSegmentMetadata.stream().filter(unit -> unit.metadataIdentifier().equals("1994")).findAny().orElse(null));
+      TableMetadataUnit actualDir0Metadata =
+          topSegmentMetadata.stream()
+              .filter(unit -> unit.metadataIdentifier().equals("1994"))
+              .findAny().orElseThrow(() -> new AssertionError("Segment is absent"));
+      List<String> locations = actualDir0Metadata.locations();
+      locations.sort(Comparator.naturalOrder());
+      actualDir0Metadata.toBuilder().locations(locations);
+      assertEquals(dir0, actualDir0Metadata);
 
       List<String> topLevelSegmentLocations = topSegmentMetadata.stream()
           .map(TableMetadataUnit::location)

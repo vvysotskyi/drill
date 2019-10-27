@@ -17,13 +17,14 @@
  */
 package org.apache.drill.exec.physical.impl.metadata;
 
-import org.apache.calcite.sql.SqlKind;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.apache.drill.exec.metastore.analyze.AnalyzeColumnUtils;
+import org.apache.drill.exec.metastore.analyze.MetastoreAnalyzeConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.MetadataControllerPOP;
 import org.apache.drill.exec.physical.rowSet.DirectRowSet;
@@ -31,7 +32,7 @@ import org.apache.drill.exec.physical.rowSet.RowSetReader;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.planner.physical.WriterPrel;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataIdentifierUtils;
+import org.apache.drill.exec.metastore.analyze.MetadataIdentifierUtils;
 import org.apache.drill.exec.record.AbstractBinaryRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
@@ -75,7 +76,6 @@ import org.apache.drill.metastore.statistics.TableStatisticsKind;
 import org.apache.drill.metastore.util.SchemaPathUtils;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
@@ -123,8 +123,8 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
   protected boolean setupNewSchema() {
     container.clear();
 
-    container.addOrGet("ok", Types.required(TypeProtos.MinorType.BIT), null);
-    container.addOrGet("summary", Types.required(TypeProtos.MinorType.VARCHAR), null);
+    container.addOrGet(MetastoreAnalyzeConstants.OK_FIELD_NAME, Types.required(TypeProtos.MinorType.BIT), null);
+    container.addOrGet(MetastoreAnalyzeConstants.SUMMARY_FIELD_NAME, Types.required(TypeProtos.MinorType.VARCHAR), null);
 
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
 
@@ -347,10 +347,10 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     List<TableMetadataUnit> metadataUnits = new ArrayList<>();
 
     TupleMetadata columnMetadata = reader.tupleSchema();
-    ObjectReader metadataColumnReader = reader.column(MetadataAggBatch.METADATA_TYPE);
+    ObjectReader metadataColumnReader = reader.column(MetastoreAnalyzeConstants.METADATA_TYPE);
     Preconditions.checkNotNull(metadataColumnReader, "metadataType column wasn't found");
 
-    ObjectReader underlyingMetadataReader = reader.column(MetadataAggBatch.COLLECTED_MAP_FIELD);
+    ObjectReader underlyingMetadataReader = reader.column(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD);
     if (underlyingMetadataReader != null) {
       if (!underlyingMetadataReader.schema().isArray()) {
         throw new IllegalStateException("Incoming vector with name `collected_map` should be repeated map");
@@ -433,7 +433,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
 //            .column(SchemaPath.getSimplePath("dir1"))
 //            .partitionValues()
-        .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+        .schema(TupleMetadata.of(reader.column(MetastoreAnalyzeConstants.SCHEMA_FIELD).scalar().getString()))
         .build();
   }
 
@@ -458,7 +458,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         .interestingColumns(popConfig.getContext().interestingColumns())
         .location(popConfig.getContext().location())
         .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
-        .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+        .schema(TupleMetadata.of(reader.column(MetastoreAnalyzeConstants.SCHEMA_FIELD).scalar().getString()))
         .build();
 
     if (context.getOptions().getOption(PlannerSettings.STATISTICS_USE)) {
@@ -496,16 +496,17 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         .metadataInfo(metadataInfo)
         .columnsStatistics(columnStatistics)
         .metadataStatistics(metadataStatistics)
-        .path(new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString()))
+        .path(new Path(reader.column(MetastoreAnalyzeConstants.LOCATION_FIELD).scalar().getString()))
         .locations(getIncomingLocations(reader))
         .column(segmentColumns.size() > 0 ? SchemaPath.getSimplePath(segmentColumns.get(nestingLevel - 1)) : null)
         .partitionValues(partitionValues)
         .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
-        .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+        .schema(TupleMetadata.of(reader.column(MetastoreAnalyzeConstants.SCHEMA_FIELD).scalar().getString()))
         .build();
   }
 
-  private FileMetadata getFileMetadata(TupleReader reader, List<StatisticsHolder> metadataStatistics, Map<SchemaPath, ColumnStatistics> columnStatistics, int nestingLevel) {
+  private FileMetadata getFileMetadata(TupleReader reader, List<StatisticsHolder> metadataStatistics,
+      Map<SchemaPath, ColumnStatistics> columnStatistics, int nestingLevel) {
     List<String> segmentColumns = popConfig.getContext().segmentColumns();
     String lastModifiedTimeCol = context.getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL);
 
@@ -518,7 +519,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         .map(columnName -> reader.column(columnName).scalar().getString())
         .collect(Collectors.toList());
 
-    Path path = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
+    Path path = new Path(reader.column(MetastoreAnalyzeConstants.LOCATION_FIELD).scalar().getString());
     String metadataIdentifier = MetadataIdentifierUtils.getFileMetadataIdentifier(partitionValues, path);
 
     MetadataInfo metadataInfo = MetadataInfo.builder()
@@ -534,7 +535,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         .metadataStatistics(metadataStatistics)
         .path(path)
         .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
-        .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+        .schema(TupleMetadata.of(reader.column(MetastoreAnalyzeConstants.SCHEMA_FIELD).scalar().getString()))
         .build();
   }
 
@@ -553,7 +554,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         .map(columnName -> reader.column(columnName).scalar().getString())
         .collect(Collectors.toList());
 
-    Path path = new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString());
+    Path path = new Path(reader.column(MetastoreAnalyzeConstants.LOCATION_FIELD).scalar().getString());
 
     int rowGroupIndex = Integer.parseInt(reader.column(rgi).scalar().getString());
 
@@ -575,7 +576,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         .rowGroupIndex(rowGroupIndex)
         .path(path)
         .lastModifiedTime(Long.parseLong(reader.column(lastModifiedTimeCol).scalar().getString()))
-        .schema(TupleMetadata.of(reader.column(MetadataAggBatch.SCHEMA_FIELD).scalar().getString()))
+        .schema(TupleMetadata.of(reader.column(MetastoreAnalyzeConstants.SCHEMA_FIELD).scalar().getString()))
         .build();
   }
 
@@ -584,10 +585,10 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     Multimap<String, StatisticsHolder> columnStatistics = ArrayListMultimap.create();
     Map<String, TypeProtos.MinorType> columnTypes = new HashMap<>();
     for (ColumnMetadata column : columnMetadata) {
-      String fieldName = ColumnNameStatisticsHandler.getColumnName(column.name());
+      String fieldName = AnalyzeColumnUtils.getColumnName(column.name());
 
-      if (ColumnNameStatisticsHandler.columnStatisticsField(column.name())) {
-        StatisticsKind statisticsKind = ColumnNameStatisticsHandler.getStatisticsKind(column.name());
+      if (AnalyzeColumnUtils.columnStatisticsField(column.name())) {
+        StatisticsKind statisticsKind = AnalyzeColumnUtils.getStatisticsKind(column.name());
         columnStatistics.put(fieldName,
             new StatisticsHolder(getConvertedColumnValue(reader.column(column.name())), statisticsKind));
         if (statisticsKind.getName().equalsIgnoreCase(ColumnStatisticsKind.MIN_VALUE.getName())
@@ -626,12 +627,15 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     String rgs = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL);
     String grl = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL);
     for (ColumnMetadata column : columnMetadata) {
-      if (ColumnNameStatisticsHandler.metadataStatisticsField(column.name())) {
-        metadataStatistics.add(new StatisticsHolder(reader.column(column.name()).getObject(), ColumnNameStatisticsHandler.getStatisticsKind(column.name())));
+      if (AnalyzeColumnUtils.metadataStatisticsField(column.name())) {
+        metadataStatistics.add(new StatisticsHolder(reader.column(column.name()).getObject(),
+            AnalyzeColumnUtils.getStatisticsKind(column.name())));
       } else if (column.name().equals(rgs)) {
-        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()), new BaseStatisticsKind(ExactStatisticsConstants.START, true)));
+        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()),
+            new BaseStatisticsKind(ExactStatisticsConstants.START, true)));
       } else if (column.name().equals(grl)) {
-        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()), new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)));
+        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()),
+            new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)));
       }
     }
     return metadataStatistics;
@@ -647,7 +651,8 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
           continue;
         }
         FieldReader reader = w.getValueVector().getReader();
-        FieldConverter converter = StatisticsRecordWriterImpl.getConverter(statisticsCollector, fieldId++, w.getField().getName(), reader);
+        FieldConverter converter =
+            StatisticsRecordWriterImpl.getConverter(statisticsCollector, fieldId++, w.getField().getName(), reader);
         fieldConverters.add(converter);
       }
 
@@ -679,7 +684,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
   private Set<Path> getIncomingLocations(TupleReader reader) {
     Set<Path> childLocations = new HashSet<>();
 
-    ObjectReader metadataColumnReader = reader.column(MetadataAggBatch.METADATA_TYPE);
+    ObjectReader metadataColumnReader = reader.column(MetastoreAnalyzeConstants.METADATA_TYPE);
     Preconditions.checkNotNull(metadataColumnReader, "metadataType column wasn't found");
 
     MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.getObject().toString());
@@ -687,7 +692,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     switch (metadataType) {
       case SEGMENT:
       case PARTITION: {
-        ObjectReader locationsReader = reader.column(MetadataAggBatch.LOCATIONS_FIELD);
+        ObjectReader locationsReader = reader.column(MetastoreAnalyzeConstants.LOCATIONS_FIELD);
         // populate list of file locations from "locations" field if it is present in the schema
         if (locationsReader != null && locationsReader.type() == ObjectType.ARRAY) {
           ArrayReader array = locationsReader.array();
@@ -697,7 +702,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
           break;
         }
         // in the opposite case, populate list of file locations using underlying metadata
-        ObjectReader underlyingMetadataReader = reader.column(MetadataAggBatch.COLLECTED_MAP_FIELD);
+        ObjectReader underlyingMetadataReader = reader.column(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD);
         if (underlyingMetadataReader != null) {
           // current row contains information about underlying metadata
           ArrayReader array = underlyingMetadataReader.array();
@@ -709,7 +714,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         break;
       }
       case FILE: {
-        childLocations.add(new Path(reader.column(MetadataAggBatch.LOCATION_FIELD).scalar().getString()));
+        childLocations.add(new Path(reader.column(MetastoreAnalyzeConstants.LOCATION_FIELD).scalar().getString()));
       }
     }
 
@@ -730,63 +735,5 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
   @Override
   public int getRecordCount() {
     return recordCount;
-  }
-
-  public static class ColumnNameStatisticsHandler {
-    private static final String COLUMN_SEPARATOR = "$";
-
-    public static final Map<StatisticsKind, SqlKind> COLUMN_STATISTICS_FUNCTIONS = ImmutableMap.<StatisticsKind, SqlKind>builder()
-        .put(ColumnStatisticsKind.MAX_VALUE, SqlKind.MAX)
-        .put(ColumnStatisticsKind.MIN_VALUE, SqlKind.MIN)
-        .put(ColumnStatisticsKind.NON_NULL_COUNT, SqlKind.COUNT)
-        .put(TableStatisticsKind.ROW_COUNT, SqlKind.COUNT)
-        .build();
-
-    public static final Map<StatisticsKind, TypeProtos.MinorType> COLUMN_STATISTICS_TYPES = ImmutableMap.<StatisticsKind, TypeProtos.MinorType>builder()
-        .put(ColumnStatisticsKind.NON_NULL_COUNT, TypeProtos.MinorType.BIGINT)
-        .put(TableStatisticsKind.ROW_COUNT, TypeProtos.MinorType.BIGINT)
-        .build();
-
-    public static final Map<StatisticsKind, SqlKind> META_STATISTICS_FUNCTIONS = ImmutableMap.<StatisticsKind, SqlKind>builder()
-        .put(TableStatisticsKind.ROW_COUNT, SqlKind.COUNT)
-        .build();
-
-    public static String getColumnName(String fullName) {
-      return fullName.substring(fullName.indexOf(COLUMN_SEPARATOR, fullName.indexOf(COLUMN_SEPARATOR) + 1) + 1);
-    }
-
-    // TODO: rewrite to cover all known statistics cases and unite logic which assigns names to the columns which logic for parsing field names
-    public static StatisticsKind getStatisticsKind(String fullName) {
-      String statisticsIdentifier = fullName.split("\\" + COLUMN_SEPARATOR)[1];
-      switch (statisticsIdentifier) {
-        case "minValue":
-          return ColumnStatisticsKind.MIN_VALUE;
-        case "maxValue":
-          return ColumnStatisticsKind.MAX_VALUE;
-        case "nullsCount":
-          return ColumnStatisticsKind.NULLS_COUNT;
-        case "nonnullrowcount":
-          return ColumnStatisticsKind.NON_NULL_COUNT;
-        case "rowCount":
-          return TableStatisticsKind.ROW_COUNT;
-      }
-      return new BaseStatisticsKind(statisticsIdentifier, false);
-    }
-
-    public static String getColumnStatisticsFieldName(String columnName, StatisticsKind statisticsKind) {
-      return String.format("column%1$s%2$s%1$s%3$s", COLUMN_SEPARATOR, statisticsKind.getName(), columnName);
-    }
-
-    public static String getMetadataStatisticsFieldName(StatisticsKind statisticsKind) {
-      return String.format("metadata%s%s", COLUMN_SEPARATOR, statisticsKind.getName());
-    }
-
-    public static boolean columnStatisticsField(String fieldName) {
-      return fieldName.startsWith("column" + COLUMN_SEPARATOR);
-    }
-
-    public static boolean metadataStatisticsField(String fieldName) {
-      return fieldName.startsWith("metadata" + COLUMN_SEPARATOR);
-    }
   }
 }

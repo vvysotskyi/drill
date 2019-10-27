@@ -23,7 +23,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext;
+import org.apache.drill.exec.metastore.analyze.MetadataControllerContext;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 

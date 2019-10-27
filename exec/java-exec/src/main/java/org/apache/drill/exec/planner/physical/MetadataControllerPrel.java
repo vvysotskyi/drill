@@ -22,13 +22,13 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.drill.exec.metastore.analyze.MetastoreAnalyzeConstants;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.MetadataControllerPOP;
 import org.apache.drill.exec.planner.common.DrillRelNode;
 import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext;
+import org.apache.drill.exec.metastore.analyze.MetadataControllerContext;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
@@ -87,9 +87,9 @@ public class MetadataControllerPrel extends BiRel implements DrillRelNode, Prel 
 
   @Override
   protected RelDataType deriveRowType() {
-    RelDataTypeFactory.Builder builder = getCluster().getTypeFactory().builder();
-
-    return builder.add("ok", SqlTypeName.BOOLEAN)
-        .add("summary", SqlTypeName.VARCHAR).build();
+    return getCluster().getTypeFactory().builder()
+        .add(MetastoreAnalyzeConstants.OK_FIELD_NAME, SqlTypeName.BOOLEAN)
+        .add(MetastoreAnalyzeConstants.SUMMARY_FIELD_NAME, SqlTypeName.VARCHAR)
+        .build();
   }
 }

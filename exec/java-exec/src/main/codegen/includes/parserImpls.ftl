@@ -700,7 +700,7 @@ Pair<SqlNodeList, SqlNodeList> ParenthesizedCompoundIdentifierList() :
 /**
  * Parses a analyze statements:
  * <ul>
- * <li>ANALYZE TABLE [table_name] [COLUMNS (col1, col2, ...)] REFRESH METADATA [partition LEVEL]
+ * <li>ANALYZE TABLE [table_name] [COLUMNS (col1, col2, ...)] REFRESH METADATA [partition LEVEL] {COMPUTE | ESTIMATE} | STATISTICS [(column1, column2, ...)] [ SAMPLE numeric PERCENT ]
  * <li>ANALYZE TABLE [table_name] DROP [METADATA|STATISTICS] [IF EXISTS]
  * <li>ANALYZE TABLE [table_name] {COMPUTE | ESTIMATE} | STATISTICS [(column1, column2, ...)] [ SAMPLE numeric PERCENT ]
  * </ul>

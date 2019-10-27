@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataAggregateContext;
+import org.apache.drill.exec.metastore.analyze.MetadataAggregateContext;
 
 import java.util.Collections;
 

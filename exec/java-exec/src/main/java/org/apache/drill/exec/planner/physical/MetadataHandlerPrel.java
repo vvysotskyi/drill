@@ -25,7 +25,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.MetadataHandlerPOP;
 import org.apache.drill.exec.planner.common.DrillRelNode;
 import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataHandlerContext;
+import org.apache.drill.exec.metastore.analyze.MetadataHandlerContext;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 

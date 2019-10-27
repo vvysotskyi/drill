@@ -28,7 +28,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.drill.common.logical.data.LogicalOperator;
 import org.apache.drill.common.logical.data.MetadataAggregate;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataAggregateContext;
+import org.apache.drill.exec.metastore.analyze.MetadataAggregateContext;
 
 import java.util.List;
 

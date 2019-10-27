@@ -29,8 +29,9 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.drill.common.logical.data.LogicalOperator;
 import org.apache.drill.common.logical.data.MetadataController;
+import org.apache.drill.exec.metastore.analyze.MetastoreAnalyzeConstants;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataControllerContext;
+import org.apache.drill.exec.metastore.analyze.MetadataControllerContext;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import java.util.List;
@@ -72,8 +73,8 @@ public class MetadataControllerRel extends BiRel implements DrillRel {
   @Override
   protected RelDataType deriveRowType() {
     return getCluster().getTypeFactory().builder()
-        .add("ok", SqlTypeName.BOOLEAN)
-        .add("summary", SqlTypeName.VARCHAR)
+        .add(MetastoreAnalyzeConstants.OK_FIELD_NAME, SqlTypeName.BOOLEAN)
+        .add(MetastoreAnalyzeConstants.SUMMARY_FIELD_NAME, SqlTypeName.VARCHAR)
         .build();
   }
 

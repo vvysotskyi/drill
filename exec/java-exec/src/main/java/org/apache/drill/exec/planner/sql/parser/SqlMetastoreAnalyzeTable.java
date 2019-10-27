@@ -152,4 +152,12 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
   public SqlNode getLevel() {
     return level;
   }
+
+  public SqlLiteral getEstimate() {
+    return estimate;
+  }
+
+  public SqlNumericLiteral getSamplePercent() {
+    return samplePercent;
+  }
 }

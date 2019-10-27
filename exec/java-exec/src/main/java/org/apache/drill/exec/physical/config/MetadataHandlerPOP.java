@@ -23,7 +23,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.physical.base.AbstractSingle;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
-import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler.MetadataHandlerContext;
+import org.apache.drill.exec.metastore.analyze.MetadataHandlerContext;
 import org.apache.drill.exec.proto.UserBitShared;
 
 @JsonTypeName("metadataHandler")

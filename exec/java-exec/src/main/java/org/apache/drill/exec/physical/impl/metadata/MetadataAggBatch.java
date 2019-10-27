@@ -31,11 +31,12 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.metastore.analyze.MetastoreAnalyzeConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.MetadataAggPOP;
 import org.apache.drill.exec.physical.impl.aggregate.StreamingAggBatch;
 import org.apache.drill.exec.physical.impl.aggregate.StreamingAggregator;
-import org.apache.drill.exec.physical.impl.metadata.MetadataControllerBatch.ColumnNameStatisticsHandler;
+import org.apache.drill.exec.metastore.analyze.AnalyzeColumnUtils;
 import org.apache.drill.exec.planner.types.DrillRelDataTypeSystem;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -52,13 +53,6 @@ import java.util.Map;
 import java.util.stream.StreamSupport;
 
 public class MetadataAggBatch extends StreamingAggBatch {
-
-  public static final String COLLECTED_MAP_FIELD = "collectedMap";
-  // will be populated either in metadata controller or is taken from the metastore
-  public static final String LOCATIONS_FIELD = "locations";
-  public static final String SCHEMA_FIELD = "schema";
-  public static final String METADATA_TYPE = "metadataType";
-  public static final String LOCATION_FIELD = "location";
 
   private List<NamedExpression> valueExpressions;
 
@@ -97,6 +91,7 @@ public class MetadataAggBatch extends StreamingAggBatch {
       addAggregationsToCollectAndMergeData(fieldsList);
     }
 
+    // TODO: update to avoid binding
     for (SchemaPath excludedColumn : excludedColumns) {
       if (excludedColumn.equals(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL)))
           || excludedColumn.equals(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL)))) {
@@ -139,37 +134,39 @@ public class MetadataAggBatch extends StreamingAggBatch {
     LogicalExpression collectList = new FunctionCall("collect_list",
         fieldsList, ExpressionPosition.UNKNOWN);
 
-    valueExpressions.add(new NamedExpression(collectList, FieldReference.getWithQuotedRef(COLLECTED_MAP_FIELD)));
+    valueExpressions.add(
+        new NamedExpression(collectList, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD)));
 
     // TODO: add function call for merging schemas
     //  Is it enough? perhaps not, it does not resolve schema changes, keep trying better
     LogicalExpression schemaExpr = new FunctionCall("merge_schema",
-        Collections.singletonList(FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)),
+        Collections.singletonList(FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.SCHEMA_FIELD)),
         ExpressionPosition.UNKNOWN);
 
-    valueExpressions.add(new NamedExpression(schemaExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)));
+    valueExpressions.add(new NamedExpression(schemaExpr, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.SCHEMA_FIELD)));
   }
 
   private void addNewAggregations(List<LogicalExpression> fieldsList) {
     // metadata statistics
-    ColumnNameStatisticsHandler.META_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {
+    AnalyzeColumnUtils.META_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {
       LogicalExpression call = new FunctionCall(sqlKind.name(),
           Collections.singletonList(ValueExpressions.getBigInt(1)), ExpressionPosition.UNKNOWN);
       valueExpressions.add(
           new NamedExpression(call,
-              FieldReference.getWithQuotedRef(ColumnNameStatisticsHandler.getMetadataStatisticsFieldName(statisticsKind))));
+              FieldReference.getWithQuotedRef(AnalyzeColumnUtils.getMetadataStatisticsFieldName(statisticsKind))));
     });
 
     // infer schema from incoming data
     LogicalExpression schemaExpr = new FunctionCall("schema",
         fieldsList, ExpressionPosition.UNKNOWN);
 
-    valueExpressions.add(new NamedExpression(schemaExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.SCHEMA_FIELD)));
+    valueExpressions.add(new NamedExpression(schemaExpr, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.SCHEMA_FIELD)));
 
     LogicalExpression locationsExpr = new FunctionCall("collect_to_list_varchar",
-        Collections.singletonList(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL))), ExpressionPosition.UNKNOWN);
+        Collections.singletonList(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL))),
+        ExpressionPosition.UNKNOWN);
 
-    valueExpressions.add(new NamedExpression(locationsExpr, FieldReference.getWithQuotedRef(MetadataAggBatch.LOCATIONS_FIELD)));
+    valueExpressions.add(new NamedExpression(locationsExpr, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.LOCATIONS_FIELD)));
   }
 
   private Map<String, FieldReference> getUnflattenedFileds(Collection<MaterializedField> fields, List<String> parentFields) {
@@ -209,18 +206,18 @@ public class MetadataAggBatch extends StreamingAggBatch {
     if (popConfig.getContext().createNewAggregations()) {
       if (interestingColumns == null || interestingColumns.contains(fieldRef)) {
         // collect statistics for all or only interesting columns if they are specified
-        ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {
+        AnalyzeColumnUtils.COLUMN_STATISTICS_FUNCTIONS.forEach((statisticsKind, sqlKind) -> {
           LogicalExpression call = new FunctionCall(sqlKind.name(),
               Collections.singletonList(fieldRef), ExpressionPosition.UNKNOWN);
           valueExpressions.add(
               new NamedExpression(call,
-                  FieldReference.getWithQuotedRef(ColumnNameStatisticsHandler.getColumnStatisticsFieldName(fieldName, statisticsKind))));
+                  FieldReference.getWithQuotedRef(AnalyzeColumnUtils.getColumnStatisticsFieldName(fieldName, statisticsKind))));
         });
       }
-    } else if (ColumnNameStatisticsHandler.columnStatisticsField(fieldName)
-        || ColumnNameStatisticsHandler.metadataStatisticsField(fieldName)) {
-      SqlKind function = ColumnNameStatisticsHandler.COLUMN_STATISTICS_FUNCTIONS.get(
-          ColumnNameStatisticsHandler.getStatisticsKind(fieldName));
+    } else if (AnalyzeColumnUtils.columnStatisticsField(fieldName)
+        || AnalyzeColumnUtils.metadataStatisticsField(fieldName)) {
+      SqlKind function = AnalyzeColumnUtils.COLUMN_STATISTICS_FUNCTIONS.get(
+          AnalyzeColumnUtils.getStatisticsKind(fieldName));
       if (function == SqlKind.COUNT) {
         // for the case when aggregation was done, call SUM function for the results of COUNT aggregate call
         function = SqlKind.SUM;
