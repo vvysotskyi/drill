@@ -57,6 +57,9 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+/**
+ * Implementation of {@link MetadataInfoCollector} for file-based tables.
+ */
 public class FileMetadataInfoCollector implements MetadataInfoCollector {
   private final List<MetadataInfo> allMetaToHandle;
   private final List<MetadataInfo> metadataToRemove;
@@ -136,7 +139,6 @@ public class FileMetadataInfoCollector implements MetadataInfoCollector {
     List<String> allFiles = new ArrayList<>();
 
     for (FileStatus fileStatus : getFileStatuses(selection)) {
-      // TODO: investigate whether it is possible to store all path attributes. Is it essential?
       String path = Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()).toUri().getPath();
       Long lastModificationTime = filesNamesLastModifiedTime.get(path);
       if (lastModificationTime == null) {

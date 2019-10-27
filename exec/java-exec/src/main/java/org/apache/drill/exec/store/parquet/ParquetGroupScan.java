@@ -151,7 +151,6 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
 
     ParquetTableMetadataProvider parquetTableMetadataProvider = (ParquetTableMetadataProvider) this.metadataProvider;
     this.usedMetadataCache = parquetTableMetadataProvider.isUsedMetadataCache();
-    // TODO: add method to avoid binding on specific implementation
     this.usedMetastore = parquetTableMetadataProvider instanceof MetastoreParquetTableMetadataProvider;
     this.selectionRoot = parquetTableMetadataProvider.getSelectionRoot();
     this.entries = parquetTableMetadataProvider.getEntries();

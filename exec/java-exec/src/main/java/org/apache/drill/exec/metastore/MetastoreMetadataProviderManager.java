@@ -24,6 +24,10 @@ import org.apache.drill.metastore.metadata.TableInfo;
 import org.apache.drill.metastore.metadata.TableMetadataProvider;
 import org.apache.drill.metastore.metadata.TableMetadataProviderBuilder;
 
+/**
+ * Implementation of {@link MetadataProviderManager} which uses Drill Metastore providers and returns
+ * builders for metastore-based {@link TableMetadataProvider} instances.
+ */
 public class MetastoreMetadataProviderManager implements MetadataProviderManager {
 
   private final MetastoreRegistry metastoreRegistry;

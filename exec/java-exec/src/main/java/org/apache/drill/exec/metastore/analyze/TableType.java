@@ -20,18 +20,36 @@ package org.apache.drill.exec.metastore.analyze;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.store.parquet.ParquetGroupScan;
 
+/**
+ * Enum of table types.
+ */
 public enum TableType {
 
+  /**
+   * Parquet table type
+   */
   PARQUET,
 
+  /**
+   * CSV table type
+   */
   CSV,
 
+  /**
+   * JSON table type
+   */
   JSON;
 
+  /**
+   * Returns {@link TableType} which corresponds to specified {@link GroupScan}.
+   *
+   * @param groupScan group scan for which should be returned table type
+   * @return {@link TableType}
+   */
   public static TableType getTableType(GroupScan groupScan) {
     if (groupScan instanceof ParquetGroupScan) {
       return TableType.PARQUET;
     }
-    throw new UnsupportedOperationException("Unsupported table type");
+    throw new UnsupportedOperationException("Unsupported table type.");
   }
 }

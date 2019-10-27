@@ -33,7 +33,9 @@ import java.util.Map;
  * This class is generated using freemarker and the ${.template_name} template.
  */
 
-/** StatisticsRecordWriter interface. */
+/**
+ * Interface for collecting and obtaining statistics.
+ */
 public interface StatisticsRecordCollector {
 
   /**
@@ -49,15 +51,27 @@ public interface StatisticsRecordCollector {
    */
   void endStatisticsRecord() throws IOException;
 
+  /**
+   * Returns true if this {@link StatisticsRecordCollector} has non-empty statistics.
+   *
+   * @return {@ode true} if this {@link StatisticsRecordCollector} has non-empty statistics
+   */
   boolean hasStatistics();
 
+  /**
+   * Returns {@link DrillStatsTable.TableStatistics} instance with statistics collected using this {@link StatisticsRecordCollector}.
+   *
+   * @return {@link DrillStatsTable.TableStatistics} instance
+   */
   DrillStatsTable.TableStatistics getStatistics();
 
   <#list vv.types as type>
   <#list type.minor as minor>
   <#list vv.modes as mode>
 
-  /** Add the field value given in <code>valueHolder</code> at the given column number <code>fieldId</code>. */
+  /**
+   * Add the field value given in <code>valueHolder</code> at the given column number <code>fieldId</code>.
+   */
   public FieldConverter getNew${mode.prefix}${minor.class}Converter(int fieldId, String fieldName, FieldReader reader);
   </#list>
   </#list>

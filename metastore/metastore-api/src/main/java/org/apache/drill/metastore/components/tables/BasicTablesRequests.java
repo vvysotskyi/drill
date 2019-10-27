@@ -211,20 +211,19 @@ public class BasicTablesRequests {
   }
 
   /**
-   * Returns row groups metadata based on given table information, metadata key and locations.
+   * Returns segments metadata based on given table information and metadata identifiers.
    *
    * Schematic SQL request:
    * <pre>
-   *   select [$ROW_GROUP_METADATA$] from METASTORE
+   *   select [$SEGMENT_METADATA$] from METASTORE
    *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
-   *   and metadataKey = 'part_int=3'
-   *   and path in ('/tmp/nation/part_int=3/part_varchar=g/0_0_0.parquet', …)
-   *   and metadataType = 'ROW_GROUP'
+   *   and identifier in ('part_int=3', …)
+   *   and metadataType = 'SEGMENT'
    * </pre>
    *
    * @param tableInfo table information
-   * @param metadataInfos list of MetadataInfo for required row groups to obtain
-   * @return list of row group metadata
+   * @param metadataInfos list of MetadataInfo for required segments to obtain
+   * @return list of segment metadata
    */
   public List<SegmentMetadata> segmentsMetadata(TableInfo tableInfo, List<MetadataInfo> metadataInfos) {
     List<String> keys = metadataInfos.stream()
@@ -247,7 +246,17 @@ public class BasicTablesRequests {
   }
 
   /**
-   * JavaDoc java doc javadoc
+   * Returns list of {@link TableMetadataUnit} metadata based on given table information, and metadata identifiers.
+   *
+   * Schematic SQL request:
+   * <pre>
+   *   select * from METASTORE
+   *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
+   *   and identifier in ('part_int=3', …)
+   * </pre>
+   * @param tableInfo table information
+   * @param metadataInfos list of MetadataInfo for required metadata to obtain
+   * @return list of metadata
    */
   public List<TableMetadataUnit> metadata(TableInfo tableInfo, Collection<MetadataInfo> metadataInfos) {
     List<String> keys = metadataInfos.stream()
@@ -333,15 +342,14 @@ public class BasicTablesRequests {
   }
 
   /**
-   * Returns row groups metadata based on given table information, metadata key and locations.
+   * Returns files metadata based on given table information and metadata keys.
    *
    * Schematic SQL request:
    * <pre>
-   *   select [$ROW_GROUP_METADATA$] from METASTORE
+   *   select [$FILE_METADATA$] from METASTORE
    *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
-   *   and metadataKey = 'part_int=3'
-   *   and path in ('/tmp/nation/part_int=3/part_varchar=g/0_0_0.parquet', …)
-   *   and metadataType = 'ROW_GROUP'
+   *   and identifier = in ('part_int=3', …)
+   *   and metadataType = 'FILE'
    * </pre>
    *
    * @param tableInfo table information
@@ -431,7 +439,7 @@ public class BasicTablesRequests {
   }
 
   /**
-   * Returns row groups metadata based on given table information, metadata key and locations.
+   * Returns row groups metadata based on given table information, metadata keys and locations.
    *
    * Schematic SQL request:
    * <pre>
@@ -461,14 +469,13 @@ public class BasicTablesRequests {
   }
 
   /**
-   * Returns row groups metadata based on given table information, metadata key and locations.
+   * Returns row groups metadata based on given table information and metadata identifiers.
    *
    * Schematic SQL request:
    * <pre>
    *   select [$ROW_GROUP_METADATA$] from METASTORE
    *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
-   *   and metadataKey = 'part_int=3'
-   *   and path in ('/tmp/nation/part_int=3/part_varchar=g/0_0_0.parquet', …)
+   *   and identifier in ('part_int=3', …)
    *   and metadataType = 'ROW_GROUP'
    * </pre>
    *

@@ -28,6 +28,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
 
+/**
+ * Class which provides information required for handling results of metadata aggregation when performing ANALYZE.
+ */
 @JsonDeserialize(builder = MetadataHandlerContext.MetadataHandlerContextBuilder.class)
 public class MetadataHandlerContext {
   private final TableInfo tableInfo;

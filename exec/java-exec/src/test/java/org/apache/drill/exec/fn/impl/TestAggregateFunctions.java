@@ -1041,38 +1041,4 @@ public class TestAggregateFunctions extends ClusterTest {
           e.getMessage().matches(".*Expression 'tpch/nation\\.parquet\\.\\*\\*' is not being grouped(.*\\n*.*)"));
     }
   }
-
-  @Test
-  @Ignore("need to update")
-  public void testArrayAggregate() throws Exception {
-    testBuilder()
-        .sqlQuery("select collect_list(t.user_info) as l from cp.`store/json/clicks.json` t")
-        .unOrdered()
-        .baselineColumns("l")
-        .baselineValues(listOf(
-            mapOf("cust_id", 22526L, "device", "IOS5", "state", "il"),
-            mapOf("cust_id", 16368L, "device", "AOS4.2", "state", "nc"),
-            mapOf("cust_id", 21449L, "device", "IOS6", "state", "oh"),
-            mapOf("cust_id", 20323L, "device", "IOS5", "state", "oh"),
-            mapOf("cust_id", 15360L, "device", "IOS5", "state", "ca")))
-        .go();
-  }
-
-  @Test
-  @Ignore("need to update")
-  public void testArrayAggregateWithGroupBy() throws Exception {
-    testBuilder()
-      .sqlQuery("select collect_list(t.user_info) as l from cp.`store/json/clicks.json` t group by t.user_info.device")
-      .unOrdered()
-      .baselineColumns("l")
-      .baselineValues(listOf(
-          mapOf("cust_id", 16368L, "device", "AOS4.2", "state", "nc")))
-      .baselineValues(listOf(
-          mapOf("cust_id", 22526L, "device", "IOS5", "state", "il"),
-          mapOf("cust_id", 20323L, "device", "IOS5", "state", "oh"),
-          mapOf("cust_id", 15360L, "device", "IOS5", "state", "ca")))
-      .baselineValues(listOf(
-          mapOf("cust_id", 21449L, "device", "IOS6", "state", "oh")))
-      .go();
-  }
 }

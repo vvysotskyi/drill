@@ -28,6 +28,7 @@ import org.apache.drill.exec.vector.complex.writer.BaseWriter;
 
 @FunctionTemplate(name = "collect_list",
                   isVarArg = true,
+                  isInternal = true,
                   scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
 public class CollectListMapsAggFunction implements DrillAggFunc {
 

@@ -143,7 +143,6 @@ public class RefreshMetadataHandler extends DefaultSqlHandler {
     }
   }
 
-  // The thing I was looking for
   private Set<String> getColumnRootSegments(SqlNodeList columnList) {
     Set<String> columnSet = new HashSet<>();
     if (columnList != null) {

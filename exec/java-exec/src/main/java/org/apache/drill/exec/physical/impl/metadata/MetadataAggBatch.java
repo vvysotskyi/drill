@@ -52,6 +52,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.StreamSupport;
 
+/**
+ * Operator which adds aggregate calls for all incoming columns to calculate required metadata and produces aggregations.
+ */
 public class MetadataAggBatch extends StreamingAggBatch {
 
   private List<NamedExpression> valueExpressions;
@@ -69,12 +72,12 @@ public class MetadataAggBatch extends StreamingAggBatch {
     List<SchemaPath> excludedColumns = popConfig.getContext().excludedColumns();
 
     BatchSchema schema = incoming.getSchema();
-    // Iterates through input expressions, to add aggregation calls for table fields
-    // to collect required statistics (MIN, MAX, COUNT)
+    // Iterates through input expressions, and adds aggregate calls for table fields
+    // to collect required statistics (MIN, MAX, COUNT, etc.)
     getUnflattenedFileds(Lists.newArrayList(schema), null)
         .forEach((fieldName, fieldRef) -> addColumnAggregateExpressions(fieldRef, fieldName));
 
-    ArrayList<LogicalExpression> fieldsList = new ArrayList<>();
+    List<LogicalExpression> fieldsList = new ArrayList<>();
     StreamSupport.stream(schema.spliterator(), false)
         .map(MaterializedField::getName)
         .filter(field -> !excludedColumns.contains(FieldReference.getWithQuotedRef(field)))
@@ -86,8 +89,7 @@ public class MetadataAggBatch extends StreamingAggBatch {
 
     if (popConfig.getContext().createNewAggregations()) {
       addNewAggregations(fieldsList);
-    } else if (!popConfig.getContext().createNewAggregations()) {
-      // for the case when aggregate on top of non-aggregated data is added, no need to collect raw data into the map
+    } else {
       addAggregationsToCollectAndMergeData(fieldsList);
     }
 
@@ -121,7 +123,7 @@ public class MetadataAggBatch extends StreamingAggBatch {
         FieldReference.getWithQuotedRef(lastModifiedColumn)));
   }
 
-  private void addAggregationsToCollectAndMergeData(ArrayList<LogicalExpression> fieldsList) {
+  private void addAggregationsToCollectAndMergeData(List<LogicalExpression> fieldsList) {
     MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
     List<SchemaPath> excludedColumns = popConfig.getContext().excludedColumns();
     // populate columns which weren't included to the schema, but should be collected to the COLLECTED_MAP_FIELD
@@ -137,8 +139,6 @@ public class MetadataAggBatch extends StreamingAggBatch {
     valueExpressions.add(
         new NamedExpression(collectList, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD)));
 
-    // TODO: add function call for merging schemas
-    //  Is it enough? perhaps not, it does not resolve schema changes, keep trying better
     LogicalExpression schemaExpr = new FunctionCall("merge_schema",
         Collections.singletonList(FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.SCHEMA_FIELD)),
         ExpressionPosition.UNKNOWN);
@@ -214,8 +214,8 @@ public class MetadataAggBatch extends StreamingAggBatch {
                   FieldReference.getWithQuotedRef(AnalyzeColumnUtils.getColumnStatisticsFieldName(fieldName, statisticsKind))));
         });
       }
-    } else if (AnalyzeColumnUtils.columnStatisticsField(fieldName)
-        || AnalyzeColumnUtils.metadataStatisticsField(fieldName)) {
+    } else if (AnalyzeColumnUtils.isColumnStatisticsField(fieldName)
+        || AnalyzeColumnUtils.isMetadataStatisticsField(fieldName)) {
       SqlKind function = AnalyzeColumnUtils.COLUMN_STATISTICS_FUNCTIONS.get(
           AnalyzeColumnUtils.getStatisticsKind(fieldName));
       if (function == SqlKind.COUNT) {

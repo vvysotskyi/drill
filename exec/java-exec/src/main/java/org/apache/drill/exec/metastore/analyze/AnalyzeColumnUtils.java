@@ -46,10 +46,22 @@ public class AnalyzeColumnUtils {
       .put(TableStatisticsKind.ROW_COUNT, SqlKind.COUNT)
       .build();
 
+  /**
+   * Returns actual column name obtained form intermediate name which includes statistics kind and other analyze-specific info.
+   *
+   * @param fullName the source of actual column name
+   * @return actual column name
+   */
   public static String getColumnName(String fullName) {
     return fullName.substring(fullName.indexOf(COLUMN_SEPARATOR, fullName.indexOf(COLUMN_SEPARATOR) + 1) + 1);
   }
 
+  /**
+   * Returns {@link StatisticsKind} instance obtained form intermediate field name.
+   *
+   * @param fullName the source of {@link StatisticsKind} to obtain
+   * @return {@link StatisticsKind} instance
+   */
   public static StatisticsKind getStatisticsKind(String fullName) {
     String statisticsIdentifier = fullName.split("\\" + COLUMN_SEPARATOR)[1];
     switch (statisticsIdentifier) {
@@ -67,19 +79,44 @@ public class AnalyzeColumnUtils {
     return new BaseStatisticsKind(statisticsIdentifier, false);
   }
 
+  /**
+   * Returns analyze-specific field name for column statistics which includes
+   * actual column name and statistics kind information.
+   *
+   * @param columnName     name of the column
+   * @param statisticsKind statistics kind
+   * @return analyze-specific field name which includes actual column name and statistics kind information
+   */
   public static String getColumnStatisticsFieldName(String columnName, StatisticsKind statisticsKind) {
     return String.format("column%1$s%2$s%1$s%3$s", COLUMN_SEPARATOR, statisticsKind.getName(), columnName);
   }
 
+  /**
+   * Returns analyze-specific field name for metadata statistics which includes statistics kind information.
+   *
+   * @param statisticsKind statistics kind
+   * @return analyze-specific field name for metadata statistics
+   */
   public static String getMetadataStatisticsFieldName(StatisticsKind statisticsKind) {
     return String.format("metadata%s%s", COLUMN_SEPARATOR, statisticsKind.getName());
   }
 
-  public static boolean columnStatisticsField(String fieldName) {
+  /**
+   * Checks whether specified field name is analyze-specific field for column statistics.
+   *
+   * @param fieldName name of the field to check
+   * @return {@code true} if specified field name is analyze-specific field for column statistics
+   */
+  public static boolean isColumnStatisticsField(String fieldName) {
     return fieldName.startsWith("column" + COLUMN_SEPARATOR);
   }
 
-  public static boolean metadataStatisticsField(String fieldName) {
+  /**
+   * Checks whether specified field name is analyze-specific field for metadata statistics.
+   * @param fieldName name of the field to check
+   * @return {@code true} if specified field name is analyze-specific field for metadata statistics
+   */
+  public static boolean isMetadataStatisticsField(String fieldName) {
     return fieldName.startsWith("metadata" + COLUMN_SEPARATOR);
   }
 }

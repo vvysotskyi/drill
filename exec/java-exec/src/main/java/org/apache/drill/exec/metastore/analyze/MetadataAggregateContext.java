@@ -27,6 +27,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
 
+/**
+ * Class which provides information required for producing metadata aggregation when performing ANALYZE.
+ */
 @JsonDeserialize(builder = MetadataAggregateContext.MetadataAggregateContextBuilder.class)
 public class MetadataAggregateContext {
   private final List<NamedExpression> groupByExpressions;

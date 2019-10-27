@@ -23,12 +23,60 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 
 import java.util.List;
 
+/**
+ * Interface for obtaining information about segments, files etc which should be handled in metastore
+ * when producing incremental analyze.
+ */
 public interface MetadataInfoCollector {
+
+  /**
+   * Returns list of row groups metadata info which should be fetched from metastore.
+   *
+   * @return list of row groups metadata info
+   */
   List<MetadataInfo> getRowGroupsInfo();
+
+  /**
+   * Returns list of files metadata info which should be fetched from metastore.
+   *
+   * @return list of files metadata info
+   */
   List<MetadataInfo> getFilesInfo();
+
+  /**
+   * Returns list of segments metadata info which should be fetched from metastore.
+   *
+   * @return list of segments metadata info
+   */
   Multimap<Integer, MetadataInfo> getSegmentsInfo();
+
+  /**
+   * Returns list of all metadata info instances which should be handled
+   * either producing analyze or when fetching from the metastore.
+   *
+   * @return list of all metadata info
+   */
   List<MetadataInfo> getAllMetaToHandle();
+
+  /**
+   * Returns list of all metadata info which corresponds to top-level segments and should be removed from the metastore.
+   *
+   * @return list of all metadata info which should be removed
+   */
   List<MetadataInfo> getMetadataToRemove();
+
+  /**
+   * Returns {@link TableScan} instance which will be used when produced incremental analyze.
+   * Table scan will contain minimal selection required for obtaining correct metadata.
+   *
+   * @return {@link TableScan} instance
+   */
   TableScan getPrunedScan();
+
+  /**
+   * Returns true if table metadata is outdated.
+   *
+   * @return true if table metadata is outdated
+   */
   boolean isChanged();
 }

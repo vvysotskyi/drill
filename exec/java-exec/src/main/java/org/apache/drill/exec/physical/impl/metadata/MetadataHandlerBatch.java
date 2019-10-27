@@ -71,12 +71,17 @@ import java.util.stream.StreamSupport;
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.NONE;
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.STOP;
 
+/**
+ * Operator responsible for handling metadata returned by incoming aggregate operators and fetching
+ * required metadata form the metastore.
+ */
 public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHandlerPOP> {
   private static final Logger logger = LoggerFactory.getLogger(MetadataHandlerBatch.class);
 
   private final Tables tables;
   private final MetadataType metadataType;
   private final Map<String, MetadataInfo> metadataToHandle;
+
   private boolean firstBatch = true;
 
   protected MetadataHandlerBatch(MetadataHandlerPOP popConfig,
@@ -218,7 +223,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           .map(metadata::getStatistic)
           .forEach(arguments::add);
 
-      // current code checks whether this field exists, so do not create it if we don't want to populate it???
+      // collectedMap field value
       arguments.add(null);
 
       if (metadataType == MetadataType.SEGMENT) {
@@ -267,7 +272,6 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           AnalyzeColumnUtils.COLUMN_STATISTICS_TYPES.get(statisticsKind));
     }
 
-    // current code checks whether this field exists, so do not create it if we don't want to populate it???
     schemaBuilder
         .addMapArray(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD)
         .resumeSchema();
@@ -316,7 +320,6 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
         String[] identifierValues = Arrays.copyOf(MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()), popConfig.getMetadataHandlerContext().segmentColumns().size());
 
-        // TODO: too ugly, find the way to rewrite it without if-else chain
         MaterializedField field = vectorWrapper.getField();
         String fieldName = field.getName();
         if (fieldName.equals(MetastoreAnalyzeConstants.LOCATION_FIELD)) {
@@ -331,11 +334,11 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           }
         } else if (popConfig.getMetadataHandlerContext().segmentColumns().contains(fieldName)) {
           arguments.add(identifierValues[popConfig.getMetadataHandlerContext().segmentColumns().indexOf(fieldName)]);
-        } else if (AnalyzeColumnUtils.columnStatisticsField(fieldName)) {
+        } else if (AnalyzeColumnUtils.isColumnStatisticsField(fieldName)) {
           arguments.add(
               metadata.getColumnStatistics(SchemaPath.parseFromString(AnalyzeColumnUtils.getColumnName(fieldName)))
                   .get(AnalyzeColumnUtils.getStatisticsKind(fieldName)));
-        } else if (AnalyzeColumnUtils.metadataStatisticsField(fieldName)) {
+        } else if (AnalyzeColumnUtils.isMetadataStatisticsField(fieldName)) {
           arguments.add(metadata.getStatistic(AnalyzeColumnUtils.getStatisticsKind(fieldName)));
         } else if (fieldName.equals(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD)) {
           // current code checks whether this field exists, so do not create it if we don't want to populate it???
@@ -382,8 +385,8 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           || fieldName.equals(MetastoreAnalyzeConstants.METADATA_TYPE)
           || popConfig.getMetadataHandlerContext().segmentColumns().contains(fieldName)) {
         schemaBuilder.add(fieldName, field.getType().getMinorType(), field.getDataMode());
-      } else if (AnalyzeColumnUtils.columnStatisticsField(fieldName)
-          || AnalyzeColumnUtils.metadataStatisticsField(fieldName)) {
+      } else if (AnalyzeColumnUtils.isColumnStatisticsField(fieldName)
+          || AnalyzeColumnUtils.isMetadataStatisticsField(fieldName)) {
         schemaBuilder.add(fieldName, field.getType().getMinorType(), field.getType().getMode());
       } else if (fieldName.equals(MetastoreAnalyzeConstants.COLLECTED_MAP_FIELD)) {
         schemaBuilder.addMapArray(fieldName)
@@ -421,7 +424,6 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     VarCharVector metadataTypeVector = container.addOrGet(
         MaterializedField.create(MetastoreAnalyzeConstants.METADATA_TYPE, Types.required(MinorType.VARCHAR)));
     metadataTypeVector.allocateNew();
-    // TODO: replace with adequate solution
     for (int i = 0; i < incoming.getRecordCount(); i++) {
       metadataTypeVector.getMutator().setSafe(i, metadataType.name().getBytes());
     }

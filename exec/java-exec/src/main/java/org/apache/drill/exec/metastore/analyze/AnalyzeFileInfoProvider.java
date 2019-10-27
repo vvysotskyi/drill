@@ -38,6 +38,9 @@ import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+/**
+ * Implementation of {@link AnalyzeInfoProvider} for file-based tables.
+ */
 public class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
   public static final AnalyzeInfoProvider INSTANCE = new AnalyzeFileInfoProvider();
 
@@ -59,11 +62,6 @@ public class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
   public List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options) {
     List<SqlIdentifier> columnList = new ArrayList<>();
     columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL), SqlParserPos.ZERO));
-    if (metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
-      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL), SqlParserPos.ZERO));
-      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL), SqlParserPos.ZERO));
-      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL), SqlParserPos.ZERO));
-    }
     columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL), SqlParserPos.ZERO));
     return columnList;
   }

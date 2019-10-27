@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  */
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 @JsonFormat(shape = JsonFormat.Shape.OBJECT)
-@JsonPropertyOrder(alphabetic=true)
+@JsonPropertyOrder(alphabetic = true)
 public interface StatisticsKind<T> {
 
   /**

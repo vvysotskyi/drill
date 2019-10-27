@@ -521,7 +521,7 @@ public enum PlannerPhase {
     ruleList.add(DirectScanPrule.INSTANCE);
     ruleList.add(RowKeyJoinPrule.INSTANCE);
     ruleList.add(AnalyzePrule.INSTANCE);
-    // TODO: move these rules into separate stage
+
     ruleList.add(MetadataControllerPrule.INSTANCE);
     ruleList.add(MetadataHandlerPrule.INSTANCE);
     ruleList.add(MetadataAggPrule.INSTANCE);

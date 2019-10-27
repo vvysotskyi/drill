@@ -96,7 +96,7 @@ public class TableStatisticsKind<T> extends BaseStatisticsKind<T> implements Col
       };
 
   /**
-   * Table statistics kind which represents estimated row count for the specific table.
+   * Table statistics kind which represents metadata level for which analyze was produced.
    */
   public static final TableStatisticsKind<MetadataType> ANALYZE_METADATA_LEVEL =
       new TableStatisticsKind<MetadataType>("analyzeMetadataLevel", false) {

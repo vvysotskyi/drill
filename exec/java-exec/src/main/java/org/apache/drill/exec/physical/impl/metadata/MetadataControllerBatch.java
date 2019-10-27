@@ -92,6 +92,12 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Terminal operator for producing ANALYZE statement. This operator is responsible for converting
+ * obtained metadata, fetching absent metadata from the metastore and storing resulting metadata into the metastore.
+ * <p>
+ * This operator has two inputs: left input contains metadata and right input contains statistics metadata.
+ */
 public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataControllerPOP> {
   private static final Logger logger = LoggerFactory.getLogger(MetadataControllerBatch.class);
 
@@ -117,7 +123,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         : popConfig.getContext().metadataToHandle().stream()
             .collect(Collectors.toMap(MetadataInfo::identifier, Function.identity()));
     this.metadataUnits = new ArrayList<>();
-    statisticsCollector = new StatisticsCollectorImpl();
+    this.statisticsCollector = new StatisticsCollectorImpl();
   }
 
   protected boolean setupNewSchema() {
@@ -247,8 +253,10 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     modify.overwrite(metadataUnits)
         .execute();
 
-    BitVector bitVector = container.addOrGet("ok", Types.required(TypeProtos.MinorType.BIT), null);
-    VarCharVector varCharVector = container.addOrGet("summary", Types.required(TypeProtos.MinorType.VARCHAR), null);
+    BitVector bitVector =
+        container.addOrGet(MetastoreAnalyzeConstants.OK_FIELD_NAME, Types.required(TypeProtos.MinorType.BIT), null);
+    VarCharVector varCharVector =
+        container.addOrGet(MetastoreAnalyzeConstants.SUMMARY_FIELD_NAME, Types.required(TypeProtos.MinorType.VARCHAR), null);
 
     bitVector.allocateNew();
     varCharVector.allocateNew();
@@ -287,7 +295,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     }
 
     if (!metadataToHandle.isEmpty()) {
-      // leaves only metadata which belongs to segments be overridden and table metadata
+      // leaves only metadata which belongs to segments to be overridden and table metadata
       metadataUnits = metadataUnits.stream()
           .filter(tableMetadataUnit ->
               metadataToHandle.values().stream()
@@ -571,7 +579,6 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
         .metadataInfo(metadataInfo)
         .columnsStatistics(columnStatistics)
         .metadataStatistics(metadataStatistics)
-        // TODO: pass host affinity? Am I sure that it is good idea?
         .hostAffinity(Collections.emptyMap())
         .rowGroupIndex(rowGroupIndex)
         .path(path)
@@ -587,7 +594,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     for (ColumnMetadata column : columnMetadata) {
       String fieldName = AnalyzeColumnUtils.getColumnName(column.name());
 
-      if (AnalyzeColumnUtils.columnStatisticsField(column.name())) {
+      if (AnalyzeColumnUtils.isColumnStatisticsField(column.name())) {
         StatisticsKind statisticsKind = AnalyzeColumnUtils.getStatisticsKind(column.name());
         columnStatistics.put(fieldName,
             new StatisticsHolder(getConvertedColumnValue(reader.column(column.name())), statisticsKind));
@@ -627,7 +634,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     String rgs = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL);
     String grl = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL);
     for (ColumnMetadata column : columnMetadata) {
-      if (AnalyzeColumnUtils.metadataStatisticsField(column.name())) {
+      if (AnalyzeColumnUtils.isMetadataStatisticsField(column.name())) {
         metadataStatistics.add(new StatisticsHolder(reader.column(column.name()).getObject(),
             AnalyzeColumnUtils.getStatisticsKind(column.name())));
       } else if (column.name().equals(rgs)) {

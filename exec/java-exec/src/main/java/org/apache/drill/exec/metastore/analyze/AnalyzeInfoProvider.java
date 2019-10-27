@@ -32,19 +32,57 @@ import java.io.IOException;
 import java.util.List;
 import java.util.function.Supplier;
 
+/**
+ * Interface for obtaining information required for analyzing tables such as table segment columns, etc.
+ */
 public interface AnalyzeInfoProvider {
 
+  /**
+   * Returns list of segment column names for specified {@link DrillTable} table.
+   *
+   * @param table   table for which should be returned segment column names
+   * @param options option manager
+   * @return list of segment column names
+   */
   List<SchemaPath> getSegmentColumns(DrillTable table, OptionManager options) throws IOException;
+
+  /**
+   * Returns list of fields required for ANALYZE.
+   *
+   * @param metadataLevel metadata level for analyze
+   * @param options       option manager
+   * @return list of fields required for ANALYZE
+   */
   List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options);
 
+  /**
+   * Returns {@link MetadataInfoCollector} instance for obtaining information about segments, files etc
+   * which should be handled in metastore.
+   *
+   * @param basicRequests       Metastore tables data provider helper
+   * @param tableInfo           table info
+   * @param selection           format selection
+   * @param settings            planner settings
+   * @param tableScanSupplier   supplier for table scan
+   * @param interestingColumns  list of interesting columns
+   * @param metadataLevel       metadata level
+   * @param segmentColumnsCount number of segment columns
+   * @return {@link MetadataInfoCollector} instance
+   */
   MetadataInfoCollector getMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo,
-      FormatSelection selection, PlannerSettings settings, Supplier<TableScan> scanRel,
+      FormatSelection selection, PlannerSettings settings, Supplier<TableScan> tableScanSupplier,
       List<SchemaPath> interestingColumns, MetadataType metadataLevel, int segmentColumnsCount) throws IOException;
 
+  /**
+   * Returns {@link AnalyzeInfoProvider} instance for specified {@link TableType} table type.
+   *
+   * @param tableType table type
+   * @return {@link AnalyzeInfoProvider} instance
+   */
   static AnalyzeInfoProvider getAnalyzeInfoProvider(TableType tableType) {
     switch (tableType) {
       case PARQUET:
-        return AnalyzeFileInfoProvider.INSTANCE;
+        return AnalyzeParquetInfoProvider.INSTANCE;
       default:
         throw new UnsupportedOperationException(String.format("Unsupported table type [%s]", tableType));
     }

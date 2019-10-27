@@ -310,8 +310,6 @@ public class ColumnExplorer {
       }
     });
 
-    // TODO: add host affinity? see FileMetadataCollector.getHostAffinity()
-
     return implicitValues;
   }
 
