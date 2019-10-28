@@ -185,8 +185,16 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   private MetadataType getMetadataType(SqlMetastoreAnalyzeTable sqlAnalyzeTable) {
-    SqlCharStringLiteral level = (SqlCharStringLiteral) sqlAnalyzeTable.getLevel();
-    return level != null ? MetadataType.valueOf(level.toValue().toUpperCase()) : MetadataType.ALL;
+    SqlCharStringLiteral stringLiteral = (SqlCharStringLiteral) sqlAnalyzeTable.getLevel();
+    // for the case when metadata level is not specified in ANALYZE statement,
+    // value from the `metastore.metadata.store.depth_level` option is used
+    String metadataLevel;
+    if (stringLiteral == null) {
+      metadataLevel = context.getOption(ExecConstants.METASTORE_METADATA_STORE_DEPTH_LEVEL).string_val;
+    } else {
+      metadataLevel = stringLiteral.toValue();
+    }
+    return metadataLevel != null ? MetadataType.valueOf(metadataLevel.toUpperCase()) : MetadataType.ALL;
   }
 
   /**
@@ -247,7 +255,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       if (!metadataInfoCollector.isChanged()) {
         DrillRel convertedRelNode = convertToRawDrel(
             relBuilder.values(new String[]{MetastoreAnalyzeConstants.OK_FIELD_NAME, MetastoreAnalyzeConstants.SUMMARY_FIELD_NAME},
-                false, "Analyze is so cool, it knows that table wasn't changed!")
+                false, "Table metadata is up to date, analyze wasn't performed.")
                 .build());
         return new DrillScreenRel(convertedRelNode.getCluster(), convertedRelNode.getTraitSet(), convertedRelNode);
       }

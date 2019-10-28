@@ -693,7 +693,7 @@ public class TestMetastoreCommands extends ClusterTest {
           .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus) REFRESH METADATA 'row_group' LEVEL", tableName)
           .unOrdered()
           .baselineColumns("ok", "summary")
-          .baselineValues(false, "Analyze is so cool, it knows that table wasn't changed!")
+          .baselineValues(false, "Table metadata is up to date, analyze wasn't performed.")
           .go();
 
       actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
@@ -817,7 +817,7 @@ public class TestMetastoreCommands extends ClusterTest {
           .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` columns NONE REFRESH METADATA 'row_group' LEVEL", tableName)
           .unOrdered()
           .baselineColumns("ok", "summary")
-          .baselineValues(false, "Analyze is so cool, it knows that table wasn't changed!")
+          .baselineValues(false, "Table metadata is up to date, analyze wasn't performed.")
           .go();
 
       actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
@@ -856,7 +856,7 @@ public class TestMetastoreCommands extends ClusterTest {
           .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` REFRESH METADATA", tableName)
           .unOrdered()
           .baselineColumns("ok", "summary")
-          .baselineValues(false, "Analyze is so cool, it knows that table wasn't changed!")
+          .baselineValues(false, "Table metadata is up to date, analyze wasn't performed.")
           .go();
 
       segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
@@ -2418,6 +2418,43 @@ public class TestMetastoreCommands extends ClusterTest {
               "where dir0=1994 and dir1 in ('Q4', 'Q2')";
       long expectedRowCount = 20;
       int expectedNumFiles = 2;
+
+      long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
+
+      assertEquals(expectedRowCount, actualRowCount);
+      String numFilesPattern = "numFiles=" + expectedNumFiles;
+      String usedMetaPattern = "usedMetastore=false";
+
+      String plan = queryBuilder().sql(query, tableName).explainText();
+      assertThat(plan, containsString(numFilesPattern));
+      assertThat(plan, containsString(usedMetaPattern));
+
+      assertThat(plan, not(containsString("Filter")));
+    } finally {
+      run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
+
+      FileUtils.deleteQuietly(table);
+    }
+  }
+
+  @Test
+  public void testSelectWitOutdatedMetadataWithNewFile() throws Exception {
+    String tableName = "outdatedParquetNewFile";
+
+    File table = dirTestWatcher.copyResourceToTestTmp(Paths.get("multilevel/parquet"), Paths.get(tableName));
+
+    try {
+      run("analyze table dfs.tmp.`%s` REFRESH METADATA", tableName);
+
+      dirTestWatcher.copyResourceToTestTmp(
+          Paths.get("multilevel", "parquet", "1994", "Q1", "orders_94_q1.parquet"),
+          Paths.get(tableName, "1994", "Q4", "orders_94_q5.parquet"));
+
+      String query =
+          "select dir0, dir1, o_custkey, o_orderdate from dfs.tmp.`%s`\n" +
+              "where dir0=1994 and dir1 in ('Q4', 'Q2')";
+      long expectedRowCount = 30;
+      int expectedNumFiles = 3;
 
       long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
 

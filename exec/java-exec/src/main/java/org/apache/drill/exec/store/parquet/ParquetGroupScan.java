@@ -20,11 +20,13 @@ package org.apache.drill.exec.store.parquet;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import org.apache.drill.exec.exception.OutdatedMetadataException;
 import org.apache.drill.exec.metastore.MetastoreParquetTableMetadataProvider;
+import org.apache.drill.exec.metastore.analyze.FileMetadataInfoCollector;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.metastore.FileSystemMetadataProviderManager;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
@@ -45,6 +47,7 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.util.ImpersonationUtil;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
@@ -157,7 +160,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     this.fileSet = parquetTableMetadataProvider.getFileSet();
 
     init();
-    checkMetadataConsistency();
+    checkMetadataConsistency(selection);
   }
 
   /**
@@ -303,23 +306,32 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     return ColumnExplorer.listPartitionValues(locationProvider.getPath(), selectionRoot, false);
   }
 
-  private void checkMetadataConsistency() throws IOException {
+  private void checkMetadataConsistency(FileSelection selection) throws IOException {
     if (metadataProvider.checkMetadataVersion()) {
       DrillFileSystem fileSystem =
           ImpersonationUtil.createFileSystem(ImpersonationUtil.resolveUserName(getUserName()), formatPlugin.getFsConf());
-      List<Path> paths = entries.stream()
-          .map(ReadEntryWithPath::getPath)
-          .collect(Collectors.toList());
+
+      List<FileStatus> fileStatuses = FileMetadataInfoCollector.getFileStatuses(selection, fileSystem);
 
       long lastModifiedTime = metadataProvider.getTableMetadata().getLastModifiedTime();
 
-      // TODO: add logic to handle new and removed files correctly
-      //  and decide whether it is possible to continue with fallback
-      //  and investigate how to deal with caching of metadata provider manager for such cases
-      for (Path path : paths) {
-        if (fileSystem.getFileStatus(path).getModificationTime() > lastModifiedTime) {
-          throw new OutdatedMetadataException("Metastore metadata is outdated", true);
+      Set<Path> removedFiles = new HashSet<>(metadataProvider.getFilesMetadataMap().keySet());
+      Set<Path> newFiles = new HashSet<>();
+
+      boolean isChanged = false;
+
+      for (FileStatus fileStatus : fileStatuses) {
+        if (!removedFiles.remove(Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()))) {
+          newFiles.add(fileStatus.getPath());
         }
+        if (fileStatus.getModificationTime() > lastModifiedTime) {
+          isChanged = true;
+          break;
+        }
+      }
+
+      if (isChanged || !removedFiles.isEmpty() || !newFiles.isEmpty()) {
+        throw new OutdatedMetadataException("Metastore metadata is outdated", true);
       }
     }
   }

@@ -27,6 +27,7 @@ import org.apache.drill.exec.planner.logical.DrillScanRel;
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.FormatSelection;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
@@ -298,10 +299,10 @@ public class FileMetadataInfoCollector implements MetadataInfoCollector {
   private List<FileStatus> getFileStatuses(FormatSelection selection) throws IOException {
     FileSelection fileSelection = selection.getSelection();
 
-    if (!fileSelection.isExpandedFully()) {
-      fileSelection = getExpandedFileSelection(fileSelection);
-    }
-    return fileSelection.getFileStatuses();
+    FileSystem rawFs = fileSelection.getSelectionRoot().getFileSystem(new Configuration());
+    DrillFileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), rawFs.getConf());
+
+    return getFileStatuses(fileSelection, fs);
   }
 
   private TableScan getTableScan(PlannerSettings settings, TableScan scanRel, List<String> scanFiles) {
@@ -375,9 +376,34 @@ public class FileMetadataInfoCollector implements MetadataInfoCollector {
     }
   }
 
+  /**
+   * Returns list of {@link FileStatus} file statuses obtained from specified {@link FileSelection} file selection.
+   * Specified file selection may be expanded fully if it wasn't expanded before.
+   *
+   * @param fileSelection file selection
+   * @param fs            file system
+   * @return list of {@link FileStatus} file statuses
+   */
+  public static List<FileStatus> getFileStatuses(FileSelection fileSelection, DrillFileSystem fs) throws IOException {
+    if (!fileSelection.isExpandedFully()) {
+      fileSelection = getExpandedFileSelection(fileSelection, fs);
+    }
+    return fileSelection.getStatuses(fs);
+  }
+
+  /**
+   * Returns {@link FileSelection} file selection based on specified file selection with expanded file statuses.
+   *
+   * @param fileSelection file selection
+   * @return expanded file selection
+   */
   public static FileSelection getExpandedFileSelection(FileSelection fileSelection) throws IOException {
     FileSystem rawFs = fileSelection.getSelectionRoot().getFileSystem(new Configuration());
     FileSystem fs = ImpersonationUtil.createFileSystem(ImpersonationUtil.getProcessUserName(), rawFs.getConf());
+    return getExpandedFileSelection(fileSelection, fs);
+  }
+
+  private static FileSelection getExpandedFileSelection(FileSelection fileSelection, FileSystem fs) throws IOException {
     List<FileStatus> fileStatuses = DrillFileSystemUtil.listFiles(fs, fileSelection.getSelectionRoot(), true);
     fileSelection = FileSelection.create(fileStatuses, null, fileSelection.getSelectionRoot());
     return fileSelection;

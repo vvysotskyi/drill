@@ -133,7 +133,8 @@ public class ParquetTableMetadataUtils {
         } else {
           newIndex = index++;
         }
-        rowGroups.put(file.getPath(), getRowGroupMetadata(tableMetadata, rowGroupMetadata, newIndex, file.getPath()));
+        Path filePath = Path.getPathWithoutSchemeAndAuthority(file.getPath());
+        rowGroups.put(filePath, getRowGroupMetadata(tableMetadata, rowGroupMetadata, newIndex, filePath));
       }
     }
 

@@ -397,10 +397,11 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
       if (entries == null) {
         if (!selection.isExpandedFully()) {
           entries = DrillFileSystemUtil.listFiles(fs, selection.getSelectionRoot(), true).stream()
-              .map(fileStatus -> new ReadEntryWithPath(fileStatus.getPath()))
+              .map(fileStatus -> new ReadEntryWithPath(Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath())))
               .collect(Collectors.toList());
         } else {
           entries = selection.getFiles().stream()
+              .map(Path::getPathWithoutSchemeAndAuthority)
               .map(ReadEntryWithPath::new)
               .collect(Collectors.toList());
         }
