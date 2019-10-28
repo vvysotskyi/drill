@@ -101,7 +101,7 @@ public abstract class AbstractParquetScanBatchCreator {
       Metadata_V4.ParquetFileAndRowCountMetadata fileMetadataV4 = null;
       FilterPredicate filterPredicate = null;
       Set<SchemaPath> schemaPathsInExpr = null;
-      Set<String> columnsInExpr = null;
+      Set<SchemaPath> columnsInExpr = null;
       // for debug/info logging
       long totalPruneTime = 0;
       long totalRowGroups = rowGroupScan.getRowGroupReadEntries().size();
@@ -124,7 +124,7 @@ public abstract class AbstractParquetScanBatchCreator {
             path.toString().matches(partitionColumnLabel+"\\d+")) {
             continue;  // skip implicit columns like dir0, dir1
           }
-          columnsInExpr.add(path.getRootSegmentPath());
+          columnsInExpr.add(SchemaPath.getSimplePath(path.getRootSegmentPath()));
         }
         doRuntimePruning = ! columnsInExpr.isEmpty(); // just in case: if no columns - cancel pruning
       }
