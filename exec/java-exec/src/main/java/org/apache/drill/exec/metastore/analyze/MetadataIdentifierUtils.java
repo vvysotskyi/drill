@@ -38,11 +38,11 @@ public class MetadataIdentifierUtils {
   }
 
   /**
-   * Checks whether specified metadata identifier is parent for another specified metadata identifier.
+   * Checks whether the specified metadata identifier is a parent for another specified metadata identifier.
    *
    * @param parent parent metadata identifier
    * @param child  child metadata identifier
-   * @return {@code true} if specified metadata identifier is parent for another specified metadata identifier
+   * @return {@code true} if specified metadata identifier is a parent for another specified metadata identifier
    */
   public static boolean isMetadataKeyParent(String parent, String child) {
     return child.startsWith(parent + METADATA_IDENTIFIER_SEPARATOR) || parent.equals(MetadataInfo.DEFAULT_SEGMENT_KEY);
@@ -77,7 +77,7 @@ public class MetadataIdentifierUtils {
   }
 
   /**
-   * Returns array with metadata identifier values obtained using specified metadata identifier.
+   * Returns array with metadata identifier values obtained from specified metadata identifier string.
    *
    * @param metadataIdentifier metadata identifier
    * @return array with metadata identifier values

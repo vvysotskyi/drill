@@ -36,7 +36,6 @@ import org.apache.drill.exec.metastore.analyze.MetadataIdentifierUtils;
 import org.apache.drill.exec.record.AbstractBinaryRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
-import org.apache.drill.exec.record.SchemaUtil;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
@@ -45,6 +44,7 @@ import org.apache.drill.exec.store.EventBasedRecordWriter.FieldConverter;
 import org.apache.drill.exec.store.StatisticsRecordCollector;
 import org.apache.drill.exec.store.StatisticsRecordWriterImpl;
 import org.apache.drill.exec.store.easy.json.StatisticsCollectorImpl;
+import org.apache.drill.exec.store.parquet.ParquetTableMetadataUtils;
 import org.apache.drill.exec.vector.BitVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
@@ -73,7 +73,6 @@ import org.apache.drill.metastore.statistics.ExactStatisticsConstants;
 import org.apache.drill.metastore.statistics.StatisticsHolder;
 import org.apache.drill.metastore.statistics.StatisticsKind;
 import org.apache.drill.metastore.statistics.TableStatisticsKind;
-import org.apache.drill.metastore.util.SchemaPathUtils;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.apache.drill.shaded.guava.com.google.common.collect.ArrayListMultimap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
@@ -275,18 +274,6 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     return IterOutcome.OK;
   }
 
-  public static Map<SchemaPath, ColumnStatistics> getColumnStatistics(BaseTableMetadata baseTableMetadata, DrillStatsTable statistics) {
-    List<SchemaPath> schemaPaths = SchemaUtil.getSchemaPaths(baseTableMetadata.getSchema());
-
-    return schemaPaths.stream()
-        .collect(
-            Collectors.toMap(
-                Function.identity(),
-                schemaPath -> new ColumnStatistics<>(
-                    DrillStatsTable.getEstimatedColumnStats(statistics, schemaPath),
-                    SchemaPathUtils.getColumnMetadata(schemaPath, baseTableMetadata.getSchema()).type())));
-  }
-
   private List<TableMetadataUnit> getMetadataUnits(VectorContainer container) {
     List<TableMetadataUnit> metadataUnits = new ArrayList<>();
     RowSetReader reader = DirectRowSet.fromContainer(container).reader();
@@ -295,7 +282,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     }
 
     if (!metadataToHandle.isEmpty()) {
-      // leaves only metadata which belongs to segments to be overridden and table metadata
+      // leaves only table metadata and metadata which belongs to segments to be overridden
       metadataUnits = metadataUnits.stream()
           .filter(tableMetadataUnit ->
               metadataToHandle.values().stream()
@@ -471,7 +458,8 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
 
     if (context.getOptions().getOption(PlannerSettings.STATISTICS_USE)) {
       DrillStatsTable statistics = new DrillStatsTable(statisticsCollector.getStatistics());
-      Map<SchemaPath, ColumnStatistics> tableColumnStatistics = getColumnStatistics(tableMetadata, statistics);
+      Map<SchemaPath, ColumnStatistics> tableColumnStatistics =
+          ParquetTableMetadataUtils.getColumnStatistics(tableMetadata.getSchema(), statistics);
       tableMetadata = tableMetadata.cloneWithStats(tableColumnStatistics, DrillStatsTable.getEstimatedTableStats(statistics));
     }
 
@@ -634,14 +622,15 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     String rgs = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL);
     String grl = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL);
     for (ColumnMetadata column : columnMetadata) {
-      if (AnalyzeColumnUtils.isMetadataStatisticsField(column.name())) {
-        metadataStatistics.add(new StatisticsHolder(reader.column(column.name()).getObject(),
-            AnalyzeColumnUtils.getStatisticsKind(column.name())));
-      } else if (column.name().equals(rgs)) {
-        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()),
+      String columnName = column.name();
+      if (AnalyzeColumnUtils.isMetadataStatisticsField(columnName)) {
+        metadataStatistics.add(new StatisticsHolder(reader.column(columnName).getObject(),
+            AnalyzeColumnUtils.getStatisticsKind(columnName)));
+      } else if (columnName.equals(rgs)) {
+        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(columnName).scalar().getString()),
             new BaseStatisticsKind(ExactStatisticsConstants.START, true)));
-      } else if (column.name().equals(grl)) {
-        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(column.name()).scalar().getString()),
+      } else if (columnName.equals(grl)) {
+        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(columnName).scalar().getString()),
             new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)));
       }
     }
@@ -653,13 +642,13 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
       List<FieldConverter> fieldConverters = new ArrayList<>();
       int fieldId = 0;
 
-      for (VectorWrapper w : right) {
-        if (w.getField().getName().equalsIgnoreCase(WriterPrel.PARTITION_COMPARATOR_FIELD)) {
+      for (VectorWrapper wrapper : right) {
+        if (wrapper.getField().getName().equalsIgnoreCase(WriterPrel.PARTITION_COMPARATOR_FIELD)) {
           continue;
         }
-        FieldReader reader = w.getValueVector().getReader();
+        FieldReader reader = wrapper.getValueVector().getReader();
         FieldConverter converter =
-            StatisticsRecordWriterImpl.getConverter(statisticsCollector, fieldId++, w.getField().getName(), reader);
+            StatisticsRecordWriterImpl.getConverter(statisticsCollector, fieldId++, wrapper.getField().getName(), reader);
         fieldConverters.add(converter);
       }
 
@@ -694,7 +683,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     ObjectReader metadataColumnReader = reader.column(MetastoreAnalyzeConstants.METADATA_TYPE);
     Preconditions.checkNotNull(metadataColumnReader, "metadataType column wasn't found");
 
-    MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.getObject().toString());
+    MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.scalar().getString());
 
     switch (metadataType) {
       case SEGMENT:

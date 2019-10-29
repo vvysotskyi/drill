@@ -26,30 +26,30 @@ import org.apache.drill.exec.expr.holders.VarCharHolder;
 
 import javax.inject.Inject;
 
-public class PathFunctions {
-  @FunctionTemplate(name = "parentPath",
-                    scope = FunctionTemplate.FunctionScope.SIMPLE,
-                    nulls = FunctionTemplate.NullHandling.NULL_IF_NULL,
-                    isInternal = true)
-  public static class ParentPathFunction implements DrillSimpleFunc {
-    @Param VarCharHolder input;
-    @Output VarCharHolder out;
-    @Inject DrillBuf buf;
+@FunctionTemplate(name = "parentPath",
+                  scope = FunctionTemplate.FunctionScope.SIMPLE,
+                  nulls = FunctionTemplate.NullHandling.NULL_IF_NULL,
+                  isInternal = true)
+public class ParentPathFunction implements DrillSimpleFunc {
 
-    @Override
-    public void setup() {
-    }
+  @Param VarCharHolder input;
+  @Output VarCharHolder out;
+  @Inject DrillBuf buf;
 
-    @Override
-    public void eval() {
-      org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(org.apache.drill.common.util.DrillStringUtils.toBinaryString(input.buffer, input.start, input.end));
-      byte[] bytes = path.getParent().toUri().getPath().getBytes();
+  @Override
+  public void setup() {
+  }
 
-      buf = buf.reallocIfNeeded(bytes.length);
-      buf.setBytes(0, bytes);
-      out.buffer = buf;
-      out.start = 0;
-      out.end = bytes.length;
-    }
+  @Override
+  public void eval() {
+    org.apache.hadoop.fs.Path path =
+        new org.apache.hadoop.fs.Path(org.apache.drill.common.util.DrillStringUtils.toBinaryString(input.buffer, input.start, input.end));
+    byte[] bytes = path.getParent().toUri().getPath().getBytes();
+
+    buf = buf.reallocIfNeeded(bytes.length);
+    buf.setBytes(0, bytes);
+    out.buffer = buf;
+    out.start = 0;
+    out.end = bytes.length;
   }
 }

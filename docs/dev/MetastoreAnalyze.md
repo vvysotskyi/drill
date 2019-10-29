@@ -1,6 +1,6 @@
 # Metastore ANALYZE commands
 
-Drill provides functionality to collect, use and store into Drill Metastore table metadata.
+Drill provides the functionality to collect, use and store into Drill Metastore table metadata.
 
 To enable metastore usage, `metastore.enabled` option should be set to true.
 
@@ -8,9 +8,9 @@ To collect table metadata, the following command should be used:
 
 `ANALYZE TABLE [table_name] [COLUMNS (col1, col2, ...)] REFRESH METADATA [partition LEVEL] {COMPUTE | ESTIMATE} | STATISTICS [(column1, column2, ...)] [ SAMPLE numeric PERCENT ]`
 
-For the case when this command is executed at the first time, whole table metadata will be collected and stored into
+For the case when this command is executed for the first time, whole table metadata will be collected and stored into
  metastore.
-If analyze was already executed for table, and table data wasn't changed, all further analyze commands wouldn't
+If analyze was already executed for the table, and table data wasn't changed, all further analyze commands wouldn't
  trigger table analyzing and message that table metadata is up to date will be returned.
 
 # Incremental analyze
@@ -20,14 +20,14 @@ For the case when some table data was updated, Drill will try to produce increme
 
 Incremental analyze wouldn't be produced for the following cases:
  - List of interesting columns specified in analyze is not a subset of interesting columns from the previous analyze;
- - Specified metadata level differs from the metadata level in previous analyze
+ - Specified metadata level differs from the metadata level in previous analyze.
 
 # Metadata usage
 
-Drill provides ability to use metadata obtained from the metastore at the planning stage to prune segments, files and
- row groups.
+Drill provides the ability to use metadata obtained from the metastore at the planning stage to prune segments, files
+ and row groups.
 
-Tables metadata from the metastore is exposed into `INFORMATION_SCHEMA` tables (if metastore usage is enabled).
+Tables metadata from the metastore is exposed to `INFORMATION_SCHEMA` tables (if metastore usage is enabled).
 
 The following tables are populated with table metadata from the metastore:
 
@@ -70,3 +70,4 @@ execution and to be able to read table metadata during regular queries execution
  - `metastore.metadata.fallback_to_file_metadata` Allows using file metadata cache for the case when required metadata is absent in the Metastore.
  - `metastore.retrieval.retry_attempts` Specifies the number of attempts for retrying query planning after detecting that query metadata is changed. 
  If the number of retries was exceeded, query will be planned without metadata information from the Metastore.
+ 

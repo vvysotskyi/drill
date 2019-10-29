@@ -20,7 +20,11 @@ package org.apache.drill.exec.metastore.analyze;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.drill.common.expression.ExpressionPosition;
+import org.apache.drill.common.expression.FieldReference;
+import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
@@ -34,6 +38,7 @@ import org.apache.drill.metastore.metadata.TableInfo;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -72,5 +77,17 @@ public class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
       List<SchemaPath> interestingColumns, MetadataType metadataLevel, int segmentColumnsCount) throws IOException {
     return new FileMetadataInfoCollector(basicRequests, tableInfo, selection,
         settings, tableScanSupplier, interestingColumns, metadataLevel, segmentColumnsCount);
+  }
+
+  @Override
+  public SchemaPath getLocationField(OptionManager optionManager) {
+    return SchemaPath.getSimplePath(optionManager.getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL));
+  }
+
+  @Override
+  public NamedExpression getParentLocationExpression(SchemaPath locationField) {
+    return new NamedExpression(new FunctionCall("parentPath",
+        Collections.singletonList(locationField), ExpressionPosition.UNKNOWN),
+        FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.LOCATION_FIELD));
   }
 }

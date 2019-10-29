@@ -1085,7 +1085,7 @@ public final class ExecConstants {
   public static final String METASTORE_METADATA_STORE_DEPTH_LEVEL = "metastore.metadata.store.depth_level";
   public static final EnumeratedStringValidator METASTORE_METADATA_STORE_DEPTH_LEVEL_VALIDATOR = new EnumeratedStringValidator(METASTORE_METADATA_STORE_DEPTH_LEVEL,
       new OptionDescription("Specifies maximum level depth for collecting metadata. Default is 'ALL'. (Drill 1.17+)"),
-      "TABLE", "SEGMENT", "PARTITION", "FILE", "ROW_GROUP");
+      "TABLE", "SEGMENT", "PARTITION", "FILE", "ROW_GROUP", "ALL");
 
   /**
    * Option for enabling schema usage, stored to the Metastore.

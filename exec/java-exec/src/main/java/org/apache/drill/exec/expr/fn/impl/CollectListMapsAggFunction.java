@@ -26,6 +26,11 @@ import org.apache.drill.exec.expr.holders.ObjectHolder;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter;
 
+/**
+ * Aggregate function which stores incoming fields into the map.
+ * This function accepts a variable number of arguments, where one argument is a field name
+ * within the resulting map and another argument is actual field to store into the map.
+ */
 @FunctionTemplate(name = "collect_list",
                   isVarArg = true,
                   isInternal = true,

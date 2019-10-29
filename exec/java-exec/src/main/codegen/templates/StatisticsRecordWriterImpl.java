@@ -39,7 +39,9 @@ import java.util.List;
  * This class is generated using freemarker and the ${.template_name} template.
  */
 
-/** Reads records from the RecordValueAccessor and writes into StatisticsRecordWriterImpl. */
+/**
+ * Reads records from the RecordValueAccessor and writes into StatisticsRecordCollector.
+ */
 public class StatisticsRecordWriterImpl {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StatisticsRecordWriterImpl.class);
 

@@ -32,9 +32,7 @@ import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.FieldReference;
-import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.common.util.function.CheckedSupplier;
@@ -128,8 +126,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           null
       );
 
-      final ConvertedRelNode convertedRelNode = validateAndConvert(rewrite(scanSql));
-      final RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
+      ConvertedRelNode convertedRelNode = validateAndConvert(rewrite(scanSql));
+      RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
 
       RelNode relScan = convertedRelNode.getConvertedNode();
 
@@ -283,8 +281,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           .forEach(statisticsColumns::add);
     }
 
-    SchemaPath locationField = SchemaPath.getSimplePath(
-        config.getContext().getOptions().getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL));
+    SchemaPath locationField = analyzeInfoProvider.getLocationField(config.getContext().getOptions());
 
     if (tableType == TableType.PARQUET && metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
       MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
@@ -302,7 +299,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       locationField = SchemaPath.getSimplePath(MetastoreAnalyzeConstants.LOCATION_FIELD);
     }
 
-    if (metadataLevel.compareTo(MetadataType.FILE) >= 0) {
+    if (metadataLevel.compareTo(MetadataType.FILE) >= 0 && tableType.isFileBased()) {
       MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
           .tableInfo(tableInfo)
           .metadataToHandle(filesInfo)
@@ -330,7 +327,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
             .build();
 
         convertedRelNode = getSegmentAggRelNode(segmentExpressions, convertedRelNode,
-            createNewAggregations, statisticsColumns, locationField, i, handlerContext);
+            createNewAggregations, statisticsColumns, locationField, analyzeInfoProvider, i, handlerContext);
 
         locationField = SchemaPath.getSimplePath(MetastoreAnalyzeConstants.LOCATION_FIELD);
 
@@ -408,16 +405,15 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   private DrillRel getSegmentAggRelNode(List<NamedExpression> segmentExpressions, DrillRel convertedRelNode,
-      boolean createNewAggregations, List<SchemaPath> statisticsColumns, SchemaPath locationField, int segmentLevel, MetadataHandlerContext handlerContext) {
+      boolean createNewAggregations, List<SchemaPath> statisticsColumns, SchemaPath locationField,
+      AnalyzeInfoProvider analyzeInfoProvider, int segmentLevel, MetadataHandlerContext handlerContext) {
       SchemaPath lastModifiedTimeField =
         SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL));
 
     List<SchemaPath> excludedColumns = Arrays.asList(lastModifiedTimeField, locationField);
 
     List<NamedExpression> groupByExpressions = new ArrayList<>();
-    groupByExpressions.add(new NamedExpression(new FunctionCall("parentPath",
-        Collections.singletonList(locationField), ExpressionPosition.UNKNOWN),
-        FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.LOCATION_FIELD)));
+    groupByExpressions.add(analyzeInfoProvider.getParentLocationExpression(locationField));
 
     groupByExpressions.addAll(segmentExpressions);
 

@@ -798,11 +798,11 @@ public class TestAggregateFunctions extends ClusterTest {
         " where n_regionkey = 2 ";
 
     // Validate the plan
-    String expectedPlan = ".*(StreamAgg|HashAgg).*Filter.*";
-    String excludedPatterns = ".*Filter.*(StreamAgg|HashAgg).*";
+    String expectedPlan = "(?s)(StreamAgg|HashAgg).*Filter";
+    String excludedPatterns = "(?s)Filter.*(StreamAgg|HashAgg)";
     String plan = queryBuilder().sql(query).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan, Pattern.DOTALL).matcher(plan).matches());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns, Pattern.DOTALL).matcher(plan).matches());
+    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
+    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
 
     testBuilder()
         .sqlQuery(query)
@@ -816,8 +816,8 @@ public class TestAggregateFunctions extends ClusterTest {
         " select count(*) cnt from cp.`tpch/nation.parquet` group by n_regionkey " +
         " having n_regionkey = 2 ";
     plan = queryBuilder().sql(query2).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan, Pattern.DOTALL).matcher(plan).matches());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns, Pattern.DOTALL).matcher(plan).matches());
+    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
+    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
 
     testBuilder()
         .sqlQuery(query)
@@ -835,11 +835,11 @@ public class TestAggregateFunctions extends ClusterTest {
             " where n_regionkey + 100 - 100 = 2 ";
 
     // Validate the plan
-    String expectedPlan = ".*(StreamAgg|HashAgg).*Filter.*";
-    String excludedPatterns = ".*Filter.*(StreamAgg|HashAgg).*";
+    String expectedPlan = "(?s)(StreamAgg|HashAgg).*Filter";
+    String excludedPatterns = "(?s)Filter.*(StreamAgg|HashAgg)";
     String plan = queryBuilder().sql(query).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan, Pattern.DOTALL).matcher(plan).matches());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns, Pattern.DOTALL).matcher(plan).matches());
+    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
+    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
 
     testBuilder()
         .sqlQuery(query)
@@ -858,11 +858,11 @@ public class TestAggregateFunctions extends ClusterTest {
             " where cnt + 100 - 100 = 5 ";
 
     // Validate the plan
-    String expectedPlan = ".*Filter(?!StreamAgg|!HashAgg).*";
-    String excludedPatterns = ".*(StreamAgg|HashAgg).*Filter.*";
+    String expectedPlan = "(?s)Filter(?!StreamAgg|!HashAgg)";
+    String excludedPatterns = "(?s)(StreamAgg|HashAgg).*Filter";
     String plan = queryBuilder().sql(query).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan, Pattern.DOTALL).matcher(plan).matches());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns, Pattern.DOTALL).matcher(plan).matches());
+    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
+    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
 
     // negative case: should not push filter, since it is expression of group key + agg result.
     String query2 =
@@ -870,8 +870,8 @@ public class TestAggregateFunctions extends ClusterTest {
             " from (select n_regionkey, count(*) cnt from cp.`tpch/nation.parquet` group by n_regionkey) " +
             " where cnt + n_regionkey = 5 ";
     plan = queryBuilder().sql(query2).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan, Pattern.DOTALL).matcher(plan).matches());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns, Pattern.DOTALL).matcher(plan).matches());
+    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
+    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
 
   }
 
@@ -880,10 +880,10 @@ public class TestAggregateFunctions extends ClusterTest {
   // GROUP BY System functions in schema table.
   public void testGroupBySystemFuncSchemaTable() throws Exception {
     String query = "select count(*) as cnt from sys.version group by CURRENT_DATE";
-    String expectedPlan = ".*(StreamAgg|HashAgg).*";
+    String expectedPlan = "(?s)(StreamAgg|HashAgg)";
 
     String plan = queryBuilder().sql(query).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan, Pattern.DOTALL).matcher(plan).matches());
+    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
   }
 
   @Test //DRILL-3781
@@ -971,11 +971,11 @@ public class TestAggregateFunctions extends ClusterTest {
             + "          lineitem.provider";
 
     // Validate the plan
-    String expectedPlan = ".*Join.*inner.*"; // With filter pushdown, left join will be converted into inner join
-    String excludedPatterns = ".*Join.*left.*";
+    String expectedPlan = "(?s)(Join).*inner"; // With filter pushdown, left join will be converted into inner join
+    String excludedPatterns = "(?s)(Join).*(left)";
     String plan = queryBuilder().sql(sql).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan, Pattern.DOTALL).matcher(plan).matches());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns, Pattern.DOTALL).matcher(plan).matches());
+    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
+    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
   }
 
   @Test // DRILL-2385: count on complex objects failed with missing function implementation

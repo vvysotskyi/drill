@@ -20,6 +20,7 @@ package org.apache.drill.exec.metastore.analyze;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.server.options.OptionManager;
@@ -56,7 +57,7 @@ public interface AnalyzeInfoProvider {
   List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options);
 
   /**
-   * Returns {@link MetadataInfoCollector} instance for obtaining information about segments, files etc
+   * Returns {@link MetadataInfoCollector} instance for obtaining information about segments, files, etc.
    * which should be handled in metastore.
    *
    * @param basicRequests       Metastore tables data provider helper
@@ -72,6 +73,24 @@ public interface AnalyzeInfoProvider {
   MetadataInfoCollector getMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo,
       FormatSelection selection, PlannerSettings settings, Supplier<TableScan> tableScanSupplier,
       List<SchemaPath> interestingColumns, MetadataType metadataLevel, int segmentColumnsCount) throws IOException;
+
+  /**
+   * Provides schema path to field which will be used as a location for specific table data,
+   * for example, for file-based tables, it may be `fqn`.
+   *
+   * @param optionManager option manager
+   * @return location field
+   */
+  SchemaPath getLocationField(OptionManager optionManager);
+
+  /**
+   * Returns expression which may be used for determining parent location for specific table data,
+   * i.e. segment location. For example, for file-based tables, such expression will be `parentPath` function call.
+   *
+   * @param locationField location field
+   * @return expression for determining parent location
+   */
+  NamedExpression getParentLocationExpression(SchemaPath locationField);
 
   /**
    * Returns {@link AnalyzeInfoProvider} instance for specified {@link TableType} table type.

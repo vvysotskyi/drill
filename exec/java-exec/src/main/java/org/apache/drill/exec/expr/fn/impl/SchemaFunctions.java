@@ -26,12 +26,17 @@ import org.apache.drill.exec.expr.annotations.Workspace;
 import org.apache.drill.exec.expr.holders.NullableVarCharHolder;
 import org.apache.drill.exec.expr.holders.ObjectHolder;
 import org.apache.drill.exec.expr.holders.VarCharHolder;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
 
 import javax.inject.Inject;
 
 public class SchemaFunctions {
 
+  /**
+   * Aggregate function which infers schema from incoming data and returns string representation of {@link TupleMetadata}
+   * with incoming schema.
+   */
   @FunctionTemplate(name = "schema",
                     scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE,
                     isInternal = true,
@@ -120,6 +125,10 @@ public class SchemaFunctions {
     }
   }
 
+  /**
+   * Aggregate function which accepts VarChar column with string representations of {@link TupleMetadata}
+   * and returns string representation of {@link TupleMetadata} with merged schema.
+   */
   @FunctionTemplate(name = "merge_schema",
                     scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE,
                     isInternal = true)
@@ -179,8 +188,8 @@ public class SchemaFunctions {
   }
 
   @FunctionTemplate(name = "merge_schema",
-      scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE,
-      isInternal = true)
+                    scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE,
+                    isInternal = true)
   public static class MergeSchemaFunction implements DrillAggFunc {
 
     @Param VarCharHolder input;

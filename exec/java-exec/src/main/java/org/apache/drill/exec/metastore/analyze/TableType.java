@@ -28,17 +28,32 @@ public enum TableType {
   /**
    * Parquet table type
    */
-  PARQUET,
+  PARQUET(true),
 
   /**
    * CSV table type
    */
-  CSV,
+  CSV(true),
 
   /**
    * JSON table type
    */
-  JSON;
+  JSON(true);
+
+  private final boolean isFileBased;
+
+  TableType(boolean isFileBased) {
+    this.isFileBased = isFileBased;
+  }
+
+  /**
+   * Whether the table is file-based.
+   *
+   * @return true if the table is file-based.
+   */
+  public boolean isFileBased() {
+    return isFileBased;
+  }
 
   /**
    * Returns {@link TableType} which corresponds to specified {@link GroupScan}.

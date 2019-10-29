@@ -54,6 +54,7 @@ import java.util.stream.StreamSupport;
 
 /**
  * Operator which adds aggregate calls for all incoming columns to calculate required metadata and produces aggregations.
+ * If aggregation is performed on top of another aggregation, required aggregate calls for merging metadata will be added.
  */
 public class MetadataAggBatch extends StreamingAggBatch {
 
@@ -72,8 +73,8 @@ public class MetadataAggBatch extends StreamingAggBatch {
     List<SchemaPath> excludedColumns = popConfig.getContext().excludedColumns();
 
     BatchSchema schema = incoming.getSchema();
-    // Iterates through input expressions, and adds aggregate calls for table fields
-    // to collect required statistics (MIN, MAX, COUNT, etc.)
+    // Iterates through input expressions and adds aggregate calls for table fields
+    // to collect required statistics (MIN, MAX, COUNT, etc.) or aggregate calls to merge incoming metadata
     getUnflattenedFileds(Lists.newArrayList(schema), null)
         .forEach((fieldName, fieldRef) -> addColumnAggregateExpressions(fieldRef, fieldName));
 
@@ -93,7 +94,6 @@ public class MetadataAggBatch extends StreamingAggBatch {
       addAggregationsToCollectAndMergeData(fieldsList);
     }
 
-    // TODO: update to avoid binding
     for (SchemaPath excludedColumn : excludedColumns) {
       if (excludedColumn.equals(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL)))
           || excludedColumn.equals(SchemaPath.getSimplePath(context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL)))) {

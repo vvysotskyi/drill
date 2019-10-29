@@ -28,7 +28,7 @@ import java.util.Objects;
 import java.util.StringJoiner;
 
 /**
- * Class which provides information required for producing metadata aggregation when performing ANALYZE.
+ * Class which provides information required for producing metadata aggregation when performing analyze.
  */
 @JsonDeserialize(builder = MetadataAggregateContext.MetadataAggregateContextBuilder.class)
 public class MetadataAggregateContext {

@@ -172,11 +172,11 @@ public class FileMetadataInfoCollector implements MetadataInfoCollector {
       tableScan = getTableScan(settings, tableScanSupplier.get(), scanFiles);
 
       // iterates from the end;
-      // takes deepest updated segments,
+      // takes deepest updated segments;
       // finds their parents:
       //  - fetches all segments for parent level;
       //  - filters segments to leave parents only;
-      // obtains all children segments;
+      // obtains all child segments;
       // filters child segments for filtered parent segments
 
       int lastSegmentIndex = segmentColumnsCount - 1;

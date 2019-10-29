@@ -29,7 +29,7 @@ import java.util.Objects;
 import java.util.StringJoiner;
 
 /**
- * Class which provides information required for handling results of metadata aggregation when performing ANALYZE.
+ * Class which provides information required for handling results of metadata aggregation when performing analyze.
  */
 @JsonDeserialize(builder = MetadataHandlerContext.MetadataHandlerContextBuilder.class)
 public class MetadataHandlerContext {

@@ -26,6 +26,9 @@ import org.apache.drill.exec.expr.holders.NullableVarCharHolder;
 import org.apache.drill.exec.expr.holders.ObjectHolder;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter;
 
+/**
+ * Aggregate function which collects incoming VarChar column values into the list.
+ */
 @FunctionTemplate(name = "collect_to_list_varchar",
                   scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE,
                   isInternal = true)
@@ -56,7 +59,6 @@ public class CollectToListVarcharAggFunction implements DrillAggFunc {
 
   @Override
   public void output() {
-
   }
 
   @Override

@@ -20,7 +20,6 @@ package org.apache.drill.exec.metastore;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.exception.OutdatedMetadataException;
 import org.apache.drill.exec.metastore.MetastoreMetadataProviderManager.MetastoreMetadataProviderConfig;
-import org.apache.drill.exec.physical.impl.metadata.MetadataControllerBatch;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.record.SchemaUtil;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -31,6 +30,7 @@ import org.apache.drill.exec.store.dfs.ReadEntryWithPath;
 import org.apache.drill.exec.store.parquet.ParquetFileTableMetadataProviderBuilder;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.exec.store.parquet.ParquetTableMetadataProviderImpl;
+import org.apache.drill.exec.store.parquet.ParquetTableMetadataUtils;
 import org.apache.drill.exec.util.DrillFileSystemUtil;
 import org.apache.drill.metastore.MetastoreRegistry;
 import org.apache.drill.metastore.components.tables.BasicTablesRequests;
@@ -183,7 +183,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
       }
 
       if (!useStatistics) {
-        // removes statistics to avoid its usage
+        // removes statistics to prevent its usage later
         tableMetadata = tableMetadata.toBuilder()
             .columnsStatistics(Collections.emptyMap())
             .build();
@@ -194,7 +194,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
           statsProvider.materialize();
         }
         tableMetadata = tableMetadata.cloneWithStats(
-            MetadataControllerBatch.getColumnStatistics(tableMetadata, statsProvider),
+            ParquetTableMetadataUtils.getColumnStatistics(tableMetadata.getSchema(), statsProvider),
             DrillStatsTable.getEstimatedTableStats(statsProvider));
       }
     }
@@ -269,7 +269,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
       List<SchemaPath> columnPaths = SchemaUtil.getSchemaPaths(schema);
       List<SchemaPath> interestingColumns = getInterestingColumns(columnPaths);
-      // populates statistics for non-interesting columns columns for which statistics wasn't collected
+      // populates statistics for non-interesting columns and columns for which statistics wasn't collected
       Map<SchemaPath, ColumnStatistics> columnsStatistics = columnPaths.stream()
           .filter(schemaPath -> !interestingColumns.contains(schemaPath)
               || SchemaPathUtils.getColumnMetadata(schemaPath, schema).isArray())
@@ -292,7 +292,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
           ? columnPaths
           : getTableMetadata().getInterestingColumns();
     } else {
-      // if metastore.metadata.use_statistics is false, all columns are treat as non-interesting
+      // if `metastore.metadata.use_statistics` is false, all columns are treat as non-interesting
       return Collections.emptyList();
     }
   }
@@ -319,7 +319,8 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
     private FileSelection selection;
 
-    // builder for fallback ParquetFileTableMetadataProvider for the case when required metadata is absent
+    // builder for fallback ParquetFileTableMetadataProvider
+    // for the case when required metadata is absent in metastore
     private ParquetFileTableMetadataProviderBuilder fallback;
 
     public Builder(MetastoreMetadataProviderManager source) {
