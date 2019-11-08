@@ -31,7 +31,7 @@ import org.apache.calcite.tools.RelConversionException;
 import org.apache.calcite.tools.ValidationException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.exception.OutdatedMetadataException;
+import org.apache.drill.exec.exception.MetadataException;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.ops.QueryContext.SqlStatementType;
 import org.apache.drill.exec.physical.PhysicalPlan;
@@ -142,7 +142,7 @@ public class DrillSqlWorker {
 
   /**
    * Converts sql query string into query physical plan.
-   * For the case when {@link OutdatedMetadataException} was thrown during query planning,
+   * For the case when {@link MetadataException} was thrown during query planning,
    * attempts to convert sql query string again, until number of attempts
    * exceeds {@code metastore.retrieval.retry_attempts}.
    * If number of attempts exceeds {@code metastore.retrieval.retry_attempts},
@@ -161,21 +161,27 @@ public class DrillSqlWorker {
     } catch (Exception e) {
       Throwable rootCause = Throwables.getRootCause(e);
       // Calcite wraps exceptions thrown during planning, so checks whether original exception is OutdatedMetadataException
-      if (rootCause instanceof OutdatedMetadataException) {
+      if (rootCause instanceof MetadataException) {
         // resets SqlStatementType to avoid errors when it is set during further attempts
         context.clearSQLStatementType();
-        if (((OutdatedMetadataException) rootCause).isOutdatedMetadata()) {
-          logger.warn("Metastore table metadata is outdated. " +
-              "Retrying to obtain query plan without metastore usage.");
-        } else if (retryAttempts > 0) {
-          logger.debug("Table metadata was changed during query planning. " +
-              "Retrying to obtain query plan using updated metadata.");
-          return getPhysicalPlan(context, sql, textPlan, --retryAttempts);
-        } else {
-          logger.warn("Table metadata was changed during query planning for all `metastore.retrieval.retry_attempts`={} attempts." +
-                  "Retrying to obtain query plan without metastore usage.",
-              context.getOption(ExecConstants.METASTORE_RETRIEVAL_RETRY_ATTEMPTS).num_val);
+        switch (((MetadataException) rootCause).getExceptionType()) {
+          case OUTDATED_METADATA:
+            logger.warn("Metastore table metadata is outdated. " +
+                "Retrying to obtain query plan without Metastore usage.");
+            break;
+          case INCONSISTENT_METADATA:
+            if (retryAttempts > 0) {
+              logger.debug("Table metadata was changed during query planning. " +
+                  "Retrying to obtain query plan using updated metadata.");
+              return getPhysicalPlan(context, sql, textPlan, --retryAttempts);
+            }
+            logger.warn("Table metadata was changing during query planning for all `metastore.retrieval.retry_attempts` = {} attempts.",
+                context.getOption(ExecConstants.METASTORE_RETRIEVAL_RETRY_ATTEMPTS).num_val);
+            break;
+          default:
+            logger.error("Exception happened during query planning using Metastore: {}", rootCause.getMessage(), rootCause);
         }
+        logger.warn("Retrying to obtain query plan without Metastore usage.");
         context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, false);
         return getQueryPlan(context, sql, textPlan);
       }

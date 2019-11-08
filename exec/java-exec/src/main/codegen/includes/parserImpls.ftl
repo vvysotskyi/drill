@@ -725,7 +725,12 @@ SqlNode SqlAnalyzeTable() :
             (
                 <COMPUTE> { estimate = SqlLiteral.createBoolean(false, pos); }
                 |
-                <ESTIMATE> { estimate = SqlLiteral.createBoolean(true, pos); }
+                <ESTIMATE> {
+                  if (true) {
+                    throw new ParseException("ESTIMATE statistics collecting is not supported. See DRILL-7438.");
+                  }
+                  estimate = SqlLiteral.createBoolean(true, pos);
+                }
             )
             <STATISTICS>
             [
@@ -767,7 +772,12 @@ SqlNode SqlAnalyzeTable() :
                 (
                     <COMPUTE> { estimate = SqlLiteral.createBoolean(false, pos); }
                     |
-                    <ESTIMATE> { estimate = SqlLiteral.createBoolean(true, pos); }
+                    <ESTIMATE> {
+                      if (true) {
+                        throw new ParseException("ESTIMATE statistics collecting is not supported. See DRILL-7438.");
+                      }
+                      estimate = SqlLiteral.createBoolean(true, pos);
+                    }
                 )
                 <STATISTICS>
             ]
@@ -776,9 +786,8 @@ SqlNode SqlAnalyzeTable() :
                 {
                     BigDecimal rate = percent.bigDecimalValue();
                     if (rate.compareTo(BigDecimal.ZERO) <= 0 ||
-                        rate.compareTo(BigDecimal.valueOf(100L)) > 0)
-                    {
-                        throw new ParseException("Invalid percentage for ANALYZE TABLE");
+                        rate.compareTo(BigDecimal.valueOf(100L)) > 0) {
+                      throw new ParseException("Invalid percentage for ANALYZE TABLE");
                     }
                 }
             ]
@@ -790,9 +799,14 @@ SqlNode SqlAnalyzeTable() :
         (
             <DROP>
             [
-                <METADATA> { dropMetadata = SqlLiteral.createBoolean(true, pos); }
+                <METADATA> { dropMetadata = SqlLiteral.createCharString("METADATA", pos); }
                 |
-                <STATISTICS> { dropMetadata = SqlLiteral.createBoolean(false, pos); }
+                <STATISTICS> {
+                  if (true) {
+                    throw new ParseException("DROP STATISTICS is not supported.");
+                  }
+                  dropMetadata = SqlLiteral.createCharString("STATISTICS", pos);
+                }
             ]
             [
                 <IF>

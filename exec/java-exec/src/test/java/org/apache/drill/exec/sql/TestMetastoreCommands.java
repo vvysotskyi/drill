@@ -26,6 +26,7 @@ import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.metastore.analyze.TableType;
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.metastore.components.tables.BasicTablesRequests;
 import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
@@ -61,40 +62,37 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 @Category({SlowTest.class, MetastoreTest.class})
 public class TestMetastoreCommands extends ClusterTest {
 
-  private static final TupleMetadata SCHEMA = TupleMetadata.of("{\"type\":\"tuple_schema\",\"columns\":[" +
-      "{\"name\":\"o_orderstatus\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}," +
-      "{\"name\":\"o_clerk\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}," +
-      "{\"name\":\"o_orderdate\",\"type\":\"DATE\",\"mode\":\"REQUIRED\"}," +
-      "{\"name\":\"o_shippriority\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}," +
-      "{\"name\":\"o_custkey\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}," +
-      "{\"name\":\"dir1\",\"type\":\"VARCHAR\",\"mode\":\"OPTIONAL\"}," +
-      "{\"name\":\"dir0\",\"type\":\"VARCHAR\",\"mode\":\"OPTIONAL\"}," +
-      "{\"name\":\"o_totalprice\",\"type\":\"DOUBLE\",\"mode\":\"REQUIRED\"}," +
-      "{\"name\":\"o_orderkey\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}," +
-      "{\"name\":\"o_comment\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}," +
-      "{\"name\":\"o_orderpriority\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}]}");
+  private static final TupleMetadata SCHEMA = new SchemaBuilder()
+      .addNullable("dir0", TypeProtos.MinorType.VARCHAR)
+      .addNullable("dir1", TypeProtos.MinorType.VARCHAR)
+      .add("o_orderkey", TypeProtos.MinorType.INT)
+      .add("o_custkey", TypeProtos.MinorType.INT)
+      .add("o_orderstatus", TypeProtos.MinorType.VARCHAR)
+      .add("o_totalprice", TypeProtos.MinorType.FLOAT8)
+      .add("o_orderdate", TypeProtos.MinorType.DATE)
+      .add("o_orderpriority", TypeProtos.MinorType.VARCHAR)
+      .add("o_clerk", TypeProtos.MinorType.VARCHAR)
+      .add("o_shippriority", TypeProtos.MinorType.INT)
+      .add("o_comment", TypeProtos.MinorType.VARCHAR)
+      .build();
 
   private static final Map<SchemaPath, ColumnStatistics> TABLE_COLUMN_STATISTICS = ImmutableMap.<SchemaPath, ColumnStatistics>builder()
       .put(SchemaPath.getSimplePath("o_shippriority"),
@@ -212,7 +210,7 @@ public class TestMetastoreCommands extends ClusterTest {
 
     try {
       thrown.expect(UserRemoteException.class);
-      thrown.expectMessage("Running ANALYZE TABLE REFRESH METADATA command when metastore is disabled");
+      thrown.expectMessage("Running ANALYZE TABLE REFRESH METADATA command when Metastore is disabled");
       run("ANALYZE TABLE dfs.`multilevel/parquet` REFRESH METADATA");
     } finally {
       client.resetSession(ExecConstants.METASTORE_ENABLED);
@@ -235,8 +233,10 @@ public class TestMetastoreCommands extends ClusterTest {
       assertEquals("Row count does not match the expected value", 5, actualRowCount);
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(usedMetaPattern));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(usedMetaPattern)
+          .match();
 
       client.alterSession(ExecConstants.METASTORE_ENABLED, false);
 
@@ -244,10 +244,15 @@ public class TestMetastoreCommands extends ClusterTest {
       assertEquals("Row count does not match the expected value", 5, actualRowCount);
       usedMetaPattern = "usedMetastore=false";
 
-      plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(usedMetaPattern));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(usedMetaPattern)
+          .match();
     } finally {
-      cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .modify()
           .delete(tableInfo.toFilter())
           .execute();
@@ -273,7 +278,7 @@ public class TestMetastoreCommands extends ClusterTest {
         .storagePlugin("dfs")
         .workspace("default")
         .build();
-    TableMetadataUnit dir0 = SegmentMetadata.builder()
+    SegmentMetadata dir0 = SegmentMetadata.builder()
         .tableInfo(baseTableInfo)
         .metadataInfo(MetadataInfo.builder()
             .type(MetadataType.SEGMENT)
@@ -292,47 +297,38 @@ public class TestMetastoreCommands extends ClusterTest {
             new Path(tablePath, "1994/Q3/orders_94_q3.parquet"),
             new Path(tablePath, "1994/Q4/orders_94_q4.parquet")))
         .partitionValues(Collections.singletonList("1994"))
-        .build()
-        .toMetadataUnit();
+        .build();
 
-    List<String> expectedTopLevelSegmentLocations = new ArrayList<>();
-    expectedTopLevelSegmentLocations.add(new Path(tablePath, "1994").toUri().getPath());
-    expectedTopLevelSegmentLocations.add(new Path(tablePath, "1995").toUri().getPath());
-    expectedTopLevelSegmentLocations.add(new Path(tablePath, "1996").toUri().getPath());
+    Set<Path> expectedTopLevelSegmentLocations = ImmutableSet.of(
+        new Path(tablePath, "1994"),
+        new Path(tablePath, "1995"),
+        new Path(tablePath, "1996"));
 
-    expectedTopLevelSegmentLocations.sort(Comparator.naturalOrder());
+    Set<Set<Path>> expectedSegmentFilesLocations = new HashSet<>();
 
-    List<List<String>> expectedSegmentFilesLocations = new ArrayList<>();
-
-    List<String> segmentFiles = new ArrayList<>();
-
-    segmentFiles.add(new Path(tablePath, "1994/Q2/orders_94_q2.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1994/Q4/orders_94_q4.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1994/Q1/orders_94_q1.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1994/Q3/orders_94_q3.parquet").toUri().getPath());
-    segmentFiles.sort(Comparator.naturalOrder());
+    Set<Path> segmentFiles = ImmutableSet.of(
+        new Path(tablePath, "1994/Q2/orders_94_q2.parquet"),
+        new Path(tablePath, "1994/Q4/orders_94_q4.parquet"),
+        new Path(tablePath, "1994/Q1/orders_94_q1.parquet"),
+        new Path(tablePath, "1994/Q3/orders_94_q3.parquet"));
     expectedSegmentFilesLocations.add(segmentFiles);
 
-    segmentFiles = new ArrayList<>();
-
-    segmentFiles.add(new Path(tablePath, "1995/Q2/orders_95_q2.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1995/Q4/orders_95_q4.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1995/Q1/orders_95_q1.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1995/Q3/orders_95_q3.parquet").toUri().getPath());
-    segmentFiles.sort(Comparator.naturalOrder());
+    segmentFiles = ImmutableSet.of(
+        new Path(tablePath, "1995/Q2/orders_95_q2.parquet"),
+        new Path(tablePath, "1995/Q4/orders_95_q4.parquet"),
+        new Path(tablePath, "1995/Q1/orders_95_q1.parquet"),
+        new Path(tablePath, "1995/Q3/orders_95_q3.parquet"));
     expectedSegmentFilesLocations.add(segmentFiles);
 
-    segmentFiles = new ArrayList<>();
-
-    segmentFiles.add(new Path(tablePath, "1996/Q3/orders_96_q3.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1996/Q2/orders_96_q2.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1996/Q4/orders_96_q4.parquet").toUri().getPath());
-    segmentFiles.add(new Path(tablePath, "1996/Q1/orders_96_q1.parquet").toUri().getPath());
-    segmentFiles.sort(Comparator.naturalOrder());
+    segmentFiles = ImmutableSet.of(
+        new Path(tablePath, "1996/Q3/orders_96_q3.parquet"),
+        new Path(tablePath, "1996/Q2/orders_96_q2.parquet"),
+        new Path(tablePath, "1996/Q4/orders_96_q4.parquet"),
+        new Path(tablePath, "1996/Q1/orders_96_q1.parquet"));
     expectedSegmentFilesLocations.add(segmentFiles);
 
     long dir0q1lastModified = new File(new File(new File(table, "1994"), "Q1"), "orders_94_q1.parquet").lastModified();
-    TableMetadataUnit dir01994q1File = FileMetadata.builder()
+    FileMetadata dir01994q1File = FileMetadata.builder()
         .tableInfo(baseTableInfo)
         .metadataInfo(MetadataInfo.builder()
             .type(MetadataType.FILE)
@@ -344,10 +340,9 @@ public class TestMetastoreCommands extends ClusterTest {
         .columnsStatistics(DIR0_1994_Q1_SEGMENT_COLUMN_STATISTICS)
         .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(10L, TableStatisticsKind.ROW_COUNT)))
         .path(new Path(tablePath, "1994/Q1/orders_94_q1.parquet"))
-        .build()
-        .toMetadataUnit();
+        .build();
 
-    TableMetadataUnit dir01994q1rowGroup = RowGroupMetadata.builder()
+    RowGroupMetadata dir01994q1rowGroup = RowGroupMetadata.builder()
         .tableInfo(baseTableInfo)
         .metadataInfo(MetadataInfo.builder()
             .type(MetadataType.ROW_GROUP)
@@ -364,62 +359,63 @@ public class TestMetastoreCommands extends ClusterTest {
             new StatisticsHolder<>(1196L, new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)),
             new StatisticsHolder<>(4L, new BaseStatisticsKind(ExactStatisticsConstants.START, true))))
         .path(new Path(tablePath, "1994/Q1/orders_94_q1.parquet"))
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       run("ANALYZE TABLE dfs.`%s` REFRESH METADATA", tableName);
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
-
-      assertEquals(expectedTableMetadata.toMetadataUnit(), actualTableMetadata.toMetadataUnit());
-
-      List<TableMetadataUnit> topSegmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
-          .segmentsMetadataByColumn(tableInfo, null, "`dir0`").stream()
-          .map(SegmentMetadata::toMetadataUnit)
-          .collect(Collectors.toList());
+          .tableMetadata(tableInfo);
 
-      TableMetadataUnit actualDir0Metadata =
+      assertEquals(expectedTableMetadata, actualTableMetadata);
+
+      List<SegmentMetadata> topSegmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .segmentsMetadataByColumn(tableInfo, null, "`dir0`");
+
+      SegmentMetadata actualDir0Metadata =
           topSegmentMetadata.stream()
-              .filter(unit -> unit.metadataIdentifier().equals("1994"))
+              .filter(unit -> unit.getMetadataInfo().identifier().equals("1994"))
               .findAny().orElseThrow(() -> new AssertionError("Segment is absent"));
-      List<String> locations = actualDir0Metadata.locations();
-      locations.sort(Comparator.naturalOrder());
+      Set<Path> locations = actualDir0Metadata.getLocations();
       actualDir0Metadata.toBuilder().locations(locations);
       assertEquals(dir0, actualDir0Metadata);
 
-      List<String> topLevelSegmentLocations = topSegmentMetadata.stream()
-          .map(TableMetadataUnit::location)
-          .sorted()
-          .collect(Collectors.toList());
+      Set<Path> topLevelSegmentLocations = topSegmentMetadata.stream()
+          .map(SegmentMetadata::getLocation)
+          .collect(Collectors.toSet());
 
       // verify top segments locations
       assertEquals(
           expectedTopLevelSegmentLocations,
           topLevelSegmentLocations);
 
-      List<List<String>> segmentFilesLocations = topSegmentMetadata.stream()
-          .map(TableMetadataUnit::locations)
-          .peek(list -> list.sort(Comparator.naturalOrder()))
-          .sorted(Comparator.comparing(list -> list.iterator().next()))
-          .collect(Collectors.toList());
+      Set<Set<Path>> segmentFilesLocations = topSegmentMetadata.stream()
+          .map(SegmentMetadata::getLocations)
+          .collect(Collectors.toSet());
 
       assertEquals(
           expectedSegmentFilesLocations,
           segmentFilesLocations);
 
       // verify nested segments
-      List<TableMetadataUnit> nestedSegmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      List<SegmentMetadata> nestedSegmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
-          .segmentsMetadataByColumn(tableInfo, null, "`dir1`").stream()
-          .map(SegmentMetadata::toMetadataUnit)
-          .collect(Collectors.toList());
+          .segmentsMetadataByColumn(tableInfo, null, "`dir1`");
 
       assertEquals(12, nestedSegmentMetadata.size());
 
-      TableMetadataUnit dir01994q1Segment = SegmentMetadata.builder()
+      SegmentMetadata dir01994q1Segment = SegmentMetadata.builder()
           .tableInfo(baseTableInfo)
           .metadataInfo(MetadataInfo.builder()
               .type(MetadataType.SEGMENT)
@@ -434,45 +430,46 @@ public class TestMetastoreCommands extends ClusterTest {
           .metadataStatistics(Collections.singletonList(new StatisticsHolder<>(10L, TableStatisticsKind.ROW_COUNT)))
           .locations(ImmutableSet.of(new Path(tablePath, "1994/Q1/orders_94_q1.parquet")))
           .partitionValues(Arrays.asList("1994", "Q1"))
-          .build()
-          .toMetadataUnit();
+          .build();
 
       // verify segment for 1994
       assertEquals(dir01994q1Segment,
           nestedSegmentMetadata.stream()
-              .filter(unit -> unit.metadataIdentifier().equals("1994/Q1"))
+              .filter(unit -> unit.getMetadataInfo().identifier().equals("1994/Q1"))
               .findAny()
               .orElse(null));
 
       // verify files metadata
-      List<TableMetadataUnit> filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      List<FileMetadata> filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
-          .filesMetadata(tableInfo, null, null).stream()
-          .map(FileMetadata::toMetadataUnit)
-          .collect(Collectors.toList());
+          .filesMetadata(tableInfo, null, null);
 
       assertEquals(12, filesMetadata.size());
 
       // verify first file metadata
       assertEquals(dir01994q1File,
           filesMetadata.stream()
-              .filter(unit -> unit.metadataIdentifier().equals("1994/Q1/orders_94_q1.parquet"))
+              .filter(unit -> unit.getMetadataInfo().identifier().equals("1994/Q1/orders_94_q1.parquet"))
               .findAny()
               .orElse(null));
 
       // verify row groups metadata
-      List<TableMetadataUnit> rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
-          .rowGroupsMetadata(tableInfo, null, (String) null).stream()
-          .map(RowGroupMetadata::toMetadataUnit)
-          .collect(Collectors.toList());
+          .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(12, rowGroupsMetadata.size());
 
       // verify first row group dir01994q1rowGroup
       assertEquals(dir01994q1rowGroup,
           rowGroupsMetadata.stream()
-              .filter(unit -> unit.metadataIdentifier().equals("1994/Q1/orders_94_q1.parquet/0"))
+              .filter(unit -> unit.getMetadataInfo().identifier().equals("1994/Q1/orders_94_q1.parquet/0"))
               .findAny()
               .orElse(null));
     } finally {
@@ -491,7 +488,7 @@ public class TestMetastoreCommands extends ClusterTest {
     TableInfo tableInfo = getTableInfo(tableName, "tmp");
 
     for (MetadataType analyzeLevel : analyzeLevels) {
-      TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+      BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
           .tableInfo(tableInfo)
           .metadataInfo(TABLE_META_INFO)
           .schema(SCHEMA)
@@ -501,16 +498,19 @@ public class TestMetastoreCommands extends ClusterTest {
               new StatisticsHolder<>(analyzeLevel, TableStatisticsKind.ANALYZE_METADATA_LEVEL)))
           .partitionKeys(Collections.emptyMap())
           .lastModifiedTime(tablePath.lastModified())
-          .build()
-          .toMetadataUnit();
+          .build();
 
       try {
         run("ANALYZE TABLE dfs.tmp.`%s` REFRESH METADATA '%s' level", tableName, analyzeLevel.name());
 
-        BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-            .basicRequests().tableMetadata(tableInfo);
+        BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+            .getMetastoreRegistry()
+            .get()
+            .tables()
+            .basicRequests()
+            .tableMetadata(tableInfo);
 
-        assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+        assertEquals(expectedTableMetadata, actualTableMetadata);
       } finally {
         run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
       }
@@ -546,7 +546,10 @@ public class TestMetastoreCommands extends ClusterTest {
             .metadataTypes(emptyMetadataLevels)
             .build();
 
-        List<TableMetadataUnit> metadataUnitList = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+        List<TableMetadataUnit> metadataUnitList = cluster.drillbit().getContext()
+            .getMetastoreRegistry()
+            .get()
+            .tables()
             .read()
             .filter(requestMetadata.filter())
             .execute();
@@ -578,7 +581,7 @@ public class TestMetastoreCommands extends ClusterTest {
     updatedTableColumnStatistics.put(dir0Path, TABLE_COLUMN_STATISTICS.get(dir0Path));
     updatedTableColumnStatistics.put(dir1Path, TABLE_COLUMN_STATISTICS.get(dir1Path));
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
         .schema(SCHEMA)
@@ -589,16 +592,19 @@ public class TestMetastoreCommands extends ClusterTest {
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(table.lastModified())
         .interestingColumns(Collections.singletonList(orderStatusPath))
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       run("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus) REFRESH METADATA 'row_group' LEVEL", tableName);
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
     }
@@ -620,7 +626,7 @@ public class TestMetastoreCommands extends ClusterTest {
     updatedTableColumnStatistics.put(dir0Path, TABLE_COLUMN_STATISTICS.get(dir0Path));
     updatedTableColumnStatistics.put(dir1Path, TABLE_COLUMN_STATISTICS.get(dir1Path));
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
         .schema(SCHEMA)
@@ -631,16 +637,19 @@ public class TestMetastoreCommands extends ClusterTest {
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(table.lastModified())
         .interestingColumns(Collections.emptyList())
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       run("ANALYZE TABLE dfs.tmp.`%s` columns NONE REFRESH METADATA 'row_group' LEVEL", tableName);
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
     }
@@ -666,7 +675,7 @@ public class TestMetastoreCommands extends ClusterTest {
     updatedTableColumnStatistics.put(dir0Path, TABLE_COLUMN_STATISTICS.get(dir0Path));
     updatedTableColumnStatistics.put(dir1Path, TABLE_COLUMN_STATISTICS.get(dir1Path));
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
         .schema(SCHEMA)
@@ -677,16 +686,19 @@ public class TestMetastoreCommands extends ClusterTest {
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(table.lastModified())
         .interestingColumns(Arrays.asList(orderStatusPath, orderDatePath))
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       run("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus, o_orderdate) REFRESH METADATA 'row_group' LEVEL", tableName);
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
       // checks that analyze wasn't produced though interesting columns list differs, but it is a sublist of previously analyzed table
       testBuilder()
@@ -696,10 +708,14 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(false, "Table metadata is up to date, analyze wasn't performed.")
           .go();
 
-      actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
     }
@@ -740,10 +756,14 @@ public class TestMetastoreCommands extends ClusterTest {
     try {
       run("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus) REFRESH METADATA 'row_group' LEVEL", tableName);
 
-      TableMetadataUnit actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo).toMetadataUnit();
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata.toMetadataUnit(), actualTableMetadata);
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
       // checks that analyze was produced since interesting columns list differs, and second columns list isn't a sublist of previously analyzed table
       testBuilder()
@@ -753,8 +773,12 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo).toMetadataUnit();
+      actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
       updatedTableColumnStatistics.put(orderDatePath, TABLE_COLUMN_STATISTICS.get(orderDatePath));
 
@@ -762,8 +786,7 @@ public class TestMetastoreCommands extends ClusterTest {
           expectedTableMetadata.toBuilder()
               .columnsStatistics(updatedTableColumnStatistics)
               .interestingColumns(Arrays.asList(orderStatusPath, orderDatePath))
-              .build()
-              .toMetadataUnit(),
+              .build(),
           actualTableMetadata);
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
@@ -790,7 +813,7 @@ public class TestMetastoreCommands extends ClusterTest {
     updatedTableColumnStatistics.put(dir0Path, TABLE_COLUMN_STATISTICS.get(dir0Path));
     updatedTableColumnStatistics.put(dir1Path, TABLE_COLUMN_STATISTICS.get(dir1Path));
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
         .schema(SCHEMA)
@@ -801,16 +824,19 @@ public class TestMetastoreCommands extends ClusterTest {
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(table.lastModified())
         .interestingColumns(Arrays.asList(orderStatusPath, orderDatePath))
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       run("ANALYZE TABLE dfs.tmp.`%s` columns(o_orderstatus, o_orderdate) REFRESH METADATA 'row_group' LEVEL", tableName);
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
       // checks that analyze wasn't produced though interesting columns list differs, but it is a sublist of previously analyzed table
       testBuilder()
@@ -820,10 +846,14 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(false, "Table metadata is up to date, analyze wasn't performed.")
           .go();
 
-      actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
     }
@@ -847,7 +877,11 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
@@ -859,12 +893,19 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(false, "Table metadata is up to date, analyze wasn't performed.")
           .go();
 
-      segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
 
-      long postAnalyzeLastModifiedTime = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      long postAnalyzeLastModifiedTime = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
           .metastoreTableInfo(tableInfo)
           .lastModifiedTime();
@@ -891,16 +932,16 @@ public class TestMetastoreCommands extends ClusterTest {
     // updates statistics values due to new segment
     Map<SchemaPath, ColumnStatistics> updatedStatistics = new HashMap<>(TABLE_COLUMN_STATISTICS);
     updatedStatistics.replaceAll((logicalExpressions, columnStatistics) ->
-        columnStatistics.cloneWith(new ColumnStatistics(
+        columnStatistics.cloneWith(new ColumnStatistics<>(
             Arrays.asList(
                 new StatisticsHolder<>(160L, TableStatisticsKind.ROW_COUNT),
                 new StatisticsHolder<>(160L, ColumnStatisticsKind.NON_NULL_COUNT)))));
 
     updatedStatistics.computeIfPresent(SchemaPath.getSimplePath("dir0"), (logicalExpressions, columnStatistics) ->
-        columnStatistics.cloneWith(new ColumnStatistics(
+        columnStatistics.cloneWith(new ColumnStatistics<>(
             Collections.singletonList(new StatisticsHolder<>("1993", ColumnStatisticsKind.MIN_VALUE)))));
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
         .schema(SCHEMA)
@@ -910,11 +951,14 @@ public class TestMetastoreCommands extends ClusterTest {
             new StatisticsHolder<>(MetadataType.ALL, TableStatisticsKind.ANALYZE_METADATA_LEVEL)))
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(table.lastModified())
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
-      assertEquals(0, cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      assertEquals(0, cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null).size());
 
       testBuilder()
@@ -924,7 +968,11 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
@@ -938,12 +986,20 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(20, segmentMetadata.size());
@@ -977,7 +1033,7 @@ public class TestMetastoreCommands extends ClusterTest {
         columnStatistics.cloneWith(new ColumnStatistics(
             Collections.singletonList(new StatisticsHolder<>("Q5", ColumnStatisticsKind.MAX_VALUE)))));
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
         .schema(SCHEMA)
@@ -987,8 +1043,7 @@ public class TestMetastoreCommands extends ClusterTest {
             new StatisticsHolder<>(MetadataType.ALL, TableStatisticsKind.ANALYZE_METADATA_LEVEL)))
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(table.lastModified())
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       testBuilder()
@@ -998,7 +1053,11 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
@@ -1012,12 +1071,20 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(16, segmentMetadata.size());
@@ -1047,7 +1114,7 @@ public class TestMetastoreCommands extends ClusterTest {
                 new StatisticsHolder<>(130L, TableStatisticsKind.ROW_COUNT),
                 new StatisticsHolder<>(130L, ColumnStatisticsKind.NON_NULL_COUNT)))));
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
         .schema(SCHEMA)
@@ -1057,8 +1124,7 @@ public class TestMetastoreCommands extends ClusterTest {
             new StatisticsHolder<>(MetadataType.ALL, TableStatisticsKind.ANALYZE_METADATA_LEVEL)))
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(table.lastModified())
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       testBuilder()
@@ -1068,17 +1134,29 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      List<SegmentMetadata> segmentsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentsMetadata.size());
 
-      List<FileMetadata> filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<FileMetadata> filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(12, filesMetadata.size());
 
-      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(12, rowGroupsMetadata.size());
@@ -1094,23 +1172,39 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      segmentsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      segmentsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       // verifies that segments count left unchanged
       assertEquals(15, segmentsMetadata.size());
 
-      filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(13, filesMetadata.size());
 
-      rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(13, rowGroupsMetadata.size());
@@ -1129,7 +1223,7 @@ public class TestMetastoreCommands extends ClusterTest {
 
     TableInfo tableInfo = getTableInfo(tableName, "tmp");
 
-    TableMetadataUnit expectedTableMetadata = getBaseTableMetadata(tableInfo, table).toMetadataUnit();
+    BaseTableMetadata expectedTableMetadata = getBaseTableMetadata(tableInfo, table);
 
     try {
       dirTestWatcher.copyResourceToTestTmp(Paths.get("multilevel/parquet", "1994"), Paths.get(tableName, "1993"));
@@ -1141,17 +1235,29 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(20, segmentMetadata.size());
 
-      List<FileMetadata> filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<FileMetadata> filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(16, filesMetadata.size());
 
-      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(16, rowGroupsMetadata.size());
@@ -1165,22 +1271,38 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
 
-      filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(12, filesMetadata.size());
 
-      rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(12, rowGroupsMetadata.size());
@@ -1199,7 +1321,7 @@ public class TestMetastoreCommands extends ClusterTest {
 
     TableInfo tableInfo = getTableInfo(tableName, "tmp");
 
-    TableMetadataUnit expectedTableMetadata = getBaseTableMetadata(tableInfo, table).toMetadataUnit();
+    BaseTableMetadata expectedTableMetadata = getBaseTableMetadata(tableInfo, table);
 
     try {
       dirTestWatcher.copyResourceToTestTmp(Paths.get("multilevel/parquet", "1994", "Q4"), Paths.get(tableName, "1994", "Q5"));
@@ -1211,17 +1333,29 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(16, segmentMetadata.size());
 
-      List<FileMetadata> filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<FileMetadata> filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(13, filesMetadata.size());
 
-      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(13, rowGroupsMetadata.size());
@@ -1235,22 +1369,38 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
 
-      filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(12, filesMetadata.size());
 
-      rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(12, rowGroupsMetadata.size());
@@ -1269,7 +1419,7 @@ public class TestMetastoreCommands extends ClusterTest {
 
     TableInfo tableInfo = getTableInfo(tableName, "tmp");
 
-    TableMetadataUnit expectedTableMetadata = getBaseTableMetadata(tableInfo, table).toMetadataUnit();
+    BaseTableMetadata expectedTableMetadata = getBaseTableMetadata(tableInfo, table);
 
     try {
       dirTestWatcher.copyResourceToTestTmp(
@@ -1283,17 +1433,29 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
 
-      List<FileMetadata> filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<FileMetadata> filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(13, filesMetadata.size());
 
-      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(13, rowGroupsMetadata.size());
@@ -1307,22 +1469,38 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
 
-      filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(12, filesMetadata.size());
 
-      rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(12, rowGroupsMetadata.size());
@@ -1350,17 +1528,29 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
 
-      List<FileMetadata> filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<FileMetadata> filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(12, filesMetadata.size());
 
-      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<RowGroupMetadata> rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(12, rowGroupsMetadata.size());
@@ -1383,8 +1573,12 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
       Map<SchemaPath, ColumnStatistics> tableColumnStatistics = new HashMap<>(TABLE_COLUMN_STATISTICS);
       tableColumnStatistics.computeIfPresent(SchemaPath.getSimplePath("o_clerk"),
@@ -1397,7 +1591,7 @@ public class TestMetastoreCommands extends ClusterTest {
               columnStatistics.cloneWith(new ColumnStatistics(
                   Collections.singletonList(new StatisticsHolder<>(328207.15, ColumnStatisticsKind.MAX_VALUE)))));
 
-      TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+      BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
           .tableInfo(tableInfo)
           .metadataInfo(TABLE_META_INFO)
           .schema(SCHEMA)
@@ -1407,22 +1601,33 @@ public class TestMetastoreCommands extends ClusterTest {
               new StatisticsHolder<>(MetadataType.ALL, TableStatisticsKind.ANALYZE_METADATA_LEVEL)))
           .partitionKeys(Collections.emptyMap())
           .lastModifiedTime(lastModified + 1000)
-          .build()
-          .toMetadataUnit();
+          .build();
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(15, segmentMetadata.size());
 
-      filesMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      filesMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .filesMetadata(tableInfo, null, null);
 
       assertEquals(12, filesMetadata.size());
 
-      rowGroupsMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      rowGroupsMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .rowGroupsMetadata(tableInfo, null, (String) null);
 
       assertEquals(12, rowGroupsMetadata.size());
@@ -1456,13 +1661,21 @@ public class TestMetastoreCommands extends ClusterTest {
     try {
       run("ANALYZE TABLE dfs.tmp.`%s` REFRESH METADATA 'file' LEVEL", tableName);
 
-      TableMetadataUnit actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo).toMetadataUnit();
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      List<RowGroupMetadata> rowGroupMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().rowGroupsMetadata(tableInfo, (String) null, null);
+      List<RowGroupMetadata> rowGroupMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .rowGroupsMetadata(tableInfo, (String) null, null);
 
-      assertEquals(expectedTableMetadata.toMetadataUnit(), actualTableMetadata);
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
       assertTrue(rowGroupMetadata.isEmpty());
 
@@ -1474,8 +1687,12 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.tmp.%s]", tableName))
           .go();
 
-      actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo).toMetadataUnit();
+      actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
       expectedTableMetadata = BaseTableMetadata.builder()
           .tableInfo(tableInfo)
@@ -1489,10 +1706,14 @@ public class TestMetastoreCommands extends ClusterTest {
           .lastModifiedTime(table.lastModified())
           .build();
 
-      assertEquals(expectedTableMetadata.toMetadataUnit(), actualTableMetadata);
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      rowGroupMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().rowGroupsMetadata(tableInfo, (String) null, null);
+      rowGroupMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .rowGroupsMetadata(tableInfo, (String) null, null);
 
       assertEquals(12, rowGroupMetadata.size());
     } finally {
@@ -1534,29 +1755,29 @@ public class TestMetastoreCommands extends ClusterTest {
                 new StatisticsHolder<>(10L, TableStatisticsKind.ROW_COUNT),
                 new StatisticsHolder<>(10L, ColumnStatisticsKind.NON_NULL_COUNT)))));
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
-        .schema(TupleMetadata.of("{\"type\":\"tuple_schema\",\"columns\":[" +
-            "{\"name\":\"o_orderstatus\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"o_clerk\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"o_orderdate\",\"type\":\"DATE\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"o_shippriority\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"o_custkey\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"o_totalprice\",\"type\":\"DOUBLE\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"o_orderkey\",\"type\":\"INT\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"o_comment\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}," +
-            "{\"name\":\"o_orderpriority\",\"type\":\"VARCHAR\",\"mode\":\"REQUIRED\"}]}"))
+        .schema(new SchemaBuilder()
+            .add("o_orderkey", TypeProtos.MinorType.INT)
+            .add("o_custkey", TypeProtos.MinorType.INT)
+            .add("o_orderstatus", TypeProtos.MinorType.VARCHAR)
+            .add("o_totalprice", TypeProtos.MinorType.FLOAT8)
+            .add("o_orderdate", TypeProtos.MinorType.DATE)
+            .add("o_orderpriority", TypeProtos.MinorType.VARCHAR)
+            .add("o_clerk", TypeProtos.MinorType.VARCHAR)
+            .add("o_shippriority", TypeProtos.MinorType.INT)
+            .add("o_comment", TypeProtos.MinorType.VARCHAR)
+            .build())
         .location(tablePath)
         .columnsStatistics(tableColumnStatistics)
         .metadataStatistics(Arrays.asList(new StatisticsHolder<>(10L, TableStatisticsKind.ROW_COUNT),
             new StatisticsHolder<>(MetadataType.ALL, TableStatisticsKind.ANALYZE_METADATA_LEVEL)))
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(new File(dirTestWatcher.getRootDir().toURI().getPath(), tableName).lastModified())
-        .build()
-        .toMetadataUnit();
+        .build();
 
-    TableMetadataUnit defaultSegment = SegmentMetadata.builder()
+    SegmentMetadata defaultSegment = SegmentMetadata.builder()
         .tableInfo(TableInfo.builder()
             .name(tableName)
             .storagePlugin("dfs")
@@ -1572,23 +1793,30 @@ public class TestMetastoreCommands extends ClusterTest {
         .path(new Path(dirTestWatcher.getRootDir().toURI().getPath(), tableName))
         .locations(ImmutableSet.of(
             new Path(tablePath, "orders_94_q1.parquet")))
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       run("ANALYZE TABLE dfs.`%s` REFRESH METADATA", tableName);
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
 
-      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables().basicRequests()
+      List<SegmentMetadata> segmentMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
           .segmentsMetadataByMetadataKey(tableInfo, null, null);
 
       assertEquals(1, segmentMetadata.size());
 
-      assertEquals(defaultSegment, segmentMetadata.get(0).toMetadataUnit());
+      assertEquals(defaultSegment, segmentMetadata.get(0));
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
     }
@@ -1602,14 +1830,25 @@ public class TestMetastoreCommands extends ClusterTest {
 
     File table = dirTestWatcher.copyResourceToTestTmp(Paths.get("store/parquet/complex/complex.parquet"), Paths.get(tableName));
 
-    TupleMetadata schema = TupleMetadata.of("{\"type\":\"tuple_schema\"," +
-        "\"columns\":[{\"name\":\"date\",\"type\":\"VARCHAR\",\"mode\":\"OPTIONAL\"}," +
-        "{\"name\":\"amount\",\"type\":\"DOUBLE\",\"mode\":\"OPTIONAL\"}," +
-        "{\"name\":\"user_info\",\"type\":\"STRUCT<`cust_id` BIGINT, `device` VARCHAR, `state` VARCHAR>\",\"mode\":\"REQUIRED\"}," +
-        "{\"name\":\"trans_id\",\"type\":\"BIGINT\",\"mode\":\"OPTIONAL\"}," +
-        "{\"name\":\"time\",\"type\":\"VARCHAR\",\"mode\":\"OPTIONAL\"}," +
-        "{\"name\":\"trans_info\",\"type\":\"STRUCT<`prod_id` ARRAY<BIGINT>, `purch_flag` VARCHAR>\",\"mode\":\"REQUIRED\"}," +
-        "{\"name\":\"marketing_info\",\"type\":\"STRUCT<`camp_id` BIGINT, `keywords` ARRAY<VARCHAR>>\",\"mode\":\"REQUIRED\"}]}");
+    TupleMetadata schema = new SchemaBuilder()
+        .addNullable("trans_id", TypeProtos.MinorType.BIGINT)
+        .addNullable("date", TypeProtos.MinorType.VARCHAR)
+        .addNullable("time", TypeProtos.MinorType.VARCHAR)
+        .addNullable("amount", TypeProtos.MinorType.FLOAT8)
+        .addMap("user_info")
+            .addNullable("cust_id", TypeProtos.MinorType.BIGINT)
+            .addNullable("device", TypeProtos.MinorType.VARCHAR)
+            .addNullable("state", TypeProtos.MinorType.VARCHAR)
+            .resumeSchema()
+        .addMap("marketing_info")
+            .addNullable("camp_id", TypeProtos.MinorType.BIGINT)
+            .addArray("keywords", TypeProtos.MinorType.VARCHAR)
+            .resumeSchema()
+        .addMap("trans_info")
+            .addArray("prod_id", TypeProtos.MinorType.BIGINT)
+            .addNullable("purch_flag", TypeProtos.MinorType.VARCHAR)
+            .resumeSchema()
+        .build();
 
     Map<SchemaPath, ColumnStatistics> columnStatistics = ImmutableMap.<SchemaPath, ColumnStatistics>builder()
         .put(SchemaPath.getCompoundPath("user_info", "state"),
@@ -1632,7 +1871,7 @@ public class TestMetastoreCommands extends ClusterTest {
             getColumnStatistics("false", "true", 5L, TypeProtos.MinorType.VARCHAR))
         .build();
 
-    TableMetadataUnit expectedTableMetadata = BaseTableMetadata.builder()
+    BaseTableMetadata expectedTableMetadata = BaseTableMetadata.builder()
         .tableInfo(tableInfo)
         .metadataInfo(TABLE_META_INFO)
         .schema(schema)
@@ -1642,16 +1881,19 @@ public class TestMetastoreCommands extends ClusterTest {
             new StatisticsHolder<>(MetadataType.ALL, TableStatisticsKind.ANALYZE_METADATA_LEVEL)))
         .partitionKeys(Collections.emptyMap())
         .lastModifiedTime(table.lastModified())
-        .build()
-        .toMetadataUnit();
+        .build();
 
     try {
       run("analyze table dfs.tmp.`%s` REFRESH METADATA", tableName);
 
-      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
-          .basicRequests().tableMetadata(tableInfo);
+      BaseTableMetadata actualTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
+          .basicRequests()
+          .tableMetadata(tableInfo);
 
-      assertEquals(expectedTableMetadata, actualTableMetadata.toMetadataUnit());
+      assertEquals(expectedTableMetadata, actualTableMetadata);
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
     }
@@ -1678,11 +1920,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
     }
@@ -1709,11 +1951,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
     }
@@ -1738,11 +1980,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
       run("drop table if exists dfs.`%s`", tableName);
@@ -1769,11 +2011,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
       run("drop table if exists dfs.`%s`", tableName);
@@ -1800,11 +2042,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
     }
@@ -1831,11 +2073,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
     }
@@ -1861,9 +2103,10 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
     }
@@ -1889,9 +2132,10 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
     }
@@ -1919,9 +2163,10 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .match();
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
       run("drop table if exists dfs.`%s`", tableName);
@@ -1942,16 +2187,20 @@ public class TestMetastoreCommands extends ClusterTest {
       long actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
       assertEquals("Row count does not match the expected value", expectedRowCount, actualRowCount);
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString("usedMetastore=false"));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include("usedMetastore=false")
+          .match();
 
       run("analyze table %s REFRESH METADATA", tableName);
 
       actualRowCount = queryBuilder().sql(query, tableName).run().recordCount();
 
       assertEquals("Row count does not match the expected value", expectedRowCount, actualRowCount);
-      plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString("usedMetastore=true"));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include("usedMetastore=true")
+          .match();
     } finally {
       run("analyze table %s drop metadata if exists", tableName);
       run("drop table if exists %s", tableName);
@@ -1975,10 +2224,11 @@ public class TestMetastoreCommands extends ClusterTest {
       assertEquals("Row count does not match the expected value", expectedRowCount, actualRowCount);
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table %s drop metadata if exists", tableName);
       run("drop table if exists %s", tableName);
@@ -2008,8 +2258,10 @@ public class TestMetastoreCommands extends ClusterTest {
 
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(usedMetaPattern));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(usedMetaPattern)
+          .match();
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
       run("drop table if exists dfs.tmp.`%s`", tableName);
@@ -2035,10 +2287,11 @@ public class TestMetastoreCommands extends ClusterTest {
       assertEquals("Row count does not match the expected value", 5, actualRowCount);
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
       run("drop table if exists dfs.tmp.`%s`", tableName);
@@ -2064,10 +2317,11 @@ public class TestMetastoreCommands extends ClusterTest {
       assertEquals("Row count does not match the expected value", 5, actualRowCount);
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
       run("drop table if exists dfs.tmp.`%s`", tableName);
@@ -2093,11 +2347,11 @@ public class TestMetastoreCommands extends ClusterTest {
       assertEquals("Row count does not match the expected value", 5, actualRowCount);
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(usedMetaPattern));
-
-      // checks that filter wasn't removed since statistics is absent for filtering column
-      assertThat(plan, containsString("Filter"));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(usedMetaPattern, "Filter") // checks that filter wasn't removed since statistics is absent for filtering column
+          .exclude()
+          .match();
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
       run("drop table if exists dfs.tmp.`%s`", tableName);
@@ -2123,11 +2377,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=true";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
     }
@@ -2143,9 +2397,11 @@ public class TestMetastoreCommands extends ClusterTest {
       run("analyze table dfs.`%s` REFRESH METADATA 'file' level", tableName);
       client.alterSession(ExecConstants.METASTORE_FALLBACK_TO_FILE_METADATA, false);
 
-      thrown.expect(UserRemoteException.class);
-      thrown.expectMessage("Metastore hasn't metadata for row groups and `metastore.metadata.fallback_to_file_metadata` is disabled.");
-      run("select * from dfs.`%s`", tableName);
+      queryBuilder()
+          .sql("select * from dfs.`%s`", tableName)
+          .planMatcher()
+          .include("usedMetastore=false")
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
       client.resetSession(ExecConstants.METASTORE_FALLBACK_TO_FILE_METADATA);
@@ -2162,9 +2418,11 @@ public class TestMetastoreCommands extends ClusterTest {
       run("analyze table dfs.`%s` REFRESH METADATA", tableName);
       client.alterSession(ExecConstants.METASTORE_USE_SCHEMA_METADATA, false);
 
-      thrown.expect(UserRemoteException.class);
-      thrown.expectMessage(containsString("Table schema wasn't provided and `metastore.metadata.use_schema` is disabled."));
-      run("select * from dfs.`%s`", tableName);
+      queryBuilder()
+          .sql("select * from dfs.`%s`", tableName)
+          .planMatcher()
+          .include("usedMetastore=false")
+          .match();
     } finally {
       run("analyze table dfs.`%s` drop metadata if exists", tableName);
       client.resetSession(ExecConstants.METASTORE_USE_SCHEMA_METADATA);
@@ -2210,9 +2468,10 @@ public class TestMetastoreCommands extends ClusterTest {
       String expectedPlan1 = "Filter\\(condition.*\\).*rowcount = 96.25,.*";
       String expectedPlan2 = "Scan.*columns=\\[`department_id`, `employee_id`].*rowcount = 1155.0.*";
 
-      String plan = queryBuilder().sql(query, tableName).explainTextWithAllAttributes();
-      assertTrue(plan, Pattern.compile(expectedPlan1).matcher(plan).find());
-      assertTrue(plan, Pattern.compile(expectedPlan2).matcher(plan).find());
+      queryBuilder().sql(query, tableName)
+          .detailedPlanMatcher()
+          .include(expectedPlan1, expectedPlan2)
+          .match();
     } finally {
       run("analyze table %s drop metadata if exists", tableName);
       client.resetSession(PlannerSettings.STATISTICS_USE.getOptionName());
@@ -2237,10 +2496,10 @@ public class TestMetastoreCommands extends ClusterTest {
       String expectedPlan1 = "Filter\\(condition.*\\).*rowcount = 173.25,.*";
       String expectedPlan2 = "Scan.*columns=\\[`department_id`, `employee_id`].*rowcount = 1155.0.*";
 
-      String plan = queryBuilder().sql(query, tableName).explainTextWithAllAttributes();
-
-      assertTrue(plan, Pattern.compile(expectedPlan1).matcher(plan).find());
-      assertTrue(plan, Pattern.compile(expectedPlan2).matcher(plan).find());
+      queryBuilder().sql(query, tableName)
+          .detailedPlanMatcher()
+          .include(expectedPlan1, expectedPlan2)
+          .match();
     } finally {
       run("analyze table %s drop metadata if exists", tableName);
       client.resetSession(PlannerSettings.STATISTICS_USE.getOptionName());
@@ -2268,10 +2527,37 @@ public class TestMetastoreCommands extends ClusterTest {
       String expectedPlan1 = "Filter\\(condition.*\\).*rowcount = 96.25,.*";
       String expectedPlan2 = "Scan.*columns=\\[`department_id`, `employee_id`].*rowcount = 1155.0.*";
 
-      String plan = queryBuilder().sql(query, tableName).explainTextWithAllAttributes();
+      queryBuilder().sql(query, tableName)
+          .detailedPlanMatcher()
+          .include(expectedPlan1, expectedPlan2)
+          .match();
+    } finally {
+      run("analyze table %s drop metadata if exists", tableName);
+      client.resetSession(PlannerSettings.STATISTICS_USE.getOptionName());
+      run("drop table if exists %s", tableName);
+    }
+  }
 
-      assertTrue(plan, Pattern.compile(expectedPlan1).matcher(plan).find());
-      assertTrue(plan, Pattern.compile(expectedPlan2).matcher(plan).find());
+  @Test
+  public void testAnalyzeWithSampleStatistics() throws Exception {
+    String tableName = "dfs.tmp.employeeWithStatsFile";
+
+    try {
+      run("CREATE TABLE %s AS SELECT * from cp.`employee.json`", tableName);
+
+      client.alterSession(PlannerSettings.STATISTICS_USE.getOptionName(), true);
+
+      run("ANALYZE TABLE %s COLUMNS(department_id) REFRESH METADATA COMPUTE STATISTICS SAMPLE 95 PERCENT", tableName);
+
+      String query = "select employee_id from %s where department_id = 2";
+
+      String expectedPlan1 = "Filter\\(condition.*\\).*rowcount = 96.25,";
+      String expectedPlan2 = "Scan.*columns=\\[`department_id`, `employee_id`].*rowcount = 1155.0";
+
+      queryBuilder().sql(query, tableName)
+          .detailedPlanMatcher()
+          .include(expectedPlan1, expectedPlan2)
+          .match();
     } finally {
       run("analyze table %s drop metadata if exists", tableName);
       client.resetSession(PlannerSettings.STATISTICS_USE.getOptionName());
@@ -2289,19 +2575,28 @@ public class TestMetastoreCommands extends ClusterTest {
 
       run("analyze table dfs.tmp.`%s` REFRESH METADATA", tableName);
 
-      MetastoreTableInfo metastoreTableInfo = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      MetastoreTableInfo metastoreTableInfo = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
           .metastoreTableInfo(tableInfo);
 
       assertTrue(metastoreTableInfo.isExists());
 
-      BaseTableMetadata baseTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      BaseTableMetadata baseTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
           .tableMetadata(tableInfo);
 
       assertNotNull(baseTableMetadata);
 
-      List<RowGroupMetadata> rowGroupMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      List<RowGroupMetadata> rowGroupMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
           .rowGroupsMetadata(tableInfo, (String) null, null);
 
@@ -2314,19 +2609,28 @@ public class TestMetastoreCommands extends ClusterTest {
           .baselineValues(true, String.format("Metadata for table [%s] dropped.", tableName))
           .go();
 
-      metastoreTableInfo = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      metastoreTableInfo = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
           .metastoreTableInfo(tableInfo);
 
       assertFalse(metastoreTableInfo.isExists());
 
-      baseTableMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      baseTableMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
           .tableMetadata(tableInfo);
 
       assertNull(baseTableMetadata);
 
-      rowGroupMetadata = cluster.drillbit().getContext().getMetastoreRegistry().get().tables()
+      rowGroupMetadata = cluster.drillbit().getContext()
+          .getMetastoreRegistry()
+          .get()
+          .tables()
           .basicRequests()
           .rowGroupsMetadata(tableInfo, (String) null, null);
 
@@ -2425,11 +2729,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=false";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
 
@@ -2462,11 +2766,11 @@ public class TestMetastoreCommands extends ClusterTest {
       String numFilesPattern = "numFiles=" + expectedNumFiles;
       String usedMetaPattern = "usedMetastore=false";
 
-      String plan = queryBuilder().sql(query, tableName).explainText();
-      assertThat(plan, containsString(numFilesPattern));
-      assertThat(plan, containsString(usedMetaPattern));
-
-      assertThat(plan, not(containsString("Filter")));
+      queryBuilder().sql(query, tableName)
+          .planMatcher()
+          .include(numFilesPattern, usedMetaPattern)
+          .exclude("Filter")
+          .match();
     } finally {
       run("analyze table dfs.tmp.`%s` drop metadata if exists", tableName);
 

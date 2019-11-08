@@ -24,27 +24,27 @@ import org.apache.drill.shaded.guava.com.google.common.collect.Multimap;
 import java.util.List;
 
 /**
- * Interface for obtaining information about segments, files etc which should be handled in metastore
+ * Interface for obtaining information about segments, files etc which should be handled in Metastore
  * when producing incremental analyze.
  */
 public interface MetadataInfoCollector {
 
   /**
-   * Returns list of row groups metadata info which should be fetched from metastore.
+   * Returns list of row groups metadata info which should be fetched from the Metastore.
    *
    * @return list of row groups metadata info
    */
   List<MetadataInfo> getRowGroupsInfo();
 
   /**
-   * Returns list of files metadata info which should be fetched from metastore.
+   * Returns list of files metadata info which should be fetched from the Metastore.
    *
    * @return list of files metadata info
    */
   List<MetadataInfo> getFilesInfo();
 
   /**
-   * Returns list of segments metadata info which should be fetched from metastore.
+   * Returns list of segments metadata info which should be fetched from the Metastore.
    *
    * @return list of segments metadata info
    */
@@ -52,14 +52,14 @@ public interface MetadataInfoCollector {
 
   /**
    * Returns list of all metadata info instances which should be handled
-   * either producing analyze or when fetching from the metastore.
+   * either producing analyze or when fetching from the Metastore.
    *
    * @return list of all metadata info
    */
   List<MetadataInfo> getAllMetaToHandle();
 
   /**
-   * Returns list of all metadata info which corresponds to top-level segments and should be removed from the metastore.
+   * Returns list of all metadata info which corresponds to top-level segments and should be removed from the Metastore.
    *
    * @return list of all metadata info which should be removed
    */
@@ -78,5 +78,5 @@ public interface MetadataInfoCollector {
    *
    * @return true if table metadata is outdated
    */
-  boolean isChanged();
+  boolean isOutdated();
 }

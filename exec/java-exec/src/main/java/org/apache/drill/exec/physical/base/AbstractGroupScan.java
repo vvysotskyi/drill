@@ -207,4 +207,9 @@ public abstract class AbstractGroupScan extends AbstractBase implements GroupSca
   public TableMetadata getTableMetadata() {
     return null;
   }
+
+  @Override
+  public boolean usedMetastore() {
+    return false;
+  }
 }

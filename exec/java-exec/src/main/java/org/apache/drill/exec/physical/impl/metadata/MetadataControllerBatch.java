@@ -93,7 +93,7 @@ import java.util.stream.Collectors;
 
 /**
  * Terminal operator for producing ANALYZE statement. This operator is responsible for converting
- * obtained metadata, fetching absent metadata from the metastore and storing resulting metadata into the metastore.
+ * obtained metadata, fetching absent metadata from the Metastore and storing resulting metadata into the Metastore.
  * <p>
  * This operator has two inputs: left input contains metadata and right input contains statistics metadata.
  */
@@ -181,7 +181,11 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
           }
           break;
         default:
-          throw new UnsupportedOperationException("Unsupported upstream state " + outcome);
+          context.getExecutorState()
+              .fail(new UnsupportedOperationException("Unsupported upstream state " + outcome));
+          close();
+          killIncoming(false);
+          return IterOutcome.STOP;
       }
     }
 
@@ -219,7 +223,11 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
           }
           break;
         default:
-          throw new UnsupportedOperationException("Unsupported upstream state " + outcome);
+          context.getExecutorState()
+              .fail(new UnsupportedOperationException("Unsupported upstream state " + outcome));
+          close();
+          killIncoming(false);
+          return IterOutcome.STOP;
       }
     }
     return null;
@@ -246,7 +254,11 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     MetastoreTableInfo metastoreTableInfo = popConfig.getContext().metastoreTableInfo();
 
     if (tables.basicRequests().hasMetastoreTableInfoChanged(metastoreTableInfo)) {
-      throw new IllegalStateException(String.format("Metadata for table [%s] was changed before analyze is finished", tableInfo.name()));
+      context.getExecutorState()
+          .fail(new IllegalStateException(String.format("Metadata for table [%s] was changed before analyze is finished", tableInfo.name())));
+      close();
+      killIncoming(false);
+      return IterOutcome.STOP;
     }
 
     modify.overwrite(metadataUnits)
@@ -291,7 +303,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
               || MetadataType.TABLE.name().equals(tableMetadataUnit.metadataType()))
           .collect(Collectors.toList());
 
-      // leaves only metadata which should be fetched from the metastore
+      // leaves only metadata which should be fetched from the Metastore
       metadataUnits.stream()
           .map(TableMetadataUnit::metadataIdentifier)
           .forEach(metadataToHandle::remove);
@@ -620,7 +632,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
   private List<StatisticsHolder> getMetadataStatistics(TupleReader reader, TupleMetadata columnMetadata) {
     List<StatisticsHolder> metadataStatistics = new ArrayList<>();
     String rgs = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL);
-    String grl = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL);
+    String rgl = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL);
     for (ColumnMetadata column : columnMetadata) {
       String columnName = column.name();
       if (AnalyzeColumnUtils.isMetadataStatisticsField(columnName)) {
@@ -629,7 +641,7 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
       } else if (columnName.equals(rgs)) {
         metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(columnName).scalar().getString()),
             new BaseStatisticsKind(ExactStatisticsConstants.START, true)));
-      } else if (columnName.equals(grl)) {
+      } else if (columnName.equals(rgl)) {
         metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(columnName).scalar().getString()),
             new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)));
       }

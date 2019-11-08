@@ -211,7 +211,7 @@ public class BasicTablesRequests {
   }
 
   /**
-   * Returns segments metadata based on given table information and metadata identifiers.
+   * Returns segments metadata based on the given table information and metadata identifiers.
    *
    * Schematic SQL request:
    * <pre>
@@ -246,7 +246,7 @@ public class BasicTablesRequests {
   }
 
   /**
-   * Returns list of {@link TableMetadataUnit} metadata based on given table information, and metadata identifiers.
+   * Returns list of {@link TableMetadataUnit} metadata based on the given table information, and metadata identifiers.
    *
    * Schematic SQL request:
    * <pre>
@@ -254,6 +254,7 @@ public class BasicTablesRequests {
    *   where storage = 'dfs' and workspace = 'tmp' and tableName = 'nation'
    *   and identifier in ('part_int=3', …)
    * </pre>
+   *
    * @param tableInfo table information
    * @param metadataInfos list of MetadataInfo for required metadata to obtain
    * @return list of metadata
@@ -269,7 +270,6 @@ public class BasicTablesRequests {
     List<String> metadataTypes = metadataInfos.stream()
         .map(metadataInfo -> metadataInfo.type().name())
         .collect(Collectors.toList());
-
 
     RequestMetadata requestMetadata = RequestMetadata.builder()
         .tableInfo(tableInfo)
@@ -342,7 +342,7 @@ public class BasicTablesRequests {
   }
 
   /**
-   * Returns files metadata based on given table information and metadata keys.
+   * Returns files metadata based on the given table information and metadata keys.
    *
    * Schematic SQL request:
    * <pre>
@@ -439,7 +439,7 @@ public class BasicTablesRequests {
   }
 
   /**
-   * Returns row groups metadata based on given table information, metadata keys and locations.
+   * Returns row groups metadata based on the given table information, metadata keys and locations.
    *
    * Schematic SQL request:
    * <pre>

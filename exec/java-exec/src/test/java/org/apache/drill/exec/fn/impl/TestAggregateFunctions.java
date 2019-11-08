@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.fn.impl;
 
+import org.apache.drill.exec.record.metadata.SchemaBuilder;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
@@ -57,14 +59,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.apache.drill.test.TestBuilder.listOf;
 import static org.apache.drill.test.TestBuilder.mapOf;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -771,21 +771,21 @@ public class TestAggregateFunctions extends ClusterTest {
         .sqlQuery(query, 2)
         .unOrdered()
         .baselineColumns("col1")
-        .baselineValues(2l)
+        .baselineValues(2L)
         .go();
 
     testBuilder()
         .sqlQuery(query, 4)
         .unOrdered()
         .baselineColumns("col1")
-        .baselineValues(4l)
+        .baselineValues(4L)
         .go();
 
     testBuilder()
         .sqlQuery(query, 6)
         .unOrdered()
         .baselineColumns("col1")
-        .baselineValues(6l)
+        .baselineValues(6L)
         .go();
   }
 
@@ -800,9 +800,11 @@ public class TestAggregateFunctions extends ClusterTest {
     // Validate the plan
     String expectedPlan = "(?s)(StreamAgg|HashAgg).*Filter";
     String excludedPatterns = "(?s)Filter.*(StreamAgg|HashAgg)";
-    String plan = queryBuilder().sql(query).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
+    queryBuilder().sql(query)
+        .planMatcher()
+        .include(expectedPlan)
+        .exclude(excludedPatterns)
+        .match();
 
     testBuilder()
         .sqlQuery(query)
@@ -815,9 +817,11 @@ public class TestAggregateFunctions extends ClusterTest {
     String query2 =
         " select count(*) cnt from cp.`tpch/nation.parquet` group by n_regionkey " +
         " having n_regionkey = 2 ";
-    plan = queryBuilder().sql(query2).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
+    queryBuilder().sql(query2)
+        .planMatcher()
+        .include(expectedPlan)
+        .exclude(excludedPatterns)
+        .match();
 
     testBuilder()
         .sqlQuery(query)
@@ -837,9 +841,11 @@ public class TestAggregateFunctions extends ClusterTest {
     // Validate the plan
     String expectedPlan = "(?s)(StreamAgg|HashAgg).*Filter";
     String excludedPatterns = "(?s)Filter.*(StreamAgg|HashAgg)";
-    String plan = queryBuilder().sql(query).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
+    queryBuilder().sql(query)
+        .planMatcher()
+        .include(expectedPlan)
+        .exclude(excludedPatterns)
+        .match();
 
     testBuilder()
         .sqlQuery(query)
@@ -860,19 +866,22 @@ public class TestAggregateFunctions extends ClusterTest {
     // Validate the plan
     String expectedPlan = "(?s)Filter(?!StreamAgg|!HashAgg)";
     String excludedPatterns = "(?s)(StreamAgg|HashAgg).*Filter";
-    String plan = queryBuilder().sql(query).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
+    queryBuilder().sql(query)
+        .planMatcher()
+        .include(expectedPlan)
+        .exclude(excludedPatterns)
+        .match();
 
     // negative case: should not push filter, since it is expression of group key + agg result.
     String query2 =
         " select cnt " +
             " from (select n_regionkey, count(*) cnt from cp.`tpch/nation.parquet` group by n_regionkey) " +
             " where cnt + n_regionkey = 5 ";
-    plan = queryBuilder().sql(query2).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
-
+    queryBuilder().sql(query2)
+        .planMatcher()
+        .include(expectedPlan)
+        .exclude(excludedPatterns)
+        .match();
   }
 
   @Test // DRILL-3781
@@ -882,8 +891,10 @@ public class TestAggregateFunctions extends ClusterTest {
     String query = "select count(*) as cnt from sys.version group by CURRENT_DATE";
     String expectedPlan = "(?s)(StreamAgg|HashAgg)";
 
-    String plan = queryBuilder().sql(query).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
+    queryBuilder().sql(query)
+        .planMatcher()
+        .include(expectedPlan)
+        .match();
   }
 
   @Test //DRILL-3781
@@ -894,21 +905,21 @@ public class TestAggregateFunctions extends ClusterTest {
         .sqlQuery("select count(*) as cnt from cp.`nation/nation.tbl` group by CURRENT_DATE")
         .unOrdered()
         .baselineColumns("cnt")
-        .baselineValues(25l)
+        .baselineValues(25L)
         .build().run();
 
     testBuilder()
         .sqlQuery("select count(*) as cnt from cp.`tpch/nation.parquet` group by CURRENT_DATE")
         .unOrdered()
         .baselineColumns("cnt")
-        .baselineValues(25l)
+        .baselineValues(25L)
         .build().run();
 
     testBuilder()
         .sqlQuery("select count(*) as cnt from cp.`employee.json` group by CURRENT_DATE")
         .unOrdered()
         .baselineColumns("cnt")
-        .baselineValues(1155l)
+        .baselineValues(1155L)
         .build().run();
   }
 
@@ -937,7 +948,7 @@ public class TestAggregateFunctions extends ClusterTest {
         .sqlQuery(query)
         .unOrdered()
         .baselineColumns("col")
-        .baselineValues(5l)
+        .baselineValues(5L)
         .build()
         .run();
   }
@@ -973,9 +984,11 @@ public class TestAggregateFunctions extends ClusterTest {
     // Validate the plan
     String expectedPlan = "(?s)(Join).*inner"; // With filter pushdown, left join will be converted into inner join
     String excludedPatterns = "(?s)(Join).*(left)";
-    String plan = queryBuilder().sql(sql).explainText();
-    assertTrue("Did not find expected pattern in plan", Pattern.compile(expectedPlan).matcher(plan).find());
-    assertFalse("Found unwanted pattern in plan", Pattern.compile(excludedPatterns).matcher(plan).find());
+    queryBuilder().sql(sql)
+        .planMatcher()
+        .include(expectedPlan)
+        .exclude(excludedPatterns)
+        .match();
   }
 
   @Test // DRILL-2385: count on complex objects failed with missing function implementation
@@ -1040,5 +1053,69 @@ public class TestAggregateFunctions extends ClusterTest {
       assertTrue("No expected current \"Expression 'tpch/nation.parquet.**' is not being grouped\"",
           e.getMessage().matches(".*Expression 'tpch/nation\\.parquet\\.\\*\\*' is not being grouped(.*\\n*.*)"));
     }
+  }
+
+  @Test
+  public void testCollectList() throws Exception {
+    testBuilder()
+        .sqlQuery("select collect_list('n_nationkey', n_nationkey, " +
+            "'n_name', n_name, 'n_regionkey', n_regionkey, 'n_comment', n_comment) as l from (select * from cp.`tpch/nation.parquet` limit 2)")
+        .unOrdered()
+        .baselineColumns("l")
+        .baselineValues(listOf(
+            mapOf("n_nationkey", 0, "n_name", "ALGERIA",
+                "n_regionkey", 0, "n_comment", " haggle. carefully final deposits detect slyly agai"),
+            mapOf("n_nationkey", 1, "n_name", "ARGENTINA", "n_regionkey", 1,
+                "n_comment", "al foxes promise slyly according to the regular accounts. bold requests alon")))
+        .go();
+  }
+
+  @Test
+  public void testCollectToListVarchar() throws Exception {
+    testBuilder()
+        .sqlQuery("select collect_to_list_varchar(`date`) as l from " +
+            "(select * from cp.`store/json/clicks.json` limit 2)")
+        .unOrdered()
+        .baselineColumns("l")
+        .baselineValues(listOf("2014-04-26", "2014-04-20"))
+        .go();
+  }
+
+  @Test
+  public void testSchemaFunction() throws Exception {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("n_nationkey", TypeProtos.MinorType.INT)
+        .add("n_name", TypeProtos.MinorType.VARCHAR)
+        .add("n_regionkey", TypeProtos.MinorType.INT)
+        .add("n_comment", TypeProtos.MinorType.VARCHAR)
+        .build();
+
+    testBuilder()
+        .sqlQuery("select schema('n_nationkey', n_nationkey, " +
+            "'n_name', n_name, 'n_regionkey', n_regionkey, 'n_comment', n_comment) as l from " +
+            "(select * from cp.`tpch/nation.parquet` limit 2)")
+        .unOrdered()
+        .baselineColumns("l")
+        .baselineValues(schema.jsonString())
+        .go();
+  }
+
+  @Test
+  public void testMergeSchemaFunction() throws Exception {
+    String schema = new SchemaBuilder()
+        .add("n_nationkey", TypeProtos.MinorType.INT)
+        .add("n_name", TypeProtos.MinorType.VARCHAR)
+        .add("n_regionkey", TypeProtos.MinorType.INT)
+        .add("n_comment", TypeProtos.MinorType.VARCHAR)
+        .build()
+        .jsonString();
+
+    testBuilder()
+        .sqlQuery("select merge_schema('%s') as l from " +
+            "(select * from cp.`tpch/nation.parquet` limit 2)", schema)
+        .unOrdered()
+        .baselineColumns("l")
+        .baselineValues(schema)
+        .go();
   }
 }

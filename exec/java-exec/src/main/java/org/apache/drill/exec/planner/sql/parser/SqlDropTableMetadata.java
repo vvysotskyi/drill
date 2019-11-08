@@ -31,7 +31,6 @@ import org.apache.drill.exec.planner.sql.handlers.AbstractSqlHandler;
 import org.apache.drill.exec.planner.sql.handlers.MetastoreDropTableMetadataHandler;
 import org.apache.drill.exec.planner.sql.handlers.SqlHandlerConfig;
 import org.apache.drill.exec.util.Pointer;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,27 +41,19 @@ public class SqlDropTableMetadata extends DrillSqlCall {
   public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("DROP_TABLE_METADATA", SqlKind.OTHER) {
     @Override
     public SqlCall createCall(SqlLiteral functionQualifier, SqlParserPos pos, SqlNode... operands) {
-      Preconditions.checkArgument(operands.length == 3, "SqlMetastoreAnalyzeTable.createCall() has to get 3 operands.");
       return new SqlDropTableMetadata(pos, (SqlIdentifier) operands[0], (SqlLiteral) operands[1], (SqlLiteral) operands[2]);
     }
   };
 
   private final SqlIdentifier tableName;
   private final boolean checkMetadataExistence;
-  private final boolean dropMetadata;
+  private final DropMetadataType dropType;
 
-  public SqlDropTableMetadata(SqlParserPos pos, SqlIdentifier tableName, SqlLiteral dropMetadata, SqlLiteral checkMetadataExistence) {
+  public SqlDropTableMetadata(SqlParserPos pos, SqlIdentifier tableName, SqlLiteral dropType, SqlLiteral checkMetadataExistence) {
     super(pos);
     this.tableName = tableName;
-    this.dropMetadata = dropMetadata.booleanValue();
+    this.dropType = DropMetadataType.valueOf(dropType.getStringValue().toUpperCase());
     this.checkMetadataExistence = checkMetadataExistence.booleanValue();
-  }
-
-  public SqlDropTableMetadata(SqlParserPos pos, SqlIdentifier tableName, boolean dropMetadata, boolean checkMetadataExistence) {
-    super(pos);
-    this.tableName = tableName;
-    this.dropMetadata = dropMetadata;
-    this.checkMetadataExistence = checkMetadataExistence;
   }
 
   @Override
@@ -74,7 +65,7 @@ public class SqlDropTableMetadata extends DrillSqlCall {
   public List<SqlNode> getOperandList() {
     return Arrays.asList(
         tableName,
-        SqlLiteral.createBoolean(dropMetadata, SqlParserPos.ZERO),
+        SqlLiteral.createCharString(dropType.name(), SqlParserPos.ZERO),
         SqlLiteral.createBoolean(checkMetadataExistence, SqlParserPos.ZERO)
     );
   }
@@ -85,11 +76,7 @@ public class SqlDropTableMetadata extends DrillSqlCall {
     writer.keyword("TABLE");
     tableName.unparse(writer, leftPrec, rightPrec);
     writer.keyword("DROP");
-    if (dropMetadata) {
-      writer.keyword("METADATA");
-    } else {
-      writer.keyword("STATISTICS");
-    }
+    writer.keyword(dropType.name());
     if (checkMetadataExistence) {
       writer.keyword("IF");
       writer.keyword("EXISTS");
@@ -122,7 +109,15 @@ public class SqlDropTableMetadata extends DrillSqlCall {
     return checkMetadataExistence;
   }
 
-  public boolean isDropMetadata() {
-    return dropMetadata;
+  public DropMetadataType getDropType() {
+    return dropType;
+  }
+
+  /**
+   * Enum for metadata types to drop.
+   */
+  public enum DropMetadataType {
+    METADATA,
+    STATISTICS
   }
 }

@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class MetadataAggPrule extends Prule {
-  public static MetadataAggPrule INSTANCE = new MetadataAggPrule();
+  public static final MetadataAggPrule INSTANCE = new MetadataAggPrule();
 
   public MetadataAggPrule() {
     super(RelOptHelper.any(MetadataAggRel.class, DrillRel.DRILL_LOGICAL),
@@ -50,7 +50,7 @@ public class MetadataAggPrule extends Prule {
         .mapToObj(RelFieldCollation::new)
         .collect(Collectors.toList()));
 
-    // TODO: update DrillDistributionTrait when implemented parallelization for metadata collecting
+    // TODO: update DrillDistributionTrait when implemented parallelization for metadata collecting (see DRILL-7433)
     RelTraitSet traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
     traits = groupByExprsSize > 0 ? traits.plus(collation) : traits;
     RelNode convertedInput = convert(input, traits);

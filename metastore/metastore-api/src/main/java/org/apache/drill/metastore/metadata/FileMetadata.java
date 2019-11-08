@@ -21,6 +21,7 @@ import org.apache.drill.metastore.components.tables.TableMetadataUnit;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Objects;
+import java.util.StringJoiner;
 
 /**
  * Metadata which corresponds to the file level of table.
@@ -41,6 +42,39 @@ public class FileMetadata extends BaseMetadata implements LocationProvider {
   @Override
   public Path getLocation() {
     return path.getParent();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    if (!super.equals(o)) {
+      return false;
+    }
+    FileMetadata that = (FileMetadata) o;
+    return Objects.equals(path, that.path);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(super.hashCode(), path);
+  }
+
+  @Override
+  public String toString() {
+    return new StringJoiner(",\n", FileMetadata.class.getSimpleName() + "[\n", "]")
+        .add("path=" + path)
+        .add("tableInfo=" + tableInfo)
+        .add("metadataInfo=" + metadataInfo)
+        .add("schema=" + schema)
+        .add("columnsStatistics=" + columnsStatistics)
+        .add("metadataStatistics=" + metadataStatistics)
+        .add("lastModifiedTime=" + lastModifiedTime)
+        .toString();
   }
 
   @Override

@@ -35,6 +35,8 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -182,6 +184,32 @@ public class ColumnStatistics<T> {
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Unable to convert column statistics to json string", e);
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    ColumnStatistics<?> that = (ColumnStatistics<?>) o;
+    return Objects.equals(statistics, that.statistics)
+        && type == that.type;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(statistics, type);
+  }
+
+  @Override
+  public String toString() {
+    return new StringJoiner(", ", ColumnStatistics.class.getSimpleName() + "[", "]")
+        .add("statistics=" + statistics)
+        .add("type=" + type)
+        .toString();
   }
 
   public static ColumnStatistics of(String columnStatistics) {

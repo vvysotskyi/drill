@@ -24,10 +24,10 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.ExecConstants;
@@ -49,9 +49,9 @@ public class ColumnExplorer {
   private final List<Integer> selectedPartitionColumns;
   private final List<SchemaPath> tableColumns;
   private final Map<String, ImplicitFileColumns> allImplicitColumns;
-  private final Map<String, ImplicitSpecialFileColumns> allSpecialColumns;
+  private final Map<String, ImplicitInternalFileColumns> allInternalColumns;
   private final Map<String, ImplicitFileColumns> selectedImplicitColumns;
-  private final Map<String, ImplicitSpecialFileColumns> selectedSpecialColumns;
+  private final Map<String, ImplicitInternalFileColumns> selectedInternalColumns;
 
   /**
    * Helper class that encapsulates logic for sorting out columns
@@ -63,9 +63,9 @@ public class ColumnExplorer {
     this.selectedPartitionColumns = Lists.newArrayList();
     this.tableColumns = Lists.newArrayList();
     this.allImplicitColumns = initImplicitFileColumns(optionManager);
-    this.allSpecialColumns = initImplicitSpecialFileColumns(optionManager);
+    this.allInternalColumns = initImplicitInternalFileColumns(optionManager);
     this.selectedImplicitColumns = CaseInsensitiveMap.newHashMap();
-    this.selectedSpecialColumns = CaseInsensitiveMap.newHashMap();
+    this.selectedInternalColumns = CaseInsensitiveMap.newHashMap();
     if (columns == null) {
       isStarQuery = false;
       this.columns = null;
@@ -104,12 +104,12 @@ public class ColumnExplorer {
   }
 
   /**
-   * Creates case insensitive map with implicit special file columns as keys and
+   * Creates case insensitive map with implicit internal file columns as keys and
    * appropriate ImplicitFileColumns enum as values
    */
-  public static Map<String, ImplicitSpecialFileColumns> initImplicitSpecialFileColumns(OptionManager optionManager) {
-    Map<String, ImplicitSpecialFileColumns> map = CaseInsensitiveMap.newHashMap();
-    for (ImplicitSpecialFileColumns e : ImplicitSpecialFileColumns.values()) {
+  public static Map<String, ImplicitInternalFileColumns> initImplicitInternalFileColumns(OptionManager optionManager) {
+    Map<String, ImplicitInternalFileColumns> map = CaseInsensitiveMap.newHashMap();
+    for (ImplicitInternalFileColumns e : ImplicitInternalFileColumns.values()) {
       OptionValue optionValue;
       if ((optionValue = optionManager.getOption(e.name)) != null) {
         map.put(optionValue.string_val, e);
@@ -272,8 +272,8 @@ public class ColumnExplorer {
   }
 
   /**
-   * Creates map with implicit and special columns where key is column name, value is columns actual value.
-   * This map contains partition, implicit and special file columns (if requested).
+   * Creates map with implicit and internal columns where key is column name, value is columns actual value.
+   * This map contains partition, implicit and internal file columns (if requested).
    * Partition columns names are formed based in partition designator and value index.
    *
    * @param filePath                   file path, used to populate file implicit columns
@@ -283,13 +283,13 @@ public class ColumnExplorer {
    * @param index                      index of row group to populate
    * @return implicit columns map
    */
-  public Map<String, String> populateImplicitAndSpecialColumns(Path filePath,
+  public Map<String, String> populateImplicitAndInternalColumns(Path filePath,
       List<String> partitionValues, boolean includeFileImplicitColumns, FileSystem fs, int index, long start, long length) {
 
     Map<String, String> implicitValues =
         new LinkedHashMap<>(populateImplicitColumns(filePath, partitionValues, includeFileImplicitColumns));
 
-    selectedSpecialColumns.forEach((key, value) -> {
+    selectedInternalColumns.forEach((key, value) -> {
       switch (value) {
         case ROW_GROUP_INDEX:
           implicitValues.put(key, String.valueOf(index));
@@ -304,7 +304,7 @@ public class ColumnExplorer {
           try {
             implicitValues.put(key, String.valueOf(fs.getFileStatus(filePath).getModificationTime()));
           } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new DrillRuntimeException(e);
           }
           break;
       }
@@ -409,16 +409,16 @@ public class ColumnExplorer {
       if (isStarQuery) {
         if (allImplicitColumns.get(path) != null) {
           selectedImplicitColumns.put(path, allImplicitColumns.get(path));
-        } else if (allSpecialColumns.get(path) != null) {
-          selectedSpecialColumns.put(path, allSpecialColumns.get(path));
+        } else if (allInternalColumns.get(path) != null) {
+          selectedInternalColumns.put(path, allInternalColumns.get(path));
         }
       } else {
         if (isPartitionColumn(partitionDesignator, path)) {
           selectedPartitionColumns.add(Integer.parseInt(path.substring(partitionDesignator.length())));
         } else if (allImplicitColumns.get(path) != null) {
           selectedImplicitColumns.put(path, allImplicitColumns.get(path));
-        } else if (allSpecialColumns.get(path) != null) {
-          selectedSpecialColumns.put(path, allSpecialColumns.get(path));
+        } else if (allInternalColumns.get(path) != null) {
+          selectedInternalColumns.put(path, allInternalColumns.get(path));
         } else {
           tableColumns.add(column);
         }
@@ -486,7 +486,11 @@ public class ColumnExplorer {
     public abstract String getValue(Path path);
   }
 
-  public enum ImplicitSpecialFileColumns {
+  /**
+   * Columns that give internal information about file or its parts.
+   * Columns are implicit, so should be called explicitly in query.
+   */
+  public enum ImplicitInternalFileColumns {
 
     LAST_MODIFIED_TIME(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL),
 
@@ -494,19 +498,12 @@ public class ColumnExplorer {
 
     ROW_GROUP_START(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL),
 
-    ROW_GROUP_LENGTH(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL);
+    ROW_GROUP_LENGTH(ExecConstants.IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL);
 
-    String name;
+    private final String name;
 
-    ImplicitSpecialFileColumns(String name) {
+    ImplicitInternalFileColumns(String name) {
       this.name = name;
-    }
-
-    /**
-     * Using file path calculates value for each implicit file column
-     */
-    public String getValue(Supplier<String> supplier) {
-      return supplier.get();
     }
   }
 }

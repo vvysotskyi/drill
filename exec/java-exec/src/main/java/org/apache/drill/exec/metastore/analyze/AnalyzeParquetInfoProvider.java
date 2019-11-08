@@ -24,6 +24,7 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.metastore.metadata.MetadataType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -38,8 +39,8 @@ public class AnalyzeParquetInfoProvider extends AnalyzeFileInfoProvider {
     if (metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL), SqlParserPos.ZERO));
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL), SqlParserPos.ZERO));
-      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL), SqlParserPos.ZERO));
+      columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL), SqlParserPos.ZERO));
     }
-    return columnList;
+    return Collections.unmodifiableList(columnList);
   }
 }

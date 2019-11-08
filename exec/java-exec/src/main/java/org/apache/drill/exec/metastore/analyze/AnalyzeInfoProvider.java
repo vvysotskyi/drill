@@ -84,11 +84,11 @@ public interface AnalyzeInfoProvider {
   SchemaPath getLocationField(OptionManager optionManager);
 
   /**
-   * Returns expression which may be used for determining parent location for specific table data,
+   * Returns expression which may be used to determine parent location for specific table data,
    * i.e. segment location. For example, for file-based tables, such expression will be `parentPath` function call.
    *
    * @param locationField location field
-   * @return expression for determining parent location
+   * @return expression to determine parent location
    */
   NamedExpression getParentLocationExpression(SchemaPath locationField);
 

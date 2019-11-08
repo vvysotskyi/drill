@@ -21,8 +21,8 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.Table;
-import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlNumericLiteral;
@@ -83,7 +83,7 @@ import java.util.stream.Collectors;
 import static org.apache.drill.exec.planner.logical.DrillRelFactories.LOGICAL_BUILDER;
 
 /**
- * Constructs plan to be executed for collecting metadata and storing it to the metastore.
+ * Constructs plan to be executed for collecting metadata and storing it to the Metastore.
  */
 public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   private static final Logger logger = LoggerFactory.getLogger(MetastoreAnalyzeTableHandler.class);
@@ -97,51 +97,48 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       throws ValidationException, RelConversionException, IOException, ForemanSetupException {
     if (!context.getOptions().getOption(ExecConstants.METASTORE_ENABLED_VALIDATOR)) {
       throw UserException.validationError()
-          .message("Running ANALYZE TABLE REFRESH METADATA command when metastore is disabled")
+          .message("Running ANALYZE TABLE REFRESH METADATA command when Metastore is disabled (`metastore.enabled` is set to false)")
           .build(logger);
     }
-    try {
-      // disables during analyze to prevent using locations from the metastore
-      context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, false);
-      SqlMetastoreAnalyzeTable sqlAnalyzeTable = unwrap(sqlNode, SqlMetastoreAnalyzeTable.class);
+    // disables during analyze to prevent using data about locations from the Metastore
+    context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, false);
+    SqlMetastoreAnalyzeTable sqlAnalyzeTable = unwrap(sqlNode, SqlMetastoreAnalyzeTable.class);
 
-      AbstractSchema drillSchema = SchemaUtilites.resolveToDrillSchema(
-          config.getConverter().getDefaultSchema(), sqlAnalyzeTable.getSchemaPath());
-      DrillTable table = getDrillTable(drillSchema, sqlAnalyzeTable.getName());
+    AbstractSchema drillSchema = SchemaUtilites.resolveToDrillSchema(
+        config.getConverter().getDefaultSchema(), sqlAnalyzeTable.getSchemaPath());
+    DrillTable table = getDrillTable(drillSchema, sqlAnalyzeTable.getName());
 
-      AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(TableType.getTableType(table.getGroupScan()));
+    AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(TableType.getTableType(table.getGroupScan()));
 
-      SqlIdentifier tableIdentifier = sqlAnalyzeTable.getTableIdentifier();
-      SqlSelect scanSql = new SqlSelect(
-          SqlParserPos.ZERO,
-          SqlNodeList.EMPTY,
-          getColumnList(sqlAnalyzeTable, analyzeInfoProvider),
-          tableIdentifier,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null
-      );
+    SqlIdentifier tableIdentifier = sqlAnalyzeTable.getTableIdentifier();
+    // creates select with DYNAMIC_STAR column and analyze specific columns to obtain corresponding table scan
+    SqlSelect scanSql = new SqlSelect(
+        SqlParserPos.ZERO,
+        SqlNodeList.EMPTY,
+        getColumnList(sqlAnalyzeTable, analyzeInfoProvider),
+        tableIdentifier,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    );
 
-      ConvertedRelNode convertedRelNode = validateAndConvert(rewrite(scanSql));
-      RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
+    ConvertedRelNode convertedRelNode = validateAndConvert(rewrite(scanSql));
+    RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
 
-      RelNode relScan = convertedRelNode.getConvertedNode();
+    RelNode relScan = convertedRelNode.getConvertedNode();
 
-      DrillRel drel = convertToDrel(relScan, drillSchema, table, sqlAnalyzeTable);
+    DrillRel drel = convertToDrel(relScan, drillSchema, table, sqlAnalyzeTable);
 
-      Prel prel = convertToPrel(drel, validatedRowType);
-      logAndSetTextPlan("Drill Physical", prel, logger);
-      PhysicalOperator pop = convertToPop(prel);
-      PhysicalPlan plan = convertToPlan(pop);
-      log("Drill Plan", plan, logger);
-      return plan;
-    } finally {
-      context.getOptions().setLocalOption(ExecConstants.METASTORE_ENABLED, true);
-    }
+    Prel prel = convertToPrel(drel, validatedRowType);
+    logAndSetTextPlan("Drill Physical", prel, logger);
+    PhysicalOperator pop = convertToPop(prel);
+    PhysicalPlan plan = convertToPlan(pop);
+    log("Drill Plan", plan, logger);
+    return plan;
   }
 
   private DrillTable getDrillTable(AbstractSchema drillSchema, String tableName) {
@@ -170,11 +167,11 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   /**
-   * Generates the column list specified in the ANALYZE statement
+   * Generates the column list with {@link SchemaPath#DYNAMIC_STAR} and columns required for analyze.
    */
   private SqlNodeList getColumnList(SqlMetastoreAnalyzeTable sqlAnalyzeTable, AnalyzeInfoProvider analyzeInfoProvider) {
     SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
-    columnList.add(new SqlIdentifier(SchemaPath.STAR_COLUMN.rootName(), SqlParserPos.ZERO));
+    columnList.add(new SqlIdentifier(SchemaPath.DYNAMIC_STAR, SqlParserPos.ZERO));
     MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
     for (SqlIdentifier field : analyzeInfoProvider.getProjectionFields(metadataLevel, context.getPlannerSettings().getOptions())) {
       columnList.add(field);
@@ -183,7 +180,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   }
 
   private MetadataType getMetadataType(SqlMetastoreAnalyzeTable sqlAnalyzeTable) {
-    SqlCharStringLiteral stringLiteral = (SqlCharStringLiteral) sqlAnalyzeTable.getLevel();
+    SqlLiteral stringLiteral = sqlAnalyzeTable.getLevel();
     // for the case when metadata level is not specified in ANALYZE statement,
     // value from the `metastore.metadata.store.depth_level` option is used
     String metadataLevel;
@@ -230,7 +227,9 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     List<MetadataInfo> filesInfo = Collections.emptyList();
     Multimap<Integer, MetadataInfo> segments = ArrayListMultimap.create();
 
-    BasicTablesRequests basicRequests = context.getMetastoreRegistry().get().tables().basicRequests();
+    BasicTablesRequests basicRequests = context.getMetastoreRegistry().get()
+        .tables()
+        .basicRequests();
 
     MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
 
@@ -250,7 +249,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
           tableInfo, (FormatSelection) table.getSelection(), context.getPlannerSettings(),
           tableScanSupplier, interestingColumns, metadataLevel, segmentColumns.size());
 
-      if (!metadataInfoCollector.isChanged()) {
+      if (!metadataInfoCollector.isOutdated()) {
         DrillRel convertedRelNode = convertToRawDrel(
             relBuilder.values(new String[]{MetastoreAnalyzeConstants.OK_FIELD_NAME, MetastoreAnalyzeConstants.SUMMARY_FIELD_NAME},
                 false, "Table metadata is up to date, analyze wasn't performed.")
@@ -481,7 +480,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     SchemaPath rowGroupStartField =
         SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL));
     SchemaPath rowGroupLengthField =
-        SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL));
+        SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL));
 
     List<SchemaPath> excludedColumns = Arrays.asList(lastModifiedTimeField, locationField, rgiField, rowGroupStartField, rowGroupLengthField);
 

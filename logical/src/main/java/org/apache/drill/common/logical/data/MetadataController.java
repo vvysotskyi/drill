@@ -24,6 +24,9 @@ import org.apache.drill.common.logical.data.visitors.LogicalVisitor;
 import java.util.Arrays;
 import java.util.Iterator;
 
+/**
+ * Implementation of {@link LogicalOperator} for {@code MetadataControllerRel} rel node.
+ */
 @JsonTypeName("metadataController")
 public class MetadataController extends LogicalOperatorBase {
   private final LogicalOperator left;

@@ -29,6 +29,7 @@ import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
 import org.apache.drill.metastore.components.tables.Tables;
+import org.apache.drill.metastore.exceptions.MetastoreException;
 import org.apache.drill.metastore.metadata.TableInfo;
 import org.apache.parquet.Strings;
 import org.slf4j.Logger;
@@ -47,7 +48,7 @@ public class MetastoreDropTableMetadataHandler extends DefaultSqlHandler {
   public PhysicalPlan getPlan(SqlNode sqlNode) throws ForemanSetupException {
     if (!context.getOptions().getOption(ExecConstants.METASTORE_ENABLED_VALIDATOR)) {
       throw UserException.validationError()
-          .message("Running ANALYZE TABLE DROP command when metastore is disabled")
+          .message("Running ANALYZE TABLE DROP command when Metastore is disabled (`metastore.enabled` is set to false)")
           .build(logger);
     }
 
@@ -66,25 +67,26 @@ public class MetastoreDropTableMetadataHandler extends DefaultSqlHandler {
         .workspace(workspaceName)
         .build();
 
-    Tables tables = context.getMetastoreRegistry().get().tables();
-
-    MetastoreTableInfo metastoreTableInfo = tables.basicRequests().metastoreTableInfo(tableInfo);
-
-    if (!metastoreTableInfo.isExists()) {
-      if (dropTableMetadata.checkMetadataExistence()) {
-        throw UserException.validationError()
-            .message("Metadata for table [%s] not found.", dropTableMetadata.getName())
-            .build(logger);
-      }
-      return DirectPlan.createDirectPlan(context, false,
-          String.format("Metadata for table [%s] does not exist.", dropTableMetadata.getName()));
-    }
-
     try {
+      Tables tables = context.getMetastoreRegistry().get().tables();
+
+      MetastoreTableInfo metastoreTableInfo = tables.basicRequests()
+          .metastoreTableInfo(tableInfo);
+
+      if (!metastoreTableInfo.isExists()) {
+        if (dropTableMetadata.checkMetadataExistence()) {
+          throw UserException.validationError()
+              .message("Metadata for table [%s] not found.", dropTableMetadata.getName())
+              .build(logger);
+        }
+        return DirectPlan.createDirectPlan(context, false,
+            String.format("Metadata for table [%s] does not exist.", dropTableMetadata.getName()));
+      }
+
       tables.modify()
           .delete(tableInfo.toFilter())
           .execute();
-    } catch (Exception e) {
+    } catch (MetastoreException e) {
       logger.error("Error when dropping metadata for table {}", dropTableMetadata.getName(), e);
       return DirectPlan.createDirectPlan(context, false, e.getMessage());
     }

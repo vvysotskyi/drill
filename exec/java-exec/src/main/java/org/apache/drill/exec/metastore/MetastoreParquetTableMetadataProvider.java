@@ -18,7 +18,7 @@
 package org.apache.drill.exec.metastore;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.exception.OutdatedMetadataException;
+import org.apache.drill.exec.exception.MetadataException;
 import org.apache.drill.exec.metastore.MetastoreMetadataProviderManager.MetastoreMetadataProviderConfig;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.record.SchemaUtil;
@@ -88,7 +88,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
   private ParquetFileTableMetadataProviderBuilder fallbackBuilder;
   private ParquetTableMetadataProvider fallback;
 
-  public MetastoreParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
+  private MetastoreParquetTableMetadataProvider(List<ReadEntryWithPath> entries,
       MetastoreRegistry metastoreRegistry, TableInfo tableInfo, TupleMetadata schema,
       ParquetFileTableMetadataProviderBuilder fallbackBuilder, MetastoreMetadataProviderConfig config, DrillStatsTable statsProvider) {
     this.basicTablesRequests = metastoreRegistry.get().tables().basicRequests();
@@ -144,13 +144,10 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
           try {
             rowGroups = getFallbackTableMetadataProvider().getRowGroupsMetadataMap();
           } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw MetadataException.of(MetadataException.MetadataExceptionType.FALLBACK_EXCEPTION, e);
           }
         } else {
-          throw new IllegalStateException(String.format("Metastore hasn't metadata for row groups " +
-              "and `metastore.metadata.fallback_to_file_metadata` is disabled. " +
-              "Please either execute ANALYZE with 'ROW_GROUP' level " +
-              "for [%s] table or enable `metastore.metadata.fallback_to_file_metadata`.", tableInfo.name()));
+          throw MetadataException.of(MetadataException.MetadataExceptionType.INCOMPLETE_METADATA);
         }
       }
     }
@@ -171,10 +168,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
         if (useSchema) {
           tableMetadata = basicTablesRequests.tableMetadata(tableInfo);
         } else {
-          throw new IllegalStateException(String.format("Table schema wasn't provided " +
-              "and `metastore.metadata.use_schema` is disabled. " +
-              "Please either provide table schema for [%s] table or enable " +
-              "`metastore.metadata.use_schema`.", tableInfo.name()));
+          throw MetadataException.of(MetadataException.MetadataExceptionType.ABSENT_SCHEMA);
         }
       } else {
         tableMetadata = basicTablesRequests.tableMetadata(tableInfo).toBuilder()
@@ -292,7 +286,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
           ? columnPaths
           : getTableMetadata().getInterestingColumns();
     } else {
-      // if `metastore.metadata.use_statistics` is false, all columns are treat as non-interesting
+      // if `metastore.metadata.use_statistics` is false, all columns are treated as non-interesting
       return Collections.emptyList();
     }
   }
@@ -306,7 +300,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
 
   private void throwIfChanged() {
     if (basicTablesRequests.hasMetastoreTableInfoChanged(metastoreTableInfo)) {
-      throw new OutdatedMetadataException(String.format("Metadata for table %s is outdated", tableInfo.name()), false);
+      throw MetadataException.of(MetadataException.MetadataExceptionType.INCONSISTENT_METADATA);
     }
   }
 
@@ -320,7 +314,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
     private FileSelection selection;
 
     // builder for fallback ParquetFileTableMetadataProvider
-    // for the case when required metadata is absent in metastore
+    // for the case when required metadata is absent in Metastore
     private ParquetFileTableMetadataProviderBuilder fallback;
 
     public Builder(MetastoreMetadataProviderManager source) {
@@ -393,7 +387,7 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
           schema = schemaProvider != null ? schemaProvider.read().getSchema() : null;
         }
       } catch (IOException e) {
-        logger.debug("Unable to deserialize schema from schema file for table: " + metadataProviderManager.getTableInfo().name(), e);
+        logger.debug("Unable to deserialize schema from schema file for table: {}", metadataProviderManager.getTableInfo().name(), e);
       }
       if (entries == null) {
         if (!selection.isExpandedFully()) {
@@ -410,11 +404,11 @@ public class MetastoreParquetTableMetadataProvider implements ParquetTableMetada
       provider = new MetastoreParquetTableMetadataProvider(entries, metadataProviderManager.getMetastoreRegistry(),
           metadataProviderManager.getTableInfo(), schema, fallback, metadataProviderManager.getConfig(), statsProvider);
       // store results into metadataProviderManager to be able to use them when creating new instances
+      // for the case when source wasn't provided or it contains less row group metadata than the provider
       if (source == null || source.getRowGroupsMeta().size() < provider.getRowGroupsMeta().size()) {
         metadataProviderManager.setTableMetadataProvider(provider);
       }
       return provider;
     }
   }
-
 }

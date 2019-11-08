@@ -34,17 +34,17 @@ import java.util.Iterator;
 import java.util.List;
 
 public class MetadataHandlerPrel extends SingleRel implements DrillRelNode, Prel {
-  private final MetadataHandlerContext metadataHandlerContext;
+  private final MetadataHandlerContext context;
 
-  protected MetadataHandlerPrel(RelOptCluster cluster, RelTraitSet traits, RelNode input, MetadataHandlerContext metadataHandlerContext) {
+  protected MetadataHandlerPrel(RelOptCluster cluster, RelTraitSet traits, RelNode input, MetadataHandlerContext context) {
     super(cluster, traits, input);
-    this.metadataHandlerContext = metadataHandlerContext;
+    this.context = context;
   }
 
   @Override
   public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) throws IOException {
     Prel child = (Prel) this.getInput();
-    MetadataHandlerPOP physicalOperator = new MetadataHandlerPOP(child.getPhysicalOperator(creator), metadataHandlerContext);
+    MetadataHandlerPOP physicalOperator = new MetadataHandlerPOP(child.getPhysicalOperator(creator), context);
 
     return creator.addMetadata(this, physicalOperator);
   }
@@ -77,6 +77,6 @@ public class MetadataHandlerPrel extends SingleRel implements DrillRelNode, Prel
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     Preconditions.checkState(inputs.size() == 1);
-    return new MetadataHandlerPrel(getCluster(), traitSet, inputs.iterator().next(), metadataHandlerContext);
+    return new MetadataHandlerPrel(getCluster(), traitSet, inputs.iterator().next(), context);
   }
 }

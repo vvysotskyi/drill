@@ -33,12 +33,12 @@ import org.apache.drill.exec.metastore.analyze.MetadataHandlerContext;
 import java.util.List;
 
 public class MetadataHandlerRel extends SingleRel implements DrillRel {
-  private final MetadataHandlerContext metadataHandlerContext;
+  private final MetadataHandlerContext context;
 
   public MetadataHandlerRel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      MetadataHandlerContext metadataHandlerContext) {
+      MetadataHandlerContext context) {
     super(cluster, traits, input);
-    this.metadataHandlerContext = metadataHandlerContext;
+    this.context = context;
   }
 
   @Override
@@ -51,7 +51,7 @@ public class MetadataHandlerRel extends SingleRel implements DrillRel {
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    return new MetadataHandlerRel(getCluster(), traitSet, sole(inputs), metadataHandlerContext);
+    return new MetadataHandlerRel(getCluster(), traitSet, sole(inputs), context);
   }
 
   @Override
@@ -62,12 +62,12 @@ public class MetadataHandlerRel extends SingleRel implements DrillRel {
     return rel;
   }
 
-  public MetadataHandlerContext getMetadataHandlerContext() {
-    return metadataHandlerContext;
+  public MetadataHandlerContext getContext() {
+    return context;
   }
 
   @Override
   public RelWriter explainTerms(RelWriter pw) {
-    return super.explainTerms(pw).item("metadataHandlerContext: ", metadataHandlerContext);
+    return super.explainTerms(pw).item("context: ", context);
   }
 }

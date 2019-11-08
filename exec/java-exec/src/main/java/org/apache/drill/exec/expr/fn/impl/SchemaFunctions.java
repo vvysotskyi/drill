@@ -58,7 +58,7 @@ public class SchemaFunctions {
       java.util.Map<String, org.apache.drill.exec.record.MaterializedField> columns;
       if (columnsHolder.obj == null) {
         // Janino does not support diamond operator for this case :(
-        columnsHolder.obj = new java.util.HashMap<String, org.apache.drill.exec.record.MaterializedField>();
+        columnsHolder.obj = new java.util.LinkedHashMap<String, org.apache.drill.exec.record.MaterializedField>();
       }
 
       columns = (java.util.Map<String, org.apache.drill.exec.record.MaterializedField>) columnsHolder.obj;

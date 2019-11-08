@@ -25,7 +25,7 @@ import org.apache.drill.exec.planner.logical.MetadataHandlerRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 
 public class MetadataHandlerPrule extends Prule {
-  public static MetadataHandlerPrule INSTANCE = new MetadataHandlerPrule();
+  public static final MetadataHandlerPrule INSTANCE = new MetadataHandlerPrule();
 
   public MetadataHandlerPrule() {
     super(RelOptHelper.any(MetadataHandlerRel.class, DrillRel.DRILL_LOGICAL),
@@ -40,6 +40,6 @@ public class MetadataHandlerPrule extends Prule {
     RelNode convertedInput = convert(input, traits);
     call.transformTo(new MetadataHandlerPrel(relNode.getCluster(), traits,
         convertedInput,
-        relNode.getMetadataHandlerContext()));
+        relNode.getContext()));
   }
 }

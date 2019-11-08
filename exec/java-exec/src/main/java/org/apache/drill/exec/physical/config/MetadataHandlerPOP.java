@@ -28,18 +28,18 @@ import org.apache.drill.exec.proto.UserBitShared;
 
 @JsonTypeName("metadataHandler")
 public class MetadataHandlerPOP extends AbstractSingle {
-  private final MetadataHandlerContext metadataHandlerContext;
+  private final MetadataHandlerContext context;
 
   @JsonCreator
   public MetadataHandlerPOP(@JsonProperty("child") PhysicalOperator child,
-      @JsonProperty("metadataHandlerContext") MetadataHandlerContext metadataHandlerContext) {
+      @JsonProperty("context") MetadataHandlerContext context) {
     super(child);
-    this.metadataHandlerContext = metadataHandlerContext;
+    this.context = context;
   }
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new MetadataHandlerPOP(child, metadataHandlerContext);
+    return new MetadataHandlerPOP(child, context);
   }
 
   @Override
@@ -52,7 +52,7 @@ public class MetadataHandlerPOP extends AbstractSingle {
     return UserBitShared.CoreOperatorType.METADATA_HANDLER_VALUE;
   }
 
-  public MetadataHandlerContext getMetadataHandlerContext() {
-    return metadataHandlerContext;
+  public MetadataHandlerContext getContext() {
+    return context;
   }
 }

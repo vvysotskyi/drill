@@ -32,7 +32,7 @@ import java.util.Objects;
 import java.util.StringJoiner;
 
 /**
- * Class which provides information required for storing metadata to the metastore when performing analyze.
+ * Class which provides information required for storing metadata to the Metastore when performing analyze.
  */
 @JsonDeserialize(builder = MetadataControllerContext.MetadataControllerContextBuilder.class)
 public class MetadataControllerContext {

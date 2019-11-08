@@ -131,7 +131,7 @@ public class FilterEvaluatorUtils {
    */
   public static class FieldReferenceFinder extends AbstractExprVisitor<Set<SchemaPath>, Void, RuntimeException> {
 
-    public static FieldReferenceFinder INSTANCE = new FieldReferenceFinder();
+    public static final FieldReferenceFinder INSTANCE = new FieldReferenceFinder();
 
     @Override
     public Set<SchemaPath> visitSchemaPath(SchemaPath path, Void value) {

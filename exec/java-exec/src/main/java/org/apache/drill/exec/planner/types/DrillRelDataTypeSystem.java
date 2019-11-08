@@ -51,7 +51,7 @@ public class DrillRelDataTypeSystem extends RelDataTypeSystemImpl {
 
   @Override
   public boolean isSchemaCaseSensitive() {
-    // Drill uses case-insensitive and case-preserve policy
+    // Drill uses case-insensitive policy
     return false;
   }
 

@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 /**
@@ -63,6 +64,45 @@ public class SegmentMetadata extends BaseMetadata implements LocationProvider {
 
   public Set<Path> getLocations() {
     return locations;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    if (!super.equals(o)) {
+      return false;
+    }
+    SegmentMetadata that = (SegmentMetadata) o;
+    return Objects.equals(column, that.column)
+        && Objects.equals(path, that.path)
+        && Objects.equals(partitionValues, that.partitionValues)
+        && Objects.equals(locations, that.locations);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(super.hashCode(), column, path, partitionValues, locations);
+  }
+
+  @Override
+  public String toString() {
+    return new StringJoiner(",\n", SegmentMetadata.class.getSimpleName() + "[\n", "]")
+        .add("column=" + column)
+        .add("path=" + path)
+        .add("partitionValues=" + partitionValues)
+        .add("locations=" + locations)
+        .add("tableInfo=" + tableInfo)
+        .add("metadataInfo=" + metadataInfo)
+        .add("schema=" + schema)
+        .add("columnsStatistics=" + columnsStatistics)
+        .add("metadataStatistics=" + metadataStatistics)
+        .add("lastModifiedTime=" + lastModifiedTime)
+        .toString();
   }
 
   @Override

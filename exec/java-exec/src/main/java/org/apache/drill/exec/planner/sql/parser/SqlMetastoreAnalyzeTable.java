@@ -34,7 +34,6 @@ import org.apache.drill.exec.planner.sql.handlers.AbstractSqlHandler;
 import org.apache.drill.exec.planner.sql.handlers.MetastoreAnalyzeTableHandler;
 import org.apache.drill.exec.planner.sql.handlers.SqlHandlerConfig;
 import org.apache.drill.exec.util.Pointer;
-import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,7 +44,6 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
 
   public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("METASTORE_ANALYZE_TABLE", SqlKind.OTHER) {
     public SqlCall createCall(SqlLiteral functionQualifier, SqlParserPos pos, SqlNode... operands) {
-      Preconditions.checkArgument(operands.length == 5, "SqlMetastoreAnalyzeTable.createCall() has to get 5 operands.");
       return new SqlMetastoreAnalyzeTable(pos, (SqlIdentifier) operands[0], (SqlNodeList) operands[1], operands[2],
           (SqlLiteral) operands[3], (SqlNumericLiteral) operands[4]);
     }
@@ -53,7 +51,7 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
 
   private final SqlIdentifier tableName;
   private final SqlNodeList fieldList;
-  private final SqlNode level;
+  private final SqlLiteral level;
   private final SqlLiteral estimate;
   private final SqlNumericLiteral samplePercent;
 
@@ -62,7 +60,7 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
     super(pos);
     this.tableName = tableName;
     this.fieldList = fieldList;
-    this.level = level;
+    this.level = level != null ? SqlLiteral.unchain(level) : null;
     this.estimate = estimate;
     this.samplePercent = samplePercent;
   }
@@ -82,15 +80,19 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
     writer.keyword("ANALYZE");
     writer.keyword("TABLE");
     tableName.unparse(writer, leftPrec, rightPrec);
-    if (fieldList != null && fieldList.size() > 0) {
+    if (fieldList != null) {
       writer.keyword("COLUMNS");
-      writer.keyword("(");
-      fieldList.get(0).unparse(writer, leftPrec, rightPrec);
-      for (int i = 1; i < fieldList.size(); i++) {
-        writer.keyword(",");
-        fieldList.get(i).unparse(writer, leftPrec, rightPrec);
+      if (fieldList.size() > 0) {
+        writer.keyword("(");
+        fieldList.get(0).unparse(writer, leftPrec, rightPrec);
+        for (int i = 1; i < fieldList.size(); i++) {
+          writer.keyword(",");
+          fieldList.get(i).unparse(writer, leftPrec, rightPrec);
+        }
+        writer.keyword(")");
+      } else {
+        writer.keyword("NONE");
       }
-      writer.keyword(")");
     }
     writer.keyword("REFRESH");
     writer.keyword("METADATA");
@@ -149,7 +151,7 @@ public class SqlMetastoreAnalyzeTable extends DrillSqlCall {
     return fieldList;
   }
 
-  public SqlNode getLevel() {
+  public SqlLiteral getLevel() {
     return level;
   }
 

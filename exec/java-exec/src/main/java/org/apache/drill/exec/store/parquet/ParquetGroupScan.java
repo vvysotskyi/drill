@@ -24,7 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.drill.exec.exception.OutdatedMetadataException;
+import org.apache.drill.exec.exception.MetadataException;
 import org.apache.drill.exec.metastore.MetastoreParquetTableMetadataProvider;
 import org.apache.drill.exec.metastore.analyze.FileMetadataInfoCollector;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
@@ -64,7 +64,6 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
   private final ParquetFormatConfig formatConfig;
 
   private boolean usedMetadataCache; // false by default
-  private boolean usedMetastore; // false by default
   // may change when filter push down / partition pruning is applied
   private Path selectionRoot;
   private Path cacheFileRoot;
@@ -306,6 +305,14 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     return ColumnExplorer.listPartitionValues(locationProvider.getPath(), selectionRoot, false);
   }
 
+  /**
+   * Compares the last modified time of files obtained from specified selection with
+   * the Metastore last modified time to determine whether Metastore metadata
+   * is not outdated. If metadata is outdated, {@link MetadataException} will be thrown.
+   *
+   * @param selection the source of files to check
+   * @throws MetadataException if metadata is outdated
+   */
   private void checkMetadataConsistency(FileSelection selection) throws IOException {
     if (metadataProvider.checkMetadataVersion()) {
       DrillFileSystem fileSystem =
@@ -331,7 +338,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
       }
 
       if (isChanged || !removedFiles.isEmpty() || !newFiles.isEmpty()) {
-        throw new OutdatedMetadataException("Metastore metadata is outdated", true);
+        throw MetadataException.of(MetadataException.MetadataExceptionType.OUTDATED_METADATA);
       }
     }
   }
@@ -342,7 +349,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
    * Implementation of RowGroupScanFilterer which uses {@link ParquetGroupScan} as source and
    * builds {@link ParquetGroupScan} instance with filtered metadata.
    */
-  private class ParquetGroupScanFilterer extends RowGroupScanFilterer<ParquetGroupScanFilterer> {
+  private static class ParquetGroupScanFilterer extends RowGroupScanFilterer<ParquetGroupScanFilterer> {
 
     ParquetGroupScanFilterer(ParquetGroupScan source) {
       super(source);

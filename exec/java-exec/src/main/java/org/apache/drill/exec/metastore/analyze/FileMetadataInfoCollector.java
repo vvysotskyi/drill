@@ -75,7 +75,7 @@ public class FileMetadataInfoCollector implements MetadataInfoCollector {
 
   private TableScan tableScan;
 
-  private boolean isChanged = true;
+  private boolean outdated = true;
 
   public FileMetadataInfoCollector(BasicTablesRequests basicRequests, TableInfo tableInfo, FormatSelection selection,
       PlannerSettings settings, Supplier<TableScan> tableScanSupplier, List<SchemaPath> interestingColumns,
@@ -119,8 +119,8 @@ public class FileMetadataInfoCollector implements MetadataInfoCollector {
   }
 
   @Override
-  public boolean isChanged() {
-    return isChanged;
+  public boolean isOutdated() {
+    return outdated;
   }
 
   private void init(FormatSelection selection, PlannerSettings settings, Supplier<TableScan> tableScanSupplier,
@@ -226,7 +226,7 @@ public class FileMetadataInfoCollector implements MetadataInfoCollector {
 
       allMetaToHandle.addAll(segmentsToUpdate);
 
-      // is handled separately since it is not overridden when writing the metadata
+      // removed top-level segments are handled separately since their metadata is not overridden when producing writing to the Metastore
       List<MetadataInfo> removedTopSegments = getMetadataInfoList(selectionRoot, removedFiles, MetadataType.SEGMENT, 0).stream()
           .filter(parent ->
               removedFilesMetadata.stream().anyMatch(child -> MetadataIdentifierUtils.isMetadataKeyParent(parent.identifier(), child.identifier()))
@@ -234,8 +234,8 @@ public class FileMetadataInfoCollector implements MetadataInfoCollector {
           .collect(Collectors.toList());
       metadataToRemove.addAll(removedTopSegments);
     } else {
-      // table metadata may still actual
-      isChanged = false;
+      // table metadata may still be actual
+      outdated = false;
     }
   }
 

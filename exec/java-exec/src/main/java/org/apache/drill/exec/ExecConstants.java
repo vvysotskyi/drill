@@ -491,19 +491,23 @@ public final class ExecConstants {
       new OptionDescription("Available as of Drill 1.10. Sets the implicit column name for the filepath column."));
   public static final String IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL = "drill.exec.storage.implicit.row_group_index.column.label";
   public static final OptionValidator IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL_VALIDATOR = new StringValidator(IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL,
-      new OptionDescription("Available as of Drill 1.17. Sets the implicit column name for the row group index (rgi) column."));
+      new OptionDescription("Available as of Drill 1.17. Sets the implicit column name for the row group index (rgi) column. " +
+          "For internal usage when producing Metastore analyze."));
 
   public static final String IMPLICIT_ROW_GROUP_START_COLUMN_LABEL = "drill.exec.storage.implicit.row_group_start.column.label";
   public static final OptionValidator IMPLICIT_ROW_GROUP_START_COLUMN_LABEL_VALIDATOR = new StringValidator(IMPLICIT_ROW_GROUP_START_COLUMN_LABEL,
-      new OptionDescription("Available as of Drill 1.17. Sets the implicit column name for the row group start (rgs) column."));
+      new OptionDescription("Available as of Drill 1.17. Sets the implicit column name for the row group start (rgs) column. " +
+          "For internal usage when producing Metastore analyze."));
 
-  public static final String IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL = "drill.exec.storage.implicit.row_group_length.column.label";
-  public static final OptionValidator IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL_VALIDATOR = new StringValidator(IMPLICIT_ROW_GROUP_LEHGTH_COLUMN_LABEL,
-      new OptionDescription("Available as of Drill 1.17. Sets the implicit column name for the row group length (rgl) column."));
+  public static final String IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL = "drill.exec.storage.implicit.row_group_length.column.label";
+  public static final OptionValidator IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL_VALIDATOR = new StringValidator(IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL,
+      new OptionDescription("Available as of Drill 1.17. Sets the implicit column name for the row group length (rgl) column. " +
+          "For internal usage when producing Metastore analyze."));
 
   public static final String IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL = "drill.exec.storage.implicit.last_modified_time.column.label";
   public static final OptionValidator IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL_VALIDATOR = new StringValidator(IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL,
-      new OptionDescription("Available as of Drill 1.17. Sets the implicit column name for the lastModifiedTime column."));
+      new OptionDescription("Available as of Drill 1.17. Sets the implicit column name for the lastModifiedTime column. " +
+          "For internal usage when producing Metastore analyze."));
 
   public static final String JSON_READ_NUMBERS_AS_DOUBLE = "store.json.read_numbers_as_double";
   public static final BooleanValidator JSON_READ_NUMBERS_AS_DOUBLE_VALIDATOR = new BooleanValidator(JSON_READ_NUMBERS_AS_DOUBLE,

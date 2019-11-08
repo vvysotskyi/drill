@@ -25,7 +25,7 @@ import org.apache.drill.exec.planner.logical.MetadataControllerRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 
 public class MetadataControllerPrule extends Prule {
-  public static MetadataControllerPrule INSTANCE = new MetadataControllerPrule();
+  public static final MetadataControllerPrule INSTANCE = new MetadataControllerPrule();
 
   public MetadataControllerPrule() {
     super(RelOptHelper.some(MetadataControllerRel.class, DrillRel.DRILL_LOGICAL,

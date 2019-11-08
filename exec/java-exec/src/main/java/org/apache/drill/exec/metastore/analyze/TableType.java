@@ -31,9 +31,9 @@ public enum TableType {
   PARQUET(true),
 
   /**
-   * CSV table type
+   * Text tables type
    */
-  CSV(true),
+  TEXT(true),
 
   /**
    * JSON table type

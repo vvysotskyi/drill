@@ -37,7 +37,7 @@ import org.apache.drill.metastore.metadata.MetadataType;
 import org.apache.drill.metastore.metadata.TableInfo;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
@@ -65,10 +65,9 @@ public class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
 
   @Override
   public List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options) {
-    List<SqlIdentifier> columnList = new ArrayList<>();
-    columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL), SqlParserPos.ZERO));
-    columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL), SqlParserPos.ZERO));
-    return columnList;
+    return Arrays.asList(
+        new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_FQN_COLUMN_LABEL), SqlParserPos.ZERO),
+        new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL), SqlParserPos.ZERO));
   }
 
   @Override

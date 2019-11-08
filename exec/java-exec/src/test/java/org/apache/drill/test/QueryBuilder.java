@@ -698,6 +698,18 @@ public class QueryBuilder {
     return new PlanMatcher(plan);
   }
 
+  /**
+   * Submits explain plan statement
+   * and creates plan matcher instance based on return query plan with all attributes.
+   *
+   * @return plan matcher
+   * @throws Exception if the query fails
+   */
+  public PlanMatcher detailedPlanMatcher() throws Exception {
+    String plan = explainTextWithAllAttributes();
+    return new PlanMatcher(plan);
+  }
+
   private QuerySummary produceSummary(BufferingQueryEventListener listener) throws Exception {
     long start = System.currentTimeMillis();
     int recordCount = 0;

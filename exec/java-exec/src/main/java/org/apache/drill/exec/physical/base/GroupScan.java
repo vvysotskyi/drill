@@ -171,4 +171,12 @@ public interface GroupScan extends Scan, HasAffinity {
 
   @JsonIgnore
   TableMetadata getTableMetadata();
+
+  /**
+   * Returns {@code true} if current group scan uses metadata obtained from the Metastore.
+   *
+   * @return {@code true} if current group scan uses metadata obtained from the Metastore
+   */
+  @JsonIgnore
+  boolean usedMetastore();
 }

@@ -48,6 +48,9 @@ public class AnalyzeColumnUtils {
 
   /**
    * Returns actual column name obtained form intermediate name which includes statistics kind and other analyze-specific info.
+   * <p>
+   * Example: column which corresponds to max statistics value for {@code `o_shippriority`} column is {@code column$maxValue$`o_shippriority`}.
+   * This method will return actual column name: {@code `o_shippriority`}.
    *
    * @param fullName the source of actual column name
    * @return actual column name
@@ -82,6 +85,9 @@ public class AnalyzeColumnUtils {
   /**
    * Returns analyze-specific field name for column statistics which includes
    * actual column name and statistics kind information.
+   * <p>
+   * Example: analyze-specific field name for column {@code `o_shippriority`}
+   * and statistics {@code MAX_VALUE} is the following: {@code column$maxValue$`o_shippriority`}.
    *
    * @param columnName     name of the column
    * @param statisticsKind statistics kind
@@ -93,6 +99,8 @@ public class AnalyzeColumnUtils {
 
   /**
    * Returns analyze-specific field name for metadata statistics which includes statistics kind information.
+   * <p>
+   * Example: analyze-specific field name for statistics {@code ROW_COUNT} is the following: {@code metadata$rowCount}.
    *
    * @param statisticsKind statistics kind
    * @return analyze-specific field name for metadata statistics

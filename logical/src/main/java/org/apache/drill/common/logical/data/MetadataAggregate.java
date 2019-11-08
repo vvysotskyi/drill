@@ -21,6 +21,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.common.logical.data.visitors.LogicalVisitor;
 
+/**
+ * Implementation of {@link LogicalOperator} for {@code MetadataAggRel} rel node.
+ */
 @JsonTypeName("metadataAggregate")
 public class MetadataAggregate extends SingleInputOperator {
 
