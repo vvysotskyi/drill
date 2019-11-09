@@ -27,44 +27,54 @@ public enum MetadataType {
   /**
    * Metadata type which helps to indicate that there is no overflow of metadata.
    */
-  NONE,
+  NONE(0),
 
   /**
    * Table level metadata type.
    */
-  TABLE,
+  TABLE(1),
 
   /**
    * Segment level metadata type. It corresponds to the metadata
    * within specific directory for FS tables, or may correspond to partition for hive tables.
    */
-  SEGMENT,
+  SEGMENT(2),
 
   /**
    * Drill partition level metadata type. It corresponds to parts of table data which has the same
    * values within specific column, i.e. partitions discovered by Drill.
    */
-  PARTITION,
+  PARTITION(3),
 
   /**
    * File level metadata type.
    */
-  FILE,
+  FILE(4),
 
   /**
    * Row group level metadata type. Used for parquet tables.
    */
-  ROW_GROUP,
+  ROW_GROUP(5),
 
   /**
    * Metadata that can be applicable to any type.
    */
-  ALL,
+  ALL(Integer.MAX_VALUE),
 
   /**
    * Metadata type which belongs to views.
    */
-  VIEW;
+  VIEW(-1);
+
+  private final int metadataPriority;
+
+  MetadataType(int metadataPriority) {
+    this.metadataPriority = metadataPriority;
+  }
+
+  public boolean includes(MetadataType metadataType) {
+    return metadataPriority >= metadataType.metadataPriority;
+  }
 
   /**
    * Converts metadata type string representation into {@link MetadataType} instance.

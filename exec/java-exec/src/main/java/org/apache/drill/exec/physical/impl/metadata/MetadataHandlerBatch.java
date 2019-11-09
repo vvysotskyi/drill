@@ -128,7 +128,11 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       case STOP:
         return outcome;
       default:
-        throw new UnsupportedOperationException("Unsupported upstream state " + outcome);
+        context.getExecutorState()
+            .fail(new UnsupportedOperationException("Unsupported upstream state " + outcome));
+        close();
+        killIncoming(false);
+        return IterOutcome.STOP;
     }
   }
 
@@ -318,7 +322,9 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       List<Object> arguments = new ArrayList<>();
       for (VectorWrapper<?> vectorWrapper : container) {
 
-        String[] identifierValues = Arrays.copyOf(MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()), popConfig.getContext().segmentColumns().size());
+        String[] identifierValues = Arrays.copyOf(
+            MetadataIdentifierUtils.getValuesFromMetadataIdentifier(metadata.getMetadataInfo().identifier()),
+            popConfig.getContext().segmentColumns().size());
 
         MaterializedField field = vectorWrapper.getField();
         String fieldName = field.getName();

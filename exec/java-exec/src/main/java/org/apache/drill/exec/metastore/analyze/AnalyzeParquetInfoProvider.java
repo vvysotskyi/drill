@@ -36,7 +36,7 @@ public class AnalyzeParquetInfoProvider extends AnalyzeFileInfoProvider {
   @Override
   public List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options) {
     List<SqlIdentifier> columnList = new ArrayList<>(super.getProjectionFields(metadataLevel, options));
-    if (metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
+    if (metadataLevel.includes(MetadataType.ROW_GROUP)) {
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL), SqlParserPos.ZERO));
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL), SqlParserPos.ZERO));
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL), SqlParserPos.ZERO));

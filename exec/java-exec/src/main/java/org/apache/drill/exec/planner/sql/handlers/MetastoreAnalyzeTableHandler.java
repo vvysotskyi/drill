@@ -64,6 +64,7 @@ import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
 import org.apache.drill.metastore.components.tables.BasicTablesRequests;
 import org.apache.drill.metastore.components.tables.MetastoreTableInfo;
+import org.apache.drill.metastore.exceptions.MetastoreException;
 import org.apache.drill.metastore.metadata.MetadataInfo;
 import org.apache.drill.metastore.metadata.MetadataType;
 import org.apache.drill.metastore.metadata.TableInfo;
@@ -199,6 +200,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       DrillTable table, SqlMetastoreAnalyzeTable sqlAnalyzeTable) throws ForemanSetupException, IOException {
     RelBuilder relBuilder = LOGICAL_BUILDER.create(relNode.getCluster(), null);
 
+    // Step 0: prepare data about table and classes required for producing analyze
     TableType tableType = TableType.getTableType(table.getGroupScan());
 
     AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(tableType);
@@ -227,9 +229,20 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     List<MetadataInfo> filesInfo = Collections.emptyList();
     Multimap<Integer, MetadataInfo> segments = ArrayListMultimap.create();
 
-    BasicTablesRequests basicRequests = context.getMetastoreRegistry().get()
-        .tables()
-        .basicRequests();
+    BasicTablesRequests basicRequests;
+    try {
+      basicRequests = context.getMetastoreRegistry().get()
+          .tables()
+          .basicRequests();
+    } catch (MetastoreException e) {
+      logger.error("Error when obtaining Metastore instance for table {}", sqlAnalyzeTable.getName(), e);
+      DrillRel convertedRelNode = convertToRawDrel(
+          relBuilder.values(
+                new String[]{MetastoreAnalyzeConstants.OK_FIELD_NAME, MetastoreAnalyzeConstants.SUMMARY_FIELD_NAME},
+                false, e.getMessage())
+              .build());
+      return new DrillScreenRel(convertedRelNode.getCluster(), convertedRelNode.getTraitSet(), convertedRelNode);
+    }
 
     MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
 
@@ -240,6 +253,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     List<MetadataInfo> allMetaToHandle = new ArrayList<>();
     List<MetadataInfo> metadataToRemove = new ArrayList<>();
 
+    // Step 1: checks whether table metadata is present in the Metastore to determine
+    // whether incremental analyze may be produced
     if (metastoreTableInfo.isExists()) {
       RelNode finalRelNode = relNode;
       CheckedSupplier<TableScan, SqlUnsupportedException> tableScanSupplier =
@@ -268,6 +283,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       metadataToRemove = metadataInfoCollector.getMetadataToRemove();
     }
 
+    // Step 2: constructs plan for producing analyze
     DrillRel convertedRelNode = convertToRawDrel(relNode);
 
     boolean createNewAggregations = true;
@@ -282,7 +298,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     SchemaPath locationField = analyzeInfoProvider.getLocationField(config.getContext().getOptions());
 
-    if (tableType == TableType.PARQUET && metadataLevel.compareTo(MetadataType.ROW_GROUP) >= 0) {
+    if (tableType == TableType.PARQUET && metadataLevel.includes(MetadataType.ROW_GROUP)) {
       MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
           .tableInfo(tableInfo)
           .metadataToHandle(rowGroupsInfo)
@@ -298,7 +314,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       locationField = SchemaPath.getSimplePath(MetastoreAnalyzeConstants.LOCATION_FIELD);
     }
 
-    if (metadataLevel.compareTo(MetadataType.FILE) >= 0 && tableType.isFileBased()) {
+    if (metadataLevel.includes(MetadataType.FILE) && tableType.isFileBased()) {
       MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
           .tableInfo(tableInfo)
           .metadataToHandle(filesInfo)
@@ -315,7 +331,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       createNewAggregations = false;
     }
 
-    if (metadataLevel.compareTo(MetadataType.SEGMENT) >= 0) {
+    if (metadataLevel.includes(MetadataType.SEGMENT)) {
       for (int i = segmentExpressions.size(); i > 0; i--) {
         MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
             .tableInfo(tableInfo)
@@ -334,7 +350,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       }
     }
 
-    if (metadataLevel.compareTo(MetadataType.TABLE) >= 0) {
+    if (metadataLevel.includes(MetadataType.TABLE)) {
       MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
           .tableInfo(tableInfo)
           .metadataToHandle(Collections.emptyList())
@@ -353,6 +369,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     SqlNumericLiteral samplePercentLiteral = sqlAnalyzeTable.getSamplePercent();
     double samplePercent = samplePercentLiteral == null ? 100.0 : samplePercentLiteral.intValue(true);
 
+    // Step 3: adds rel nodes for producing statistics analyze if required
     RelNode analyzeRel = useStatistics
         ? new DrillAnalyzeRel(
               convertedRelNode.getCluster(), convertedRelNode.getTraitSet(), convertToRawDrel(relNode), samplePercent)
