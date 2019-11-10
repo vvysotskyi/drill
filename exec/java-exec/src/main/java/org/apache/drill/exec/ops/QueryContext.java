@@ -31,6 +31,7 @@ import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.expr.fn.registry.RemoteFunctionRegistry;
 import org.apache.drill.exec.expr.holders.ValueHolder;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.metastore.analyze.AnalyzeInfoProviderRegistry;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.planner.sql.DrillOperatorTable;
 import org.apache.drill.exec.proto.BitControl.QueryContextInformation;
@@ -392,5 +393,9 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
 
   public MetastoreRegistry getMetastoreRegistry() {
     return drillbitContext.getMetastoreRegistry();
+  }
+
+  public AnalyzeInfoProviderRegistry getAnalyzeInfoProviderRegistry() {
+    return drillbitContext.getAnalyzeInfoProviderRegistry();
   }
 }

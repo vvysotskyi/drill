@@ -54,4 +54,9 @@ public interface MetastoreConfigConstants {
    * Indicates canonical class name of the Metastore implementation class.
    */
   String IMPLEMENTATION_CLASS = BASE + "implementation.class";
+
+  /**
+   * Indicates list of class names of {@code AnalyzeInfoProvider} implementation classes.
+   */
+  String ANALYZE_INFO_PROVIDER_CLASSES = BASE + "analyze.implementation.classes";
 }

@@ -27,6 +27,7 @@ import org.apache.drill.exec.coord.ClusterCoordinator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.expr.fn.registry.RemoteFunctionRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.metastore.analyze.AnalyzeInfoProviderRegistry;
 import org.apache.drill.exec.physical.impl.OperatorCreatorRegistry;
 import org.apache.drill.exec.planner.PhysicalPlanReader;
 import org.apache.drill.exec.planner.sql.DrillOperatorTable;
@@ -76,6 +77,7 @@ public class DrillbitContext implements AutoCloseable {
   private final QueryProfileStoreContext profileStoreContext;
   private ResourceManager resourceManager;
   private final MetastoreRegistry metastoreRegistry;
+  private final AnalyzeInfoProviderRegistry analyzeInfoProviderRegistry;
 
   public DrillbitContext(
       DrillbitEndpoint endpoint,
@@ -124,6 +126,7 @@ public class DrillbitContext implements AutoCloseable {
     //This profile store context is built from the profileStoreProvider
     profileStoreContext = new QueryProfileStoreContext(config, profileStoreProvider, coord);
     this.metastoreRegistry = new MetastoreRegistry(config);
+    this.analyzeInfoProviderRegistry = new AnalyzeInfoProviderRegistry(config);
   }
 
   public QueryProfileStoreContext getProfileStoreContext() {
@@ -308,5 +311,9 @@ public class DrillbitContext implements AutoCloseable {
 
   public MetastoreRegistry getMetastoreRegistry() {
     return metastoreRegistry;
+  }
+
+  public AnalyzeInfoProviderRegistry getAnalyzeInfoProviderRegistry() {
+    return analyzeInfoProviderRegistry;
   }
 }

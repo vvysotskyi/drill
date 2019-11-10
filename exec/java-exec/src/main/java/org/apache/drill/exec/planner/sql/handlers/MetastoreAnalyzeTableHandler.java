@@ -43,7 +43,6 @@ import org.apache.drill.exec.metastore.analyze.MetadataControllerContext;
 import org.apache.drill.exec.metastore.analyze.MetadataHandlerContext;
 import org.apache.drill.exec.metastore.analyze.MetadataInfoCollector;
 import org.apache.drill.exec.metastore.analyze.MetastoreAnalyzeConstants;
-import org.apache.drill.exec.metastore.analyze.TableType;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.planner.logical.DrillAnalyzeRel;
@@ -109,7 +108,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         config.getConverter().getDefaultSchema(), sqlAnalyzeTable.getSchemaPath());
     DrillTable table = getDrillTable(drillSchema, sqlAnalyzeTable.getName());
 
-    AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(TableType.getTableType(table.getGroupScan()));
+    AnalyzeInfoProvider analyzeInfoProvider = context.getAnalyzeInfoProviderRegistry()
+        .get(table.getGroupScan());
 
     SqlIdentifier tableIdentifier = sqlAnalyzeTable.getTableIdentifier();
     // creates select with DYNAMIC_STAR column and analyze specific columns to obtain corresponding table scan
@@ -200,10 +200,8 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       DrillTable table, SqlMetastoreAnalyzeTable sqlAnalyzeTable) throws ForemanSetupException, IOException {
     RelBuilder relBuilder = LOGICAL_BUILDER.create(relNode.getCluster(), null);
 
-    // Step 0: prepare data about table and classes required for producing analyze
-    TableType tableType = TableType.getTableType(table.getGroupScan());
-
-    AnalyzeInfoProvider analyzeInfoProvider = AnalyzeInfoProvider.getAnalyzeInfoProvider(tableType);
+    AnalyzeInfoProvider analyzeInfoProvider = context.getAnalyzeInfoProviderRegistry()
+        .get(table.getGroupScan());
 
     List<String> schemaPath = schema.getSchemaPath();
     String pluginName = schemaPath.get(0);
@@ -212,7 +210,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     TableInfo tableInfo = TableInfo.builder()
         .name(sqlAnalyzeTable.getName())
         .owner(table.getUserName())
-        .type(tableType.name())
+        .type(analyzeInfoProvider.getTableTypeName())
         .storagePlugin(pluginName)
         .workspace(workspaceName)
         .build();
@@ -298,7 +296,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
     SchemaPath locationField = analyzeInfoProvider.getLocationField(config.getContext().getOptions());
 
-    if (tableType == TableType.PARQUET && metadataLevel.includes(MetadataType.ROW_GROUP)) {
+    if (analyzeInfoProvider.supportsMetadataType(MetadataType.ROW_GROUP) && metadataLevel.includes(MetadataType.ROW_GROUP)) {
       MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
           .tableInfo(tableInfo)
           .metadataToHandle(rowGroupsInfo)
@@ -314,7 +312,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       locationField = SchemaPath.getSimplePath(MetastoreAnalyzeConstants.LOCATION_FIELD);
     }
 
-    if (metadataLevel.includes(MetadataType.FILE) && tableType.isFileBased()) {
+    if (analyzeInfoProvider.supportsMetadataType(MetadataType.FILE) && metadataLevel.includes(MetadataType.FILE)) {
       MetadataHandlerContext handlerContext = MetadataHandlerContext.builder()
           .tableInfo(tableInfo)
           .metadataToHandle(filesInfo)

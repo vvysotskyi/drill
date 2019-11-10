@@ -131,7 +131,8 @@ public class DrillSqlWorker {
           "Will sync remote and local function registries if needed and retry " +
           "in case if issue was due to missing function implementation.", e);
       if (context.getFunctionRegistry().syncWithRemoteRegistry(
-          context.getDrillOperatorTable().getFunctionRegistryVersion())) {
+              context.getDrillOperatorTable().getFunctionRegistryVersion())
+          && context.getSQLStatementType() == SqlStatementType.SELECT) {
         context.reloadDrillOperatorTable();
         logger.trace("Local function registry was synchronized with remote. Trying to find function one more time.");
         return getPhysicalPlan(context, sql, textPlanCopy, retryAttempts);

@@ -26,6 +26,7 @@ import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.server.options.OptionManager;
@@ -46,8 +47,7 @@ import java.util.stream.Collectors;
 /**
  * Implementation of {@link AnalyzeInfoProvider} for file-based tables.
  */
-public class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
-  public static final AnalyzeInfoProvider INSTANCE = new AnalyzeFileInfoProvider();
+public abstract class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
 
   @Override
   public List<SchemaPath> getSegmentColumns(DrillTable table, OptionManager options) throws IOException {
@@ -88,5 +88,10 @@ public class AnalyzeFileInfoProvider implements AnalyzeInfoProvider {
     return new NamedExpression(new FunctionCall("parentPath",
         Collections.singletonList(locationField), ExpressionPosition.UNKNOWN),
         FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.LOCATION_FIELD));
+  }
+
+  @Override
+  public boolean supportsGroupScan(GroupScan groupScan) {
+    return false;
   }
 }

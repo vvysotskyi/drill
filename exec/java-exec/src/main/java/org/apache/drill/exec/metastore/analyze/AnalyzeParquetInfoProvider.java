@@ -20,7 +20,9 @@ package org.apache.drill.exec.metastore.analyze;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.store.parquet.ParquetGroupScan;
 import org.apache.drill.metastore.metadata.MetadataType;
 
 import java.util.ArrayList;
@@ -33,6 +35,8 @@ import java.util.List;
 public class AnalyzeParquetInfoProvider extends AnalyzeFileInfoProvider {
   public static final AnalyzeInfoProvider INSTANCE = new AnalyzeParquetInfoProvider();
 
+  public static final String TABLE_TYPE_NAME = "PARQUET";
+
   @Override
   public List<SqlIdentifier> getProjectionFields(MetadataType metadataLevel, OptionManager options) {
     List<SqlIdentifier> columnList = new ArrayList<>(super.getProjectionFields(metadataLevel, options));
@@ -42,5 +46,28 @@ public class AnalyzeParquetInfoProvider extends AnalyzeFileInfoProvider {
       columnList.add(new SqlIdentifier(options.getString(ExecConstants.IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL), SqlParserPos.ZERO));
     }
     return Collections.unmodifiableList(columnList);
+  }
+
+  @Override
+  public boolean supportsGroupScan(GroupScan groupScan) {
+    return groupScan instanceof ParquetGroupScan;
+  }
+
+  @Override
+  public String getTableTypeName() {
+    return TABLE_TYPE_NAME;
+  }
+
+  @Override
+  public boolean supportsMetadataType(MetadataType metadataType) {
+    switch (metadataType) {
+      case ROW_GROUP:
+      case FILE:
+      case SEGMENT:
+      case TABLE:
+        return true;
+      default:
+        return false;
+    }
   }
 }

@@ -21,6 +21,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.NamedExpression;
+import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.server.options.OptionManager;
@@ -93,17 +94,25 @@ public interface AnalyzeInfoProvider {
   NamedExpression getParentLocationExpression(SchemaPath locationField);
 
   /**
-   * Returns {@link AnalyzeInfoProvider} instance for specified {@link TableType} table type.
+   * Checks whether this {@link AnalyzeInfoProvider} supports specified {@link GroupScan} type.
    *
-   * @param tableType table type
-   * @return {@link AnalyzeInfoProvider} instance
+   * @param groupScan group scan
+   * @return {@code true} if this {@link AnalyzeInfoProvider} supports specified {@link GroupScan} type
    */
-  static AnalyzeInfoProvider getAnalyzeInfoProvider(TableType tableType) {
-    switch (tableType) {
-      case PARQUET:
-        return AnalyzeParquetInfoProvider.INSTANCE;
-      default:
-        throw new UnsupportedOperationException(String.format("Unsupported table type [%s]", tableType));
-    }
-  }
+  boolean supportsGroupScan(GroupScan groupScan);
+
+  /**
+   * Returns table type name supported by this {@link AnalyzeInfoProvider}.
+   *
+   * @return table type name
+   */
+  String getTableTypeName();
+
+  /**
+   * Checks whether this {@link AnalyzeInfoProvider} supports specified {@link MetadataType}.
+   *
+   * @param metadataType metadata type
+   * @return {@code true} if this {@link AnalyzeInfoProvider} supports specified {@link MetadataType}
+   */
+  boolean supportsMetadataType(MetadataType metadataType);
 }

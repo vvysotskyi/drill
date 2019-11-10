@@ -24,8 +24,8 @@ import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.metastore.analyze.AnalyzeParquetInfoProvider;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
-import org.apache.drill.exec.metastore.analyze.TableType;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.metastore.components.tables.BasicTablesRequests;
@@ -2680,7 +2680,7 @@ public class TestMetastoreCommands extends ClusterTest {
     dirTestWatcher.copyResourceToTestTmp(Paths.get("store/text/data/regions.csv"), Paths.get(tableName));
 
     thrown.expect(UserRemoteException.class);
-    thrown.expectMessage("Unsupported table type");
+    thrown.expectMessage("Unable to find AnalyzeInfoProvider implementation for GroupScan class [EasyGroupScan]");
 
     run("analyze table dfs.tmp.`%s` REFRESH METADATA", tableName);
   }
@@ -2796,7 +2796,7 @@ public class TestMetastoreCommands extends ClusterTest {
         .owner(cluster.config().getString("user.name"))
         .storagePlugin("dfs")
         .workspace(workspace)
-        .type(TableType.PARQUET.name())
+        .type(AnalyzeParquetInfoProvider.TABLE_TYPE_NAME)
         .build();
   }
 
