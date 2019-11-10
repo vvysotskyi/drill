@@ -151,7 +151,7 @@ public class SchemaFunctions {
       }
 
       org.apache.drill.exec.record.metadata.TupleMetadata currentSchema =
-          org.apache.drill.exec.record.metadata.TupleMetadata.of(
+          org.apache.drill.exec.expr.fn.impl.SchemaFunctions.getTupleMetadata(
               org.apache.drill.common.util.DrillStringUtils.toBinaryString(input.buffer, input.start, input.end));
       if (schemaHolder.obj == null) {
         schemaHolder.obj = currentSchema;
@@ -204,7 +204,7 @@ public class SchemaFunctions {
 
     @Override
     public void add() {
-      org.apache.drill.exec.record.metadata.TupleMetadata currentSchema = org.apache.drill.exec.record.metadata.TupleMetadata.of(
+      org.apache.drill.exec.record.metadata.TupleMetadata currentSchema = org.apache.drill.exec.expr.fn.impl.SchemaFunctions.getTupleMetadata(
           org.apache.drill.common.util.DrillStringUtils.toBinaryString(input.buffer, input.start, input.end));
       if (schemaHolder.obj == null) {
         schemaHolder.obj = currentSchema;
@@ -236,5 +236,15 @@ public class SchemaFunctions {
     public void reset() {
       schemaHolder.obj = null;
     }
+  }
+
+  /**
+   * Wraps default method from TupleMetadata to avoid {@link IncompatibleClassChangeError} for JDK 9+.
+   *
+   * @param serialized tuple metadata in JSON string representation
+   * @return {@link TupleMetadata} instance
+   */
+  public static TupleMetadata getTupleMetadata(String serialized) {
+    return TupleMetadata.of(serialized);
   }
 }
