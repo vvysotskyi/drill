@@ -61,7 +61,7 @@ public interface HashTable {
    * @param context
    * @param cg
    */
-  void setup(HashTableConfig htConfig, BufferAllocator allocator, VectorContainer incomingBuild, RecordBatch incomingProbe, RecordBatch outgoing,
+  void setup(HashTableConfig htConfig, BufferAllocator allocator, RecordBatch incomingBuild, RecordBatch incomingProbe, RecordBatch outgoing,
              VectorContainer htContainerOrig, FragmentContext context, ClassGenerator<?> cg);
 
   /**
@@ -124,7 +124,7 @@ public interface HashTable {
    * @param newIncoming The new build side batch.
    * @param newIncomingProbe The new probe side batch.
    */
-  void updateIncoming(VectorContainer newIncoming, RecordBatch newIncomingProbe);
+  void updateIncoming(RecordBatch newIncoming, RecordBatch newIncomingProbe);
 
   /**
    * Clears all the memory used by the {@link HashTable} and re-initializes it.

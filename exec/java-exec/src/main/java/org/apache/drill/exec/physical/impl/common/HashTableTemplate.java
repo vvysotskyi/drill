@@ -90,7 +90,7 @@ public abstract class HashTableTemplate implements HashTable {
   private BufferAllocator allocator;
 
   // The incoming build side record batch
-  private VectorContainer incomingBuild;
+  private RecordBatch incomingBuild;
 
   // The incoming probe side record batch (may be null)
   private RecordBatch incomingProbe;
@@ -416,7 +416,7 @@ public abstract class HashTableTemplate implements HashTable {
 
     @RuntimeOverridden
     protected void setupInterior(
-        @Named("incomingBuild") VectorContainer incomingBuild,
+        @Named("incomingBuild") RecordBatch incomingBuild,
         @Named("incomingProbe") RecordBatch incomingProbe,
         @Named("outgoing") RecordBatch outgoing,
         @Named("htContainer") VectorContainer htContainer) throws SchemaChangeException {
@@ -469,7 +469,7 @@ public abstract class HashTableTemplate implements HashTable {
   }
 
   @Override
-  public void setup(HashTableConfig htConfig, BufferAllocator allocator, VectorContainer incomingBuild,
+  public void setup(HashTableConfig htConfig, BufferAllocator allocator, RecordBatch incomingBuild,
                     RecordBatch incomingProbe, RecordBatch outgoing, VectorContainer htContainerOrig,
                     FragmentContext context, ClassGenerator<?> cg) {
     float loadf = htConfig.getLoadFactor();
@@ -898,7 +898,7 @@ public abstract class HashTableTemplate implements HashTable {
   }
 
   @Override
-  public void updateIncoming(VectorContainer newIncoming, RecordBatch newIncomingProbe) {
+  public void updateIncoming(RecordBatch newIncoming, RecordBatch newIncomingProbe) {
     incomingBuild = newIncoming;
     incomingProbe = newIncomingProbe;
     // reset();
@@ -947,7 +947,7 @@ public abstract class HashTableTemplate implements HashTable {
   }
 
   // These methods will be code-generated in the context of the outer class
-  protected abstract void doSetup(@Named("incomingBuild") VectorContainer incomingBuild, @Named("incomingProbe") RecordBatch incomingProbe) throws SchemaChangeException;
+  protected abstract void doSetup(@Named("incomingBuild") RecordBatch incomingBuild, @Named("incomingProbe") RecordBatch incomingProbe) throws SchemaChangeException;
 
   protected abstract int getHashBuild(@Named("incomingRowIdx") int incomingRowIdx, @Named("seedValue") int seedValue) throws SchemaChangeException;
 

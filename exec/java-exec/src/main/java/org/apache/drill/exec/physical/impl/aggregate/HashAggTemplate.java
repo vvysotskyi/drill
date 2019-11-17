@@ -467,7 +467,7 @@ public abstract class HashAggTemplate implements HashAggregator {
       } catch (SchemaChangeException sce) {
         throw new IllegalStateException("Unexpected Schema Change while creating a hash table",sce);
       }
-      this.batchHolders[i] = new ArrayList<BatchHolder>(); // First BatchHolder is created when the first put request is received.
+      this.batchHolders[i] = new ArrayList<>(); // First BatchHolder is created when the first put request is received.
     }
     // Initialize the value vectors in the generated code (which point to the incoming or outgoing fields)
     try {
@@ -489,14 +489,14 @@ public abstract class HashAggTemplate implements HashAggregator {
     currentBatchRecordCount = newIncoming.getRecordCount(); // first batch in this spill file
     nextPartitionToReturn = 0;
     for (int i = 0; i < spilledState.getNumPartitions(); i++ ) {
-      htables[i].updateIncoming(newIncoming.getContainer(), null);
+      htables[i].updateIncoming(newIncoming, null);
       htables[i].reset();
       if ( batchHolders[i] != null) {
         for (BatchHolder bh : batchHolders[i]) {
           bh.clear();
         }
         batchHolders[i].clear();
-        batchHolders[i] = new ArrayList<BatchHolder>();
+        batchHolders[i] = new ArrayList<>();
       }
       outBatchIndex[i] = 0;
       writers[i] = null;
