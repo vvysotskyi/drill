@@ -393,6 +393,7 @@ public abstract class HashAggTemplate implements HashAggregator {
     if ( schema == null ) { estValuesBatchSize = estOutgoingAllocSize = estMaxBatchSize = 0; } // incoming was an empty batch
     else {
       // Estimate the max batch size; should use actual data (e.g. lengths of varchars)
+      // commented out?
       updateEstMaxBatchSize(incoming);
     }
     // create "reserved memory" and adjust the memory limit down
@@ -574,6 +575,7 @@ public abstract class HashAggTemplate implements HashAggregator {
 
       // This would be called only once - first time actual data arrives on incoming
       if ( schema == null && incoming.getRecordCount() > 0 ) {
+//        RowSetFormatter.print(DirectRowSet.fromContainer(incoming.getContainer()));
         this.schema = incoming.getSchema();
         currentBatchRecordCount = incoming.getRecordCount(); // initialize for first non empty batch
         // Calculate the number of partitions based on actual incoming data

@@ -22,23 +22,25 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.metastore.analyze.MetadataAggregateContext;
+import org.apache.drill.exec.planner.physical.AggPrelBase;
 
 import java.util.Collections;
 
 @JsonTypeName("metadataAggregate")
-public class MetadataAggPOP extends StreamingAggregate {
+public class MetadataAggPOP extends HashAggregate {
   private final MetadataAggregateContext context;
 
   @JsonCreator
   public MetadataAggPOP(@JsonProperty("child") PhysicalOperator child,
-      @JsonProperty("context") MetadataAggregateContext context) {
-    super(child, context.groupByExpressions(), Collections.emptyList());
+      @JsonProperty("context") MetadataAggregateContext context,
+      @JsonProperty("phase") AggPrelBase.OperatorPhase phase) {
+    super(child, phase, context.groupByExpressions(), Collections.emptyList(), 0.0F);
     this.context = context;
   }
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new MetadataAggPOP(child, context);
+    return new MetadataAggPOP(child, context, getAggPhase());
   }
 
   @JsonProperty

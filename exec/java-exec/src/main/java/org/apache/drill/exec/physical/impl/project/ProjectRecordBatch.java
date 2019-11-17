@@ -412,9 +412,9 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
                 continue;
               }
 
-              if (isImplicitFileColumn(vvIn)) {
-                continue;
-              }
+//              if (isImplicitFileColumn(vvIn)) {
+//                continue;
+//              }
 
               FieldReference ref = new FieldReference(name);
               ValueVector vvOut = container.addOrGet(MaterializedField.create(ref.getAsNamePart().getName(),
@@ -436,9 +436,9 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
                 continue;
               }
 
-              if (isImplicitFileColumn(vvIn)) {
-                continue;
-              }
+//              if (isImplicitFileColumn(vvIn)) {
+//                continue;
+//              }
 
               LogicalExpression expr = ExpressionTreeMaterializer.materialize(originalPath, incomingBatch, collector, context.getFunctionRegistry() );
               if (collector.hasErrors()) {
@@ -578,7 +578,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   }
 
   private boolean isImplicitFileColumn(ValueVector vvIn) {
-    return columnExplorer.isImplicitFileColumn(vvIn.getField().getName());
+    return columnExplorer.isImplicitOrInternalFileColumn(vvIn.getField().getName());
   }
 
   private List<NamedExpression> getExpressionList() {
@@ -764,7 +764,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
           }
         } else {
           String newName = expr.getPath();
-          if (!refHasPrefix && !exprHasPrefix) {
+          if (!refHasPrefix && !exprHasPrefix && !columnExplorer.isImplicitOrInternalFileColumn(newName)) {
             addToResultMaps(newName, result, true); // allow dups since this is likely top-level project
           } else {
             addToResultMaps(newName, result, false);

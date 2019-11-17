@@ -34,8 +34,8 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.metastore.analyze.MetastoreAnalyzeConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.MetadataAggPOP;
-import org.apache.drill.exec.physical.impl.aggregate.StreamingAggBatch;
-import org.apache.drill.exec.physical.impl.aggregate.StreamingAggregator;
+import org.apache.drill.exec.physical.impl.aggregate.HashAggBatch;
+import org.apache.drill.exec.physical.impl.aggregate.HashAggregator;
 import org.apache.drill.exec.metastore.analyze.AnalyzeColumnUtils;
 import org.apache.drill.exec.planner.types.DrillRelDataTypeSystem;
 import org.apache.drill.exec.record.BatchSchema;
@@ -56,7 +56,7 @@ import java.util.stream.StreamSupport;
  * Operator which adds aggregate calls for all incoming columns to calculate required metadata and produces aggregations.
  * If aggregation is performed on top of another aggregation, required aggregate calls for merging metadata will be added.
  */
-public class MetadataAggBatch extends StreamingAggBatch {
+public class MetadataAggBatch extends HashAggBatch {
 
   private List<NamedExpression> valueExpressions;
 
@@ -65,7 +65,7 @@ public class MetadataAggBatch extends StreamingAggBatch {
   }
 
   @Override
-  protected StreamingAggregator createAggregatorInternal()
+  protected HashAggregator createAggregatorInternal()
       throws SchemaChangeException, ClassTransformationException, IOException {
     valueExpressions = new ArrayList<>();
     MetadataAggPOP popConfig = (MetadataAggPOP) this.popConfig;
@@ -94,7 +94,7 @@ public class MetadataAggBatch extends StreamingAggBatch {
       addMetadataAggregateCalls();
       // infer schema from incoming data
       addSchemaCall(fieldsList);
-      addNewMetadataAggregations();
+//      addNewMetadataAggregations();
     } else {
       addCollectListCall(fieldsList);
       addMergeSchemaCall();

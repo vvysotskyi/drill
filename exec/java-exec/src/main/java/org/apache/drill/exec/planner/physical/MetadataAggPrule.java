@@ -18,17 +18,19 @@
 package org.apache.drill.exec.planner.physical;
 
 import org.apache.calcite.plan.RelOptRuleCall;
+import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.InvalidRelException;
 import org.apache.calcite.rel.RelNode;
+import org.apache.drill.common.exceptions.DrillRuntimeException;
+import org.apache.drill.exec.metastore.analyze.MetadataAggregateContext;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.MetadataAggRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
+import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MetadataAggPrule extends Prule {
   public static final MetadataAggPrule INSTANCE = new MetadataAggPrule();
@@ -43,18 +45,117 @@ public class MetadataAggPrule extends Prule {
     MetadataAggRel relNode = call.rel(0);
     RelNode input = relNode.getInput();
 
-    int groupByExprsSize = relNode.getContext().groupByExpressions().size();
+    RelTraitSet traits;
 
-    // group by expressions will be returned first
-    RelCollation collation = RelCollations.of(IntStream.range(1, groupByExprsSize)
-        .mapToObj(RelFieldCollation::new)
-        .collect(Collectors.toList()));
+    try {
+      if (/*relNode.getContext().groupByExpressions().isEmpty()*/true) {
+        DrillDistributionTrait singleDist = DrillDistributionTrait.SINGLETON;
+        traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL).plus(singleDist);
+        createTransformRequest(call, relNode, input, traits);
+      } else {
+        // hash distribute on all grouping keys
+        DrillDistributionTrait distOnAllKeys =
+            new DrillDistributionTrait(DrillDistributionTrait.DistributionType.HASH_DISTRIBUTED,
+                ImmutableList.copyOf(getDistributionField(relNode, true /* get all grouping keys */)));
 
-    // TODO: update DrillDistributionTrait when implemented parallelization for metadata collecting (see DRILL-7433)
-    RelTraitSet traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
-    traits = groupByExprsSize > 0 ? traits.plus(collation) : traits;
-    RelNode convertedInput = convert(input, traits);
-    call.transformTo(
-        new MetadataAggPrel(relNode.getCluster(), traits, convertedInput, relNode.getContext()));
+        traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL).plus(distOnAllKeys);
+        createTransformRequest(call, relNode, input, traits);
+
+        // hash distribute on single grouping key
+        DrillDistributionTrait distOnOneKey =
+            new DrillDistributionTrait(DrillDistributionTrait.DistributionType.HASH_DISTRIBUTED,
+                ImmutableList.copyOf(getDistributionField(relNode, false /* get single grouping key */)));
+
+        traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL).plus(distOnOneKey);
+        createTransformRequest(call, relNode, input, traits);
+
+        if (/*create2PhasePlan(call, relNode)*/false) {
+          traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL);
+
+          RelNode convertedInput = convert(input, traits);
+          new TwoPhaseSubset(call, distOnAllKeys).go(relNode, convertedInput);
+
+        }
+      }
+    } catch (InvalidRelException e) {
+      throw new DrillRuntimeException(e);
+    }
   }
+
+  private class TwoPhaseSubset extends SubsetTransformer<MetadataAggRel, InvalidRelException> {
+    final RelTrait distOnAllKeys;
+
+    public TwoPhaseSubset(RelOptRuleCall call, RelTrait distOnAllKeys) {
+      super(call);
+      this.distOnAllKeys = distOnAllKeys;
+    }
+
+    @Override
+    public RelNode convertChild(MetadataAggRel aggregate, RelNode input) throws InvalidRelException {
+
+      RelTraitSet traits = newTraitSet(Prel.DRILL_PHYSICAL, input.getTraitSet().getTrait(DrillDistributionTraitDef.INSTANCE));
+      RelNode newInput = convert(input, traits);
+
+      MetadataAggPrel phase1Agg = new MetadataAggPrel(
+          aggregate.getCluster(),
+          traits,
+          newInput,
+          aggregate.getContext(),
+          AggPrelBase.OperatorPhase.PHASE_1of2);
+
+      HashToRandomExchangePrel exch =
+          new HashToRandomExchangePrel(phase1Agg.getCluster(), phase1Agg.getTraitSet().plus(Prel.DRILL_PHYSICAL).plus(distOnAllKeys),
+              phase1Agg, ImmutableList.copyOf(getDistributionField(aggregate, true)));
+
+//      ImmutableBitSet newGroupSet = remapGroupSet(aggregate.getGroupSet());
+//      List<ImmutableBitSet> newGroupSets = new ArrayList<>();
+//      for (ImmutableBitSet groupSet : aggregate.getGroupSets()) {
+//        newGroupSets.add(remapGroupSet(groupSet));
+//      }
+
+      MetadataAggregateContext aggContext = aggregate.getContext().toBuilder()
+          .createNewAggregations(false)
+          .build();
+      return new MetadataAggPrel(
+          aggregate.getCluster(),
+          exch.getTraitSet(),
+          exch,
+          aggContext,
+          AggPrelBase.OperatorPhase.PHASE_2of2);
+    }
+  }
+
+  private void createTransformRequest(RelOptRuleCall call, MetadataAggRel aggregate,
+      RelNode input, RelTraitSet traits) {
+
+    final RelNode convertedInput = convert(input, PrelUtil.fixTraits(call, traits));
+
+    MetadataAggPrel newAgg = new MetadataAggPrel(
+        aggregate.getCluster(),
+        traits,
+        convertedInput,
+        aggregate.getContext(),
+        AggPrelBase.OperatorPhase.PHASE_1of1);
+
+    call.transformTo(newAgg);
+  }
+  protected List<DrillDistributionTrait.DistributionField> getDistributionField(MetadataAggRel rel, boolean allFields) {
+    List<DrillDistributionTrait.DistributionField> groupByFields = new ArrayList<>();
+    int groupByExprsSize = rel.getContext().groupByExpressions().size();
+
+    for (int group = 1; group <= groupByExprsSize; group++) {
+      DrillDistributionTrait.DistributionField field = new DrillDistributionTrait.DistributionField(group);
+      groupByFields.add(field);
+
+      if (!allFields && groupByFields.size() == 1) {
+        // TODO: if we are only interested in 1 grouping field, pick the first one for now..
+        // but once we have num distinct values (NDV) statistics, we should pick the one
+        // with highest NDV.
+        break;
+      }
+    }
+
+    return groupByFields;
+  }
+
 }

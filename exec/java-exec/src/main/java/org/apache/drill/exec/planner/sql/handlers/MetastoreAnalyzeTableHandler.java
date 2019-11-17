@@ -34,6 +34,7 @@ import org.apache.calcite.tools.ValidationException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.common.util.function.CheckedSupplier;
 import org.apache.drill.exec.ExecConstants;
@@ -405,7 +406,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     List<SchemaPath> excludedColumns = Arrays.asList(locationField, lastModifiedTimeField);
 
     MetadataAggregateContext aggregateContext = MetadataAggregateContext.builder()
-        .groupByExpressions(Collections.emptyList())
+        .groupByExpressions(Collections.singletonList(new NamedExpression(ValueExpressions.getChar("a", 100), FieldReference.getWithQuotedRef("non-existent"))))
         .interestingColumns(statisticsColumns)
         .createNewAggregations(createNewAggregations)
         .excludedColumns(excludedColumns)
@@ -525,11 +526,12 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       SchemaPath locationField, String rowGroupIndexColumn, SchemaPath rgiField) {
     List<NamedExpression> rowGroupGroupByExpressions = new ArrayList<>(segmentExpressions);
     rowGroupGroupByExpressions.add(
+        new NamedExpression(locationField, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.LOCATION_FIELD)));
+
+    rowGroupGroupByExpressions.add(
         new NamedExpression(rgiField,
             FieldReference.getWithQuotedRef(rowGroupIndexColumn)));
 
-    rowGroupGroupByExpressions.add(
-        new NamedExpression(locationField, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.LOCATION_FIELD)));
     return rowGroupGroupByExpressions;
   }
 

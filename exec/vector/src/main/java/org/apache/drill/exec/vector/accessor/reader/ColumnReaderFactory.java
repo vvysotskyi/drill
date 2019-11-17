@@ -44,7 +44,7 @@ public class ColumnReaderFactory {
     switch (type) {
     case GENERIC_OBJECT:
     case LATE:
-    case NULL:
+//    case NULL:
     case LIST:
     case MAP:
     case DICT:

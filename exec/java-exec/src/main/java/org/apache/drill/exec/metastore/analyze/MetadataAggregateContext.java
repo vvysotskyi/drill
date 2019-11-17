@@ -74,6 +74,14 @@ public class MetadataAggregateContext {
         .toString();
   }
 
+  public MetadataAggregateContextBuilder toBuilder() {
+    return new MetadataAggregateContextBuilder()
+        .groupByExpressions(groupByExpressions)
+        .interestingColumns(interestingColumns)
+        .createNewAggregations(createNewAggregations)
+        .excludedColumns(excludedColumns);
+  }
+
   public static MetadataAggregateContextBuilder builder() {
     return new MetadataAggregateContextBuilder();
   }

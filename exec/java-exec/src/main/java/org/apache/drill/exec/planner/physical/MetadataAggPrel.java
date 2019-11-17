@@ -35,17 +35,19 @@ import java.util.List;
 
 public class MetadataAggPrel extends SingleRel implements DrillRelNode, Prel {
   private final MetadataAggregateContext context;
+  private final AggPrelBase.OperatorPhase phase;
 
   public MetadataAggPrel(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-      MetadataAggregateContext context) {
+      MetadataAggregateContext context, AggPrelBase.OperatorPhase operatorPhase) {
     super(cluster, traits, input);
     this.context = context;
+    this.phase = operatorPhase;
   }
 
   @Override
   public PhysicalOperator getPhysicalOperator(PhysicalPlanCreator creator) throws IOException {
     Prel child = (Prel) this.getInput();
-    MetadataAggPOP physicalOperator = new MetadataAggPOP(child.getPhysicalOperator(creator), context);
+    MetadataAggPOP physicalOperator = new MetadataAggPOP(child.getPhysicalOperator(creator), context, phase);
     return creator.addMetadata(this, physicalOperator);
   }
 
@@ -66,7 +68,7 @@ public class MetadataAggPrel extends SingleRel implements DrillRelNode, Prel {
 
   @Override
   public boolean needsFinalColumnReordering() {
-    return true;
+    return false;
   }
 
   @Override
@@ -77,6 +79,10 @@ public class MetadataAggPrel extends SingleRel implements DrillRelNode, Prel {
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     Preconditions.checkState(inputs.size() == 1);
-    return new MetadataAggPrel(getCluster(), traitSet, inputs.iterator().next(), context);
+    return new MetadataAggPrel(getCluster(), traitSet, inputs.iterator().next(), context, phase);
+  }
+
+  public AggPrelBase.OperatorPhase phase() {
+    return phase;
   }
 }

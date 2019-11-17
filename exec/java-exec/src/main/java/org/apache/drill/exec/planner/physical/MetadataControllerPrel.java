@@ -77,7 +77,7 @@ public class MetadataControllerPrel extends BiRel implements DrillRelNode, Prel 
 
   @Override
   public boolean needsFinalColumnReordering() {
-    return true;
+    return false;
   }
 
   @Override

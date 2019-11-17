@@ -392,7 +392,9 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
 
     Map<SchemaPath, ColumnStatistics> columnStatistics = getColumnStatistics(reader, columnMetadata, rowCount);
 
-    MetadataType metadataType = MetadataType.valueOf(metadataColumnReader.scalar().getString());
+    String string = metadataColumnReader.scalar().getString();
+//    System.out.println("\"" + string + "\"");
+    MetadataType metadataType = MetadataType.valueOf(string);
 
     BaseMetadata metadata;
 

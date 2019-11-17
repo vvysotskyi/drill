@@ -23,6 +23,7 @@ import org.apache.drill.categories.SlowTest;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
+import org.apache.drill.common.util.RepeatTestRule;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.metastore.analyze.AnalyzeParquetInfoProvider;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
@@ -1323,7 +1324,11 @@ public class TestMetastoreCommands extends ClusterTest {
     BaseTableMetadata expectedTableMetadata = getBaseTableMetadata(tableInfo, table);
 
     try {
-      dirTestWatcher.copyResourceToTestTmp(Paths.get("multilevel/parquet", "1994", "Q4"), Paths.get(tableName, "1994", "Q5"));
+      File segmentToRemove = dirTestWatcher.copyResourceToTestTmp(
+          Paths.get("multilevel/parquet", "1994", "Q4"),
+          Paths.get(tableName, "1994", "Q5"));
+
+      assertTrue(segmentToRemove.exists());
 
       testBuilder()
           .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` REFRESH METADATA", tableName)
@@ -1359,7 +1364,7 @@ public class TestMetastoreCommands extends ClusterTest {
 
       assertEquals(13, rowGroupsMetadata.size());
 
-      FileUtils.deleteQuietly(new File(new File(table, "1994"), "Q5"));
+      FileUtils.deleteQuietly(segmentToRemove);
 
       testBuilder()
           .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` REFRESH METADATA", tableName)
@@ -1411,6 +1416,7 @@ public class TestMetastoreCommands extends ClusterTest {
   }
 
   @Test
+  @RepeatTestRule.Repeat(count = 10)
   public void testIncrementalAnalyzeRemovedFile() throws Exception {
     String tableName = "multilevel/parquetRemovedFile";
 
@@ -1421,9 +1427,11 @@ public class TestMetastoreCommands extends ClusterTest {
     BaseTableMetadata expectedTableMetadata = getBaseTableMetadata(tableInfo, table);
 
     try {
-      dirTestWatcher.copyResourceToTestTmp(
+      File fileToRemove = dirTestWatcher.copyResourceToTestTmp(
           Paths.get("multilevel", "parquet", "1994", "Q4", "orders_94_q4.parquet"),
           Paths.get(tableName, "1994", "Q4", "orders_94_q4_1.parquet"));
+
+      assertTrue(fileToRemove.exists());
 
       testBuilder()
           .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` REFRESH METADATA", tableName)
@@ -1459,7 +1467,7 @@ public class TestMetastoreCommands extends ClusterTest {
 
       assertEquals(13, rowGroupsMetadata.size());
 
-      FileUtils.deleteQuietly(new File(new File(new File(table, "1994"), "Q4"), "orders_94_q4_1.parquet"));
+      FileUtils.deleteQuietly(fileToRemove);
 
       testBuilder()
           .sqlQuery("ANALYZE TABLE dfs.tmp.`%s` REFRESH METADATA", tableName)

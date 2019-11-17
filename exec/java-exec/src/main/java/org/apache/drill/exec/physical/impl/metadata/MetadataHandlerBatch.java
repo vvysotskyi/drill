@@ -66,7 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.NONE;
 import static org.apache.drill.exec.record.RecordBatch.IterOutcome.STOP;
@@ -83,6 +82,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
   private final Map<String, MetadataInfo> metadataToHandle;
 
   private boolean firstBatch = true;
+  private boolean done = false;
 
   protected MetadataHandlerBatch(MetadataHandlerPOP popConfig,
       FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
@@ -100,6 +100,9 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     // 1. Consume data from incoming operators and update metadataToHandle to remove incoming metadata
     // 2. For the case when incoming operator returned nothing - no updated underlying metadata was found.
     // 3. Fetches metadata which should be handled but wasn't returned by incoming batch from the Metastore
+    if (done) {
+      return NONE;
+    }
 
     IterOutcome outcome = next(incoming);
 
@@ -109,16 +112,23 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
           Preconditions.checkState(metadataToHandle.isEmpty(),
               "Incoming batch didn't return the result for modified segments");
         }
+        done = true;
         return outcome;
       case OK_NEW_SCHEMA:
         if (firstBatch) {
           firstBatch = false;
+          if (incoming.getContainer().getRecordCount() == 0) {
+            outcome = next(incoming);
+            if (outcome == NONE) {
+              done = true;
+            }
+          }
           if (!setupNewSchema()) {
             outcome = IterOutcome.OK;
           }
         }
         doWorkInternal();
-        return outcome;
+        return IterOutcome.OK_NEW_SCHEMA;
       case OK:
         assert !firstBatch : "First batch should be OK_NEW_SCHEMA";
         doWorkInternal();
@@ -126,6 +136,7 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
       case OUT_OF_MEMORY:
       case NOT_YET:
       case STOP:
+        done = true;
         return outcome;
       default:
         context.getExecutorState()
@@ -171,6 +182,9 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
         }
       }
     }
+//    if (done) {
+//      return NONE;
+//    }
     return outcome;
   }
 
@@ -414,10 +428,28 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
 
   private void setupSchemaFromContainer(VectorContainer populatedContainer) {
     container.clear();
-    StreamSupport.stream(populatedContainer.spliterator(), false)
-        .map(VectorWrapper::getField)
-        .filter(field -> field.getType().getMinorType() != MinorType.NULL)
-        .forEach(container::addOrGet);
+//    StreamSupport.stream(populatedContainer.spliterator(), false)
+//        .map(VectorWrapper::getField)
+//        .filter(field -> field.getType().getMinorType() != MinorType.NULL)
+//        .forEach(container::addOrGet);
+    for (VectorWrapper<?> vectorWrapper : populatedContainer) {
+      MaterializedField field = vectorWrapper.getField();
+      if (field.getType().getMinorType() != MinorType.NULL) {
+        container.addOrGet(field);
+      } else {
+        switch (field.getName()) {
+          case "locations":
+            container.addOrGet(MaterializedField.create(field.getName(), Types.repeated(MinorType.VARCHAR)));
+            break;
+          case "collectedMap":
+            container.addOrGet(MaterializedField.create(field.getName(), Types.repeated(MinorType.MAP)));
+            break;
+          default:
+            throw new UnsupportedOperationException(field.toString());
+        }
+      }
+    }
+
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
   }
 
@@ -439,15 +471,19 @@ public class MetadataHandlerBatch extends AbstractSingleRecordBatch<MetadataHand
     container.setRecordCount(incoming.getRecordCount());
 
     container.buildSchema(BatchSchema.SelectionVectorMode.NONE);
+//    System.out.println("////////////////////////////////");
+//
+//    RowSetFormatter.print(DirectRowSet.fromContainer(container));
+
     updateMetadataToHandle();
 
     return IterOutcome.OK;
   }
 
   private void updateMetadataToHandle() {
-    RowSetReader reader = DirectRowSet.fromContainer(container).reader();
     // updates metadataToHandle to be able to fetch required data which wasn't returned by incoming batch
     if (metadataToHandle != null && !metadataToHandle.isEmpty()) {
+      RowSetReader reader = DirectRowSet.fromContainer(container).reader();
       switch (metadataType) {
         case ROW_GROUP: {
           String rgiColumnName = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_INDEX_COLUMN_LABEL);

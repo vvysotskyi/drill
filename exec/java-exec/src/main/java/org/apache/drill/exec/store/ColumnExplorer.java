@@ -164,11 +164,12 @@ public class ColumnExplorer {
 
   public boolean isImplicitColumn(String name) {
     return isPartitionColumn(partitionDesignator, name) ||
-           isImplicitFileColumn(name);
+        isImplicitOrInternalFileColumn(name);
   }
 
-  public boolean isImplicitFileColumn(String name) {
-    return allImplicitColumns.get(name) != null;
+  public boolean isImplicitOrInternalFileColumn(String name) {
+    return allImplicitColumns.get(name) != null
+        || allInternalColumns.get(name) != null;
   }
 
   /**

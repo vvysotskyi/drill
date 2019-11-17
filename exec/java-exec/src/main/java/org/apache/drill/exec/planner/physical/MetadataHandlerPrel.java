@@ -66,7 +66,7 @@ public class MetadataHandlerPrel extends SingleRel implements DrillRelNode, Prel
 
   @Override
   public boolean needsFinalColumnReordering() {
-    return true;
+    return false;
   }
 
   @Override

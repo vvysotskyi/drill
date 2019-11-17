@@ -59,8 +59,10 @@ public class CollectListMapsAggFunction implements DrillAggFunc {
     mapWriter.start();
 
     for (int i = 0; i < inputs.length; i += 2) {
-      org.apache.drill.exec.vector.complex.MapUtility.writeToMapFromReader(
-          inputs[i + 1], mapWriter, inputs[i].readText().toString(), "CollectListMapsAggFunction");
+      if (inputs[i + 1].isSet()) {
+        org.apache.drill.exec.vector.complex.MapUtility.writeToMapFromReader(
+            inputs[i + 1], mapWriter, inputs[i].readText().toString(), "CollectListMapsAggFunction");
+      }
     }
     mapWriter.end();
   }

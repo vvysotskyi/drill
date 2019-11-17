@@ -104,8 +104,9 @@ public class SimpleVectorWrapper<T extends ValueVector> implements VectorWrapper
   @Override
   public void transfer(VectorWrapper<?> destination) {
     Preconditions.checkArgument(destination instanceof SimpleVectorWrapper);
-    Preconditions.checkArgument(getField().getType().equals(destination.getField().getType()));
-    vector.makeTransferPair(((SimpleVectorWrapper<?>)destination).vector).transfer();
+    if (getField().getType().equals(destination.getField().getType())) {
+      vector.makeTransferPair(((SimpleVectorWrapper<?>) destination).vector).transfer();
+    }
   }
 
   @Override
