@@ -24,16 +24,21 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollationImpl;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.MetadataAggRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 import org.apache.drill.exec.planner.physical.DrillDistributionTrait.NamedDistributionField;
+import org.apache.drill.exec.store.parquet.FilterEvaluatorUtils.FieldReferenceFinder;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class MetadataAggPrule extends Prule {
   public static final MetadataAggPrule INSTANCE = new MetadataAggPrule();
@@ -54,7 +59,8 @@ public class MetadataAggPrule extends Prule {
     List<String> names = new ArrayList<>();
     for (int i = 0; i < groupByExprsSize; i++) {
       collations.add(new RelFieldCollation(i + 1));
-      names.add(((SchemaPath)aggregate.getContext().groupByExpressions().get(i).getExpr()).getRootSegmentPath());
+      SchemaPath fieldPath = getArgumentReference(aggregate.getContext().groupByExpressions().get(i));
+      names.add(fieldPath.getRootSegmentPath());
     }
 
     RelCollation collation = new NamedRelCollation(collations, names);
@@ -71,7 +77,7 @@ public class MetadataAggPrule extends Prule {
         // hash distribute on all grouping keys
         DrillDistributionTrait distOnAllKeys =
             new DrillDistributionTrait(DrillDistributionTrait.DistributionType.HASH_DISTRIBUTED,
-                ImmutableList.copyOf(getDistributionField(aggregate)));
+                ImmutableList.copyOf(getDistributionFields(aggregate.getContext().groupByExpressions())));
 
         traits = call.getPlanner().emptyTraitSet().plus(Prel.DRILL_PHYSICAL).plus(collation).plus(DrillDistributionTrait.SINGLETON);
         // TODO: DRILL-7433 - uncomment this line when palatalization for MetadataHandler is implemented
@@ -110,18 +116,36 @@ public class MetadataAggPrule extends Prule {
     call.transformTo(newAgg);
   }
 
-  private static List<NamedDistributionField> getDistributionField(MetadataAggRel rel) {
-    List<NamedDistributionField> groupByFields = new ArrayList<>();
-    int groupByExprsSize = rel.getContext().groupByExpressions().size();
+  /**
+   * Returns list with named distribution fields which corresponds to specified expressions arguments.
+   *
+   * @param namedExpressions expressions list
+   * @return list of {@link NamedDistributionField} instances
+   */
+  private static List<NamedDistributionField> getDistributionFields(List<NamedExpression> namedExpressions) {
+    List<NamedDistributionField> distributionFields = new ArrayList<>();
+    int groupByExprsSize = namedExpressions.size();
 
-    for (int group = 1; group <= groupByExprsSize; group++) {
-      SchemaPath fieldName = (SchemaPath) rel.getContext().groupByExpressions().get(group - 1).getExpr();
+    for (int index = 0; index < groupByExprsSize; index++) {
+      SchemaPath fieldPath = getArgumentReference(namedExpressions.get(index));
       NamedDistributionField field =
-          new NamedDistributionField(group, fieldName.getRootSegmentPath());
-      groupByFields.add(field);
+          new NamedDistributionField(index + 1, fieldPath.getRootSegmentPath());
+      distributionFields.add(field);
     }
 
-    return groupByFields;
+    return distributionFields;
+  }
+
+  /**
+   * Returns {@link FieldReference} instance which corresponds to the argument of specified {@code namedExpression}.
+   *
+   * @param namedExpression expression
+   * @return {@link FieldReference} instance
+   */
+  private static FieldReference getArgumentReference(NamedExpression namedExpression) {
+    Set<SchemaPath> arguments = namedExpression.getExpr().accept(FieldReferenceFinder.INSTANCE, null);
+    assert arguments.size() == 1 : "Group by expression contains more than one argument";
+    return new FieldReference(arguments.iterator().next());
   }
 
   /**
@@ -165,11 +189,16 @@ public class MetadataAggPrule extends Prule {
       RelTraitSet traits = newTraitSet(Prel.DRILL_PHYSICAL, collation, toDist);
       RelNode newInput = convert(child, traits);
 
+      // maps group by expressions to themselves to be able to produce the second aggregation
+      List<NamedExpression> identityExpressions = aggregate.getContext().groupByExpressions().stream()
+          .map(namedExpression -> new NamedExpression(namedExpression.getExpr(), getArgumentReference(namedExpression)))
+          .collect(Collectors.toList());
+
       MetadataAggPrel phase1Agg = new MetadataAggPrel(
           aggregate.getCluster(),
           traits,
           newInput,
-          aggregate.getContext(),
+          aggregate.getContext().toBuilder().groupByExpressions(identityExpressions).build(),
           AggPrelBase.OperatorPhase.PHASE_1of2);
 
       int numEndPoints = PrelUtil.getSettings(phase1Agg.getCluster()).numEndPoints();
@@ -178,7 +207,7 @@ public class MetadataAggPrule extends Prule {
           new HashToMergeExchangePrel(phase1Agg.getCluster(),
               phase1Agg.getTraitSet().plus(Prel.DRILL_PHYSICAL).plus(distributionTrait),
               phase1Agg,
-              ImmutableList.copyOf(getDistributionField(aggregate)),
+              ImmutableList.copyOf(getDistributionFields(aggregate.getContext().groupByExpressions())),
               collation,
               numEndPoints);
 

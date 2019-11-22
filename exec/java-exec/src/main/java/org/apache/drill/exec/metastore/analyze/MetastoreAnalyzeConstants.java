@@ -25,6 +25,5 @@ public interface MetastoreAnalyzeConstants {
   String LOCATIONS_FIELD = "locations";
   String SCHEMA_FIELD = "schema";
   String METADATA_TYPE = "metadataType";
-  // TODO: remove this hack
-  String LOCATION_FIELD = "fqn";
+  String LOCATION_FIELD = "location";
 }

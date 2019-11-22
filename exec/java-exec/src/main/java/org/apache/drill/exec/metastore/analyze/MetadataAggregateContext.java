@@ -91,7 +91,8 @@ public class MetadataAggregateContext {
         .groupByExpressions(groupByExpressions)
         .interestingColumns(interestingColumns)
         .createNewAggregations(createNewAggregations)
-        .excludedColumns(excludedColumns);
+        .excludedColumns(excludedColumns)
+        .metadataLevel(metadataLevel);
   }
 
   @JsonPOJOBuilder(withPrefix = "")
