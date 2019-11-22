@@ -72,7 +72,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMetadata {
+public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMetadata<ParquetMetadataProvider> {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractParquetGroupScan.class);
 
@@ -593,10 +593,77 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
 
         this.rowGroups = LinkedListMultimap.create();
         filteredRowGroups.forEach(entry -> this.rowGroups.put(entry.getPath(), entry));
+        // updates files list to include only present row groups
+        if (files != null && !files.isEmpty()) {
+          files = rowGroups.keys().stream()
+              .map(files::get)
+              .collect(Collectors.toMap(FileMetadata::getPath, Function.identity()));
+        }
       } else {
         this.rowGroups = prunedRowGroups;
         matchAllMetadata = false;
         overflowLevel = MetadataType.ROW_GROUP;
+      }
+    }
+
+    /**
+     * Produces filtering of metadata at file level.
+     *
+     * @param optionManager     option manager
+     * @param filterPredicate   filter expression
+     * @param schemaPathsInExpr columns used in filter expression
+     */
+    @Override
+    protected void filterFileMetadata(OptionManager optionManager,
+        FilterPredicate<?> filterPredicate,
+        Set<SchemaPath> schemaPathsInExpr) {
+      Map<Path, FileMetadata> prunedFiles;
+      if (!source.getPartitionsMetadata().isEmpty()
+          && source.getPartitionsMetadata().size() > getPartitions().size()) {
+        // prunes files to leave only files which are contained by pruned partitions
+        prunedFiles = pruneForPartitions(source.getFilesMetadata(), getPartitions());
+      } else if (!source.getSegmentsMetadata().isEmpty()
+          && source.getSegmentsMetadata().size() > getSegments().size()) {
+        // prunes row groups to leave only row groups which are contained by pruned segments
+        prunedFiles = pruneForSegments(source.getFilesMetadata(), getSegments());
+      } else {
+        prunedFiles = source.getFilesMetadata();
+      }
+
+      if (isMatchAllMetadata()) {
+        files = prunedFiles;
+        return;
+      }
+
+      // files which have only single row group, so they may be pruned when pruning row groups
+      Map<Path, FileMetadata> omittedFiles = new HashMap<>();
+
+      AbstractParquetGroupScan abstractParquetGroupScan = (AbstractParquetGroupScan) source;
+
+      Map<Path, FileMetadata> filesToFilter = new HashMap<>(prunedFiles);
+      if (!abstractParquetGroupScan.rowGroups.isEmpty()) {
+        prunedFiles.forEach((path, fileMetadata) -> {
+          if (abstractParquetGroupScan.rowGroups.get(path).size() == 1) {
+            omittedFiles.put(path, fileMetadata);
+            filesToFilter.remove(path);
+          }
+        });
+      }
+
+      // Stop files pruning for the case:
+      //    -  # of files is beyond PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD.
+      if (filesToFilter.size() <= optionManager.getOption(
+          PlannerSettings.PARQUET_ROWGROUP_FILTER_PUSHDOWN_PLANNING_THRESHOLD)) {
+
+        matchAllMetadata = true;
+        files = filterAndGetMetadata(schemaPathsInExpr, filesToFilter.values(), filterPredicate, optionManager).stream()
+            .collect(Collectors.toMap(FileMetadata::getPath, Function.identity()));
+
+        files.putAll(omittedFiles);
+      } else {
+        matchAllMetadata = false;
+        files = prunedFiles;
+        overflowLevel = MetadataType.FILE;
       }
     }
 

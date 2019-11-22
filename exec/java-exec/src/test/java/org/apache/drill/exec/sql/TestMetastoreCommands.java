@@ -1968,7 +1968,12 @@ public class TestMetastoreCommands extends ClusterTest {
       run("create table dfs.%s (o_orderdate, o_orderpriority) partition by (o_orderpriority)\n"
           + "as select o_orderdate, o_orderpriority from dfs.`multilevel/parquet/1994/Q1`", tableName);
 
-      run("analyze table dfs.`%s` REFRESH METADATA", tableName);
+      testBuilder()
+          .sqlQuery("ANALYZE TABLE dfs.`%s` REFRESH METADATA", tableName)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(true, String.format("Collected / refreshed metadata for table [dfs.default.%s]", tableName))
+          .go();
 
       String query = "select * from dfs.%s where o_orderpriority = '1-URGENT'";
       long expectedRowCount = 3;

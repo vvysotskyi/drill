@@ -648,15 +648,18 @@ public class MetadataControllerBatch extends AbstractBinaryRecordBatch<MetadataC
     String rgl = context.getOptions().getString(ExecConstants.IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL);
     for (ColumnMetadata column : columnMetadata) {
       String columnName = column.name();
+      ObjectReader objectReader = reader.column(columnName);
       if (AnalyzeColumnUtils.isMetadataStatisticsField(columnName)) {
-        metadataStatistics.add(new StatisticsHolder(reader.column(columnName).getObject(),
+        metadataStatistics.add(new StatisticsHolder(objectReader.getObject(),
             AnalyzeColumnUtils.getStatisticsKind(columnName)));
-      } else if (columnName.equals(rgs)) {
-        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(columnName).scalar().getString()),
-            new BaseStatisticsKind(ExactStatisticsConstants.START, true)));
-      } else if (columnName.equals(rgl)) {
-        metadataStatistics.add(new StatisticsHolder(Long.parseLong(reader.column(columnName).scalar().getString()),
-            new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)));
+      } else if (!objectReader.isNull()) {
+        if (columnName.equals(rgs)) {
+          metadataStatistics.add(new StatisticsHolder(Long.parseLong(objectReader.scalar().getString()),
+              new BaseStatisticsKind(ExactStatisticsConstants.START, true)));
+        } else if (columnName.equals(rgl)) {
+          metadataStatistics.add(new StatisticsHolder(Long.parseLong(objectReader.scalar().getString()),
+              new BaseStatisticsKind(ExactStatisticsConstants.LENGTH, true)));
+        }
       }
     }
     return metadataStatistics;

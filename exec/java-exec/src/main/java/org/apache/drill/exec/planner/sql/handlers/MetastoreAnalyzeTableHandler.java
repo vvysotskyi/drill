@@ -121,7 +121,9 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     SqlSelect scanSql = new SqlSelect(
         SqlParserPos.ZERO,
         SqlNodeList.EMPTY,
-        getColumnList(sqlAnalyzeTable, analyzeInfoProvider),
+        getColumnList(sqlAnalyzeTable,
+            analyzeInfoProvider,
+            analyzeInfoProvider.getSegmentColumns(table, context.getOptions())),
         tableIdentifier,
         null,
         null,
@@ -175,12 +177,16 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
   /**
    * Generates the column list with {@link SchemaPath#DYNAMIC_STAR} and columns required for analyze.
    */
-  private SqlNodeList getColumnList(SqlMetastoreAnalyzeTable sqlAnalyzeTable, AnalyzeInfoProvider analyzeInfoProvider) {
+  private SqlNodeList getColumnList(SqlMetastoreAnalyzeTable sqlAnalyzeTable,
+      AnalyzeInfoProvider analyzeInfoProvider, List<SchemaPath> segmentColumns) {
     SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
     columnList.add(new SqlIdentifier(SchemaPath.DYNAMIC_STAR, SqlParserPos.ZERO));
     MetadataType metadataLevel = getMetadataType(sqlAnalyzeTable);
     for (SqlIdentifier field : analyzeInfoProvider.getProjectionFields(metadataLevel, context.getPlannerSettings().getOptions())) {
       columnList.add(field);
+    }
+    for (SchemaPath segmentColumn : segmentColumns) {
+      columnList.add(new SqlIdentifier(segmentColumn.getRootSegmentPath(), SqlParserPos.ZERO));
     }
     return columnList;
   }
@@ -344,7 +350,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
             .build();
 
         convertedRelNode = getSegmentAggRelNode(segmentExpressions, convertedRelNode,
-            createNewAggregations, statisticsColumns, locationField, analyzeInfoProvider, i, handlerContext);
+            createNewAggregations, statisticsColumns, locationField, i, handlerContext);
 
         locationField = SchemaPath.getSimplePath(MetastoreAnalyzeConstants.LOCATION_FIELD);
 
@@ -409,6 +415,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         .interestingColumns(statisticsColumns)
         .createNewAggregations(createNewAggregations)
         .excludedColumns(excludedColumns)
+        .metadataLevel(MetadataType.TABLE)
         .build();
 
     convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
@@ -424,22 +431,20 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
 
   private DrillRel getSegmentAggRelNode(List<NamedExpression> segmentExpressions, DrillRel convertedRelNode,
       boolean createNewAggregations, List<SchemaPath> statisticsColumns, SchemaPath locationField,
-      AnalyzeInfoProvider analyzeInfoProvider, int segmentLevel, MetadataHandlerContext handlerContext) {
-      SchemaPath lastModifiedTimeField =
+      int segmentLevel, MetadataHandlerContext handlerContext) {
+    SchemaPath lastModifiedTimeField =
         SchemaPath.getSimplePath(config.getContext().getOptions().getString(ExecConstants.IMPLICIT_LAST_MODIFIED_TIME_COLUMN_LABEL));
 
     List<SchemaPath> excludedColumns = Arrays.asList(lastModifiedTimeField, locationField);
 
-    List<NamedExpression> groupByExpressions = new ArrayList<>();
-    groupByExpressions.add(analyzeInfoProvider.getParentLocationExpression(locationField));
-
-    groupByExpressions.addAll(segmentExpressions);
+    List<NamedExpression> groupByExpressions = new ArrayList<>(segmentExpressions);
 
     MetadataAggregateContext aggregateContext = MetadataAggregateContext.builder()
-        .groupByExpressions(groupByExpressions.subList(0, segmentLevel + 1))
+        .groupByExpressions(groupByExpressions.subList(0, segmentLevel))
         .interestingColumns(statisticsColumns)
         .createNewAggregations(createNewAggregations)
         .excludedColumns(excludedColumns)
+        .metadataLevel(MetadataType.SEGMENT)
         .build();
 
     convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
@@ -470,6 +475,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         .interestingColumns(statisticsColumns)
         .createNewAggregations(createNewAggregations)
         .excludedColumns(excludedColumns)
+        .metadataLevel(MetadataType.FILE)
         .build();
 
     convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
@@ -508,6 +514,7 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
         .interestingColumns(statisticsColumns)
         .createNewAggregations(createNewAggregations)
         .excludedColumns(excludedColumns)
+        .metadataLevel(MetadataType.ROW_GROUP)
         .build();
 
     convertedRelNode = new MetadataAggRel(convertedRelNode.getCluster(),
@@ -525,11 +532,10 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
       SchemaPath locationField, String rowGroupIndexColumn, SchemaPath rgiField) {
     List<NamedExpression> rowGroupGroupByExpressions = new ArrayList<>(segmentExpressions);
     rowGroupGroupByExpressions.add(
+        new NamedExpression(locationField, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.LOCATION_FIELD)));
+    rowGroupGroupByExpressions.add(
         new NamedExpression(rgiField,
             FieldReference.getWithQuotedRef(rowGroupIndexColumn)));
-
-    rowGroupGroupByExpressions.add(
-        new NamedExpression(locationField, FieldReference.getWithQuotedRef(MetastoreAnalyzeConstants.LOCATION_FIELD)));
     return rowGroupGroupByExpressions;
   }
 
