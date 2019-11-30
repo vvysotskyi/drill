@@ -211,8 +211,7 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
     }
   }
 
-  protected void buildSchema() throws SchemaChangeException {
-  }
+  protected void buildSchema() throws SchemaChangeException { }
 
   @Override
   public void kill(boolean sendUpstream) {
@@ -253,7 +252,9 @@ public abstract class AbstractRecordBatch<T extends PhysicalOperator> implements
 
   @Override
   public VectorContainer getOutgoingContainer() {
-    throw new UnsupportedOperationException(String.format(" You should not call getOutgoingContainer() for class %s", this.getClass().getCanonicalName()));
+    throw new UnsupportedOperationException(
+        String.format(" You should not call getOutgoingContainer() for class %s",
+            getClass().getCanonicalName()));
   }
 
   @Override

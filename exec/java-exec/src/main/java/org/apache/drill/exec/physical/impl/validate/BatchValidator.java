@@ -47,6 +47,7 @@ import org.apache.drill.exec.physical.impl.unorderedreceiver.UnorderedReceiverBa
 import org.apache.drill.exec.physical.impl.unpivot.UnpivotMapsRecordBatch;
 import org.apache.drill.exec.physical.impl.window.WindowFrameRecordBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
+import org.apache.drill.exec.physical.rowSet.RowSet;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SimpleVectorWrapper;
@@ -342,6 +343,11 @@ public class BatchValidator {
     ErrorReporter reporter = errorReporter(batch);
     new BatchValidator(reporter).validateBatch(batch, batch.getRecordCount());
     return reporter.errorCount() == 0;
+  }
+
+
+  public static void validate(RowSet rowSet) {
+    validate(rowSet.container());
   }
 
   private static ErrorReporter errorReporter(VectorAccessible batch) {
