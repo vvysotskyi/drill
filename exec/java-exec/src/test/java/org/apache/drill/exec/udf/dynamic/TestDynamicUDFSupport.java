@@ -130,9 +130,13 @@ public class TestDynamicUDFSupport extends ClusterTest {
   public void testEnableDynamicSupport() throws Exception {
     try (ClusterFixture cluster = builder().build();
          ClientFixture client = cluster.clientFixture()) {
-      client.queryBuilder().sql("alter system set `exec.udf.enable_dynamic_support` = true").run();
-      client.queryBuilder().sql("create function using jar 'jar_name.jar'").run();
-      client.queryBuilder().sql("drop function using jar 'jar_name.jar'").run();
+      try {
+        client.alterSystem(ExecConstants.DYNAMIC_UDF_SUPPORT_ENABLED, true);
+        client.queryBuilder().sql("create function using jar 'jar_name.jar'").run();
+        client.queryBuilder().sql("drop function using jar 'jar_name.jar'").run();
+      } finally {
+        client.resetSystem(ExecConstants.DYNAMIC_UDF_SUPPORT_ENABLED);
+      }
     }
   }
 
@@ -140,11 +144,15 @@ public class TestDynamicUDFSupport extends ClusterTest {
   public void testDisableDynamicSupportCreate() throws Exception {
     try (ClusterFixture cluster = builder().build();
          ClientFixture client = cluster.clientFixture()) {
-      client.queryBuilder().sql("alter system set `exec.udf.enable_dynamic_support` = false").run();
-      String query = "create function using jar 'jar_name.jar'";
-      thrown.expect(UserRemoteException.class);
-      thrown.expectMessage(containsString("Dynamic UDFs support is disabled."));
-      client.queryBuilder().sql(query).run();
+      try {
+        client.alterSystem(ExecConstants.DYNAMIC_UDF_SUPPORT_ENABLED, false);
+        String query = "create function using jar 'jar_name.jar'";
+        thrown.expect(UserRemoteException.class);
+        thrown.expectMessage(containsString("Dynamic UDFs support is disabled."));
+        client.queryBuilder().sql(query).run();
+      } finally {
+        client.resetSystem(ExecConstants.DYNAMIC_UDF_SUPPORT_ENABLED);
+      }
     }
   }
 
@@ -152,11 +160,15 @@ public class TestDynamicUDFSupport extends ClusterTest {
   public void testDisableDynamicSupportDrop() throws Exception {
     try (ClusterFixture cluster = builder().build();
          ClientFixture client = cluster.clientFixture()) {
-      client.queryBuilder().sql("alter system set `exec.udf.enable_dynamic_support` = false").run();
-      String query = "drop function using jar 'jar_name.jar'";
-      thrown.expect(UserRemoteException.class);
-      thrown.expectMessage(containsString("Dynamic UDFs support is disabled."));
-      client.queryBuilder().sql(query).run();
+      try {
+        client.alterSystem(ExecConstants.DYNAMIC_UDF_SUPPORT_ENABLED, false);
+        String query = "drop function using jar 'jar_name.jar'";
+        thrown.expect(UserRemoteException.class);
+        thrown.expectMessage(containsString("Dynamic UDFs support is disabled."));
+        client.queryBuilder().sql(query).run();
+      } finally {
+        client.resetSystem(ExecConstants.DYNAMIC_UDF_SUPPORT_ENABLED);
+      }
     }
   }
 
@@ -552,7 +564,7 @@ public class TestDynamicUDFSupport extends ClusterTest {
             .baselineValues("a")
             .go();
       } finally {
-        client.queryBuilder().sql("alter system reset `exec.udf.enable_dynamic_support`").run();
+        client.resetSystem(ExecConstants.DYNAMIC_UDF_SUPPORT_ENABLED);
       }
     }
   }
