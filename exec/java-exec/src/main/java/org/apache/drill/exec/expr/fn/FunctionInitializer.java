@@ -20,6 +20,8 @@ package org.apache.drill.exec.expr.fn;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -142,8 +144,8 @@ public class FunctionInitializer {
     try (InputStream is = clazz.getResourceAsStream(path)) {
       if (is == null) {
         throw new IOException(String.format(
-            "Failure trying to locate source code for class %s, tried to read on classpath location %s", clazz.getName(),
-            path));
+            "Failure trying to locate source code for class %s, tried to read on classpath location %s, jars %s", clazz.getName(),
+            path, Arrays.toString(((URLClassLoader) clazz.getClassLoader()).getURLs())));
       }
       String body = IO.toString(is);
 
