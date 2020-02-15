@@ -24,7 +24,6 @@ import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.drill.categories.SlowTest;
 import org.apache.drill.categories.SqlFunctionTest;
 import org.apache.drill.common.config.ConfigConstants;
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.VersionMismatchException;
@@ -36,11 +35,13 @@ import org.apache.drill.exec.proto.UserBitShared.Registry;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.sys.store.DataChangeVersion;
 import org.apache.drill.exec.util.JarUtil;
-import org.apache.drill.test.BaseTestQuery;
+import org.apache.drill.test.ClientFixture;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.ClusterFixtureBuilder;
+import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.TestBuilder;
 import org.apache.hadoop.fs.FileSystem;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -53,9 +54,9 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 
+import static org.apache.drill.exec.ExecTest.getLocalFileSystem;
 import static org.apache.drill.test.HadoopUtils.hadoopToJavaPath;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
@@ -74,7 +75,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @Category({SlowTest.class, SqlFunctionTest.class})
-public class TestDynamicUDFSupport extends BaseTestQuery {
+public class TestDynamicUDFSupport extends ClusterTest {
 
   private static final String DEFAULT_JAR_NAME = "drill-custom-lower";
   private static URI fsUri;
@@ -96,838 +97,915 @@ public class TestDynamicUDFSupport extends BaseTestQuery {
     jarBuilder = new JarBuilder("src/test/resources/drill-udf");
     defaultBinaryJar = buildJars(DEFAULT_JAR_NAME, "**/CustomLowerFunction.java", null);
     defaultSourceJar = JarUtil.getSourceName(defaultBinaryJar);
+    fsUri = getLocalFileSystem().getUri();
 
     FileUtils.copyFileToDirectory(new File(buildDirectory, defaultBinaryJar), jarsDir);
     FileUtils.copyFileToDirectory(new File(buildDirectory, defaultSourceJar), jarsDir);
   }
 
-  @Before
-  public void setupNewDrillbit() throws Exception {
+  public ClusterFixtureBuilder builder() {
     udfDir = dirTestWatcher.makeSubDir(Paths.get("udf"));
-    Properties overrideProps = new Properties();
-    overrideProps.setProperty(ExecConstants.UDF_DIRECTORY_ROOT, udfDir.getAbsolutePath());
-    overrideProps.setProperty(ExecConstants.UDF_DIRECTORY_FS, FileSystem.DEFAULT_FS);
-    updateTestCluster(1, DrillConfig.create(overrideProps));
 
-    fsUri = getLocalFileSystem().getUri();
+    return ClusterFixture.builder(dirTestWatcher)
+        .configProperty(ExecConstants.UDF_DIRECTORY_ROOT, udfDir.getAbsolutePath())
+        .configProperty(ExecConstants.UDF_DIRECTORY_FS, FileSystem.DEFAULT_FS);
   }
 
   @After
   public void cleanup() throws Exception {
-    closeClient();
     FileUtils.cleanDirectory(udfDir);
     dirTestWatcher.clear();
   }
 
   @Test
   public void testSyntax() throws Exception {
-    test("create function using jar 'jar_name.jar'");
-    test("drop function using jar 'jar_name.jar'");
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      client.queryBuilder().sql("create function using jar 'jar_name.jar'").run();
+      client.queryBuilder().sql("drop function using jar 'jar_name.jar'").run();
+    }
   }
 
   @Test
   public void testEnableDynamicSupport() throws Exception {
-    try {
-      test("alter system set `exec.udf.enable_dynamic_support` = true");
-      test("create function using jar 'jar_name.jar'");
-      test("drop function using jar 'jar_name.jar'");
-    } finally {
-      test("alter system reset `exec.udf.enable_dynamic_support`");
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      client.queryBuilder().sql("alter system set `exec.udf.enable_dynamic_support` = true").run();
+      client.queryBuilder().sql("create function using jar 'jar_name.jar'").run();
+      client.queryBuilder().sql("drop function using jar 'jar_name.jar'").run();
     }
   }
 
   @Test
   public void testDisableDynamicSupportCreate() throws Exception {
-    try {
-      test("alter system set `exec.udf.enable_dynamic_support` = false");
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      client.queryBuilder().sql("alter system set `exec.udf.enable_dynamic_support` = false").run();
       String query = "create function using jar 'jar_name.jar'";
       thrown.expect(UserRemoteException.class);
       thrown.expectMessage(containsString("Dynamic UDFs support is disabled."));
-      test(query);
-    } finally {
-      test("alter system reset `exec.udf.enable_dynamic_support`");
+      client.queryBuilder().sql(query).run();
     }
   }
 
   @Test
   public void testDisableDynamicSupportDrop() throws Exception {
-    try {
-      test("alter system set `exec.udf.enable_dynamic_support` = false");
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      client.queryBuilder().sql("alter system set `exec.udf.enable_dynamic_support` = false").run();
       String query = "drop function using jar 'jar_name.jar'";
       thrown.expect(UserRemoteException.class);
       thrown.expectMessage(containsString("Dynamic UDFs support is disabled."));
-      test(query);
-    } finally {
-      test("alter system reset `exec.udf.enable_dynamic_support`");
+      client.queryBuilder().sql(query).run();
     }
   }
 
   @Test
   public void testAbsentBinaryInStaging() throws Exception {
-    Path staging = hadoopToJavaPath(getDrillbitContext().getRemoteFunctionRegistry().getStagingArea());
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      Path staging = hadoopToJavaPath(cluster.drillbit().getContext().getRemoteFunctionRegistry().getStagingArea());
 
-    String summary = String.format("File %s does not exist on file system %s",
-        staging.resolve(defaultBinaryJar).toUri().getPath(), fsUri);
+      String summary = String.format("File %s does not exist on file system %s",
+          staging.resolve(defaultBinaryJar).toUri().getPath(), fsUri);
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, summary)
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, summary)
+          .go();
+    }
   }
 
   @Test
   public void testAbsentSourceInStaging() throws Exception {
-    Path staging = hadoopToJavaPath(getDrillbitContext().getRemoteFunctionRegistry().getStagingArea());
-    copyJar(jarsDir.toPath(), staging, defaultBinaryJar);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      Path staging = hadoopToJavaPath(cluster.drillbit().getContext().getRemoteFunctionRegistry().getStagingArea());
+      copyJar(jarsDir.toPath(), staging, defaultBinaryJar);
 
-    String summary = String.format("File %s does not exist on file system %s",
-        staging.resolve(defaultSourceJar).toUri().getPath(), fsUri);
+      String summary = String.format("File %s does not exist on file system %s",
+          staging.resolve(defaultSourceJar).toUri().getPath(), fsUri);
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, summary)
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, summary)
+          .go();
+    }
   }
 
   @Test
   public void testJarWithoutMarkerFile() throws Exception {
-    String jarName = "drill-no-marker";
-    String jar = buildAndCopyJarsToStagingArea(jarName, null, "**/dummy.conf");
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      String jarName = "drill-no-marker";
+      String jar = buildAndCopyJarsToStagingArea(cluster, jarName, null, "**/dummy.conf");
 
-    String summary = "Marker file %s is missing in %s";
+      String summary = "Marker file %s is missing in %s";
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", jar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, String.format(summary,
-            ConfigConstants.DRILL_JAR_MARKER_FILE_RESOURCE_PATHNAME, jar))
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", jar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, String.format(summary,
+              ConfigConstants.DRILL_JAR_MARKER_FILE_RESOURCE_PATHNAME, jar))
+          .go();
+    }
   }
 
   @Test
   public void testJarWithoutFunctions() throws Exception {
-    String jarName = "drill-no-functions";
-    String jar = buildAndCopyJarsToStagingArea(jarName, "**/CustomLowerDummyFunction.java", null);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      String jarName = "drill-no-functions";
+      String jar = buildAndCopyJarsToStagingArea(cluster, jarName, "**/CustomLowerDummyFunction.java", null);
 
-    String summary = "Jar %s does not contain functions";
+      String summary = "Jar %s does not contain functions";
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", jar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, String.format(summary, jar))
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", jar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, String.format(summary, jar))
+          .go();
+    }
   }
 
   @Test
   public void testSuccessfulRegistration() throws Exception {
-    copyDefaultJarsToStagingArea();
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      copyDefaultJarsToStagingArea(cluster);
 
-    String summary = "The following UDFs in jar %s have been registered:\n" +
-        "[custom_lower(VARCHAR-REQUIRED)]";
+      String summary = "The following UDFs in jar %s have been registered:\n" +
+          "[custom_lower(VARCHAR-REQUIRED)]";
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(true, String.format(summary, defaultBinaryJar))
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(true, String.format(summary, defaultBinaryJar))
+          .go();
 
-    RemoteFunctionRegistry remoteFunctionRegistry = getDrillbitContext().getRemoteFunctionRegistry();
-    FileSystem fs = remoteFunctionRegistry.getFs();
+      RemoteFunctionRegistry remoteFunctionRegistry = cluster.drillbit().getContext().getRemoteFunctionRegistry();
+      FileSystem fs = remoteFunctionRegistry.getFs();
 
-    assertFalse("Staging area should be empty", fs.listFiles(remoteFunctionRegistry.getStagingArea(), false).hasNext());
-    assertFalse("Temporary area should be empty", fs.listFiles(remoteFunctionRegistry.getTmpArea(), false).hasNext());
+      assertFalse("Staging area should be empty", fs.listFiles(remoteFunctionRegistry.getStagingArea(), false).hasNext());
+      assertFalse("Temporary area should be empty", fs.listFiles(remoteFunctionRegistry.getTmpArea(), false).hasNext());
 
-    Path path = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
+      Path path = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
 
-    assertTrue("Binary should be present in registry area",
-      path.resolve(defaultBinaryJar).toFile().exists());
-    assertTrue("Source should be present in registry area",
-      path.resolve(defaultBinaryJar).toFile().exists());
+      assertTrue("Binary should be present in registry area",
+          path.resolve(defaultBinaryJar).toFile().exists());
+      assertTrue("Source should be present in registry area",
+          path.resolve(defaultBinaryJar).toFile().exists());
 
-    Registry registry = remoteFunctionRegistry.getRegistry(new DataChangeVersion());
-    assertEquals("Registry should contain one jar", registry.getJarList().size(), 1);
-    assertEquals(registry.getJar(0).getName(), defaultBinaryJar);
+      Registry registry = remoteFunctionRegistry.getRegistry(new DataChangeVersion());
+      assertEquals("Registry should contain one jar", registry.getJarList().size(), 1);
+      assertEquals(registry.getJar(0).getName(), defaultBinaryJar);
+    }
   }
 
   @Test
   public void testDuplicatedJarInRemoteRegistry() throws Exception {
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
-    copyDefaultJarsToStagingArea();
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
+      copyDefaultJarsToStagingArea(cluster);
 
-    String summary = "Jar with %s name has been already registered";
+      String summary = "Jar with %s name has been already registered";
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, String.format(summary, defaultBinaryJar))
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, String.format(summary, defaultBinaryJar))
+          .go();
+    }
   }
 
   @Test
   public void testDuplicatedJarInLocalRegistry() throws Exception {
-    String jarName = "drill-custom-upper";
-    String jar = buildAndCopyJarsToStagingArea(jarName, "**/CustomUpperFunction.java", null);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      String jarName = "drill-custom-upper";
+      String jar = buildAndCopyJarsToStagingArea(cluster, jarName, "**/CustomUpperFunction.java", null);
 
-    test("create function using jar '%s'", jar);
-    test("select custom_upper('A') from (values(1))");
+      client.queryBuilder().sql("create function using jar '%s'", jar).run();
+      client.queryBuilder().sql("select custom_upper('A') from (values(1))").run();
 
-    copyJarsToStagingArea(buildDirectory.toPath(), jar,JarUtil.getSourceName(jar));
+      copyJarsToStagingArea(cluster, buildDirectory.toPath(), jar, JarUtil.getSourceName(jar));
 
-    String summary = "Jar with %s name has been already registered";
+      String summary = "Jar with %s name has been already registered";
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", jar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, String.format(summary, jar))
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", jar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, String.format(summary, jar))
+          .go();
+    }
   }
 
   @Test
   public void testDuplicatedFunctionsInRemoteRegistry() throws Exception {
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
 
-    String jarName = "drill-custom-lower-copy";
-    String jar = buildAndCopyJarsToStagingArea(jarName, "**/CustomLowerFunction.java", null);
+      String jarName = "drill-custom-lower-copy";
+      String jar = buildAndCopyJarsToStagingArea(cluster, jarName, "**/CustomLowerFunction.java", null);
 
-    String summary = "Found duplicated function in %s: custom_lower(VARCHAR-REQUIRED)";
+      String summary = "Found duplicated function in %s: custom_lower(VARCHAR-REQUIRED)";
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", jar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, String.format(summary, defaultBinaryJar))
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", jar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, String.format(summary, defaultBinaryJar))
+          .go();
+    }
   }
 
   @Test
   public void testDuplicatedFunctionsInLocalRegistry() throws Exception {
-    String jarName = "drill-lower";
-    String jar = buildAndCopyJarsToStagingArea(jarName, "**/LowerFunction.java", null);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      String jarName = "drill-lower";
+      String jar = buildAndCopyJarsToStagingArea(cluster, jarName, "**/LowerFunction.java", null);
 
-    String summary = "Found duplicated function in %s: lower(VARCHAR-REQUIRED)";
+      String summary = "Found duplicated function in %s: lower(VARCHAR-REQUIRED)";
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", jar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, String.format(summary, LocalFunctionRegistry.BUILT_IN))
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", jar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, String.format(summary, LocalFunctionRegistry.BUILT_IN))
+          .go();
+    }
   }
 
   @Test
   public void testSuccessfulRegistrationAfterSeveralRetryAttempts() throws Exception {
-    RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry();
-    Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
-    Path stagingPath = hadoopToJavaPath(remoteFunctionRegistry.getStagingArea());
-    Path tmpPath = hadoopToJavaPath(remoteFunctionRegistry.getTmpArea());
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry(cluster);
+      Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
+      Path stagingPath = hadoopToJavaPath(remoteFunctionRegistry.getStagingArea());
+      Path tmpPath = hadoopToJavaPath(remoteFunctionRegistry.getTmpArea());
 
-    copyDefaultJarsToStagingArea();
+      copyDefaultJarsToStagingArea(cluster);
 
-    doThrow(new VersionMismatchException("Version mismatch detected", 1))
-            .doThrow(new VersionMismatchException("Version mismatch detected", 1))
-            .doCallRealMethod()
-            .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      doThrow(new VersionMismatchException("Version mismatch detected", 1))
+              .doThrow(new VersionMismatchException("Version mismatch detected", 1))
+              .doCallRealMethod()
+              .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    String summary = "The following UDFs in jar %s have been registered:\n" +
-            "[custom_lower(VARCHAR-REQUIRED)]";
+      String summary = "The following UDFs in jar %s have been registered:\n" +
+              "[custom_lower(VARCHAR-REQUIRED)]";
 
-    testBuilder()
-            .sqlQuery("create function using jar '%s'", defaultBinaryJar)
-            .unOrdered()
-            .baselineColumns("ok", "summary")
-            .baselineValues(true, String.format(summary, defaultBinaryJar))
-            .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(true, String.format(summary, defaultBinaryJar))
+          .go();
 
-    verify(remoteFunctionRegistry, times(3))
-            .updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      verify(remoteFunctionRegistry, times(3))
+          .updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    assertTrue("Staging area should be empty", ArrayUtils.isEmpty(stagingPath.toFile().listFiles()));
-    assertTrue("Temporary area should be empty", ArrayUtils.isEmpty(tmpPath.toFile().listFiles()));
+      assertTrue("Staging area should be empty", ArrayUtils.isEmpty(stagingPath.toFile().listFiles()));
+      assertTrue("Temporary area should be empty", ArrayUtils.isEmpty(tmpPath.toFile().listFiles()));
 
-    assertTrue("Binary should be present in registry area",
-      registryPath.resolve(defaultBinaryJar).toFile().exists());
-    assertTrue("Source should be present in registry area",
-      registryPath.resolve(defaultSourceJar).toFile().exists());
+      assertTrue("Binary should be present in registry area",
+          registryPath.resolve(defaultBinaryJar).toFile().exists());
+      assertTrue("Source should be present in registry area",
+          registryPath.resolve(defaultSourceJar).toFile().exists());
 
-    Registry registry = remoteFunctionRegistry.getRegistry(new DataChangeVersion());
-    assertEquals("Registry should contain one jar", registry.getJarList().size(), 1);
-    assertEquals(registry.getJar(0).getName(), defaultBinaryJar);
+      Registry registry = remoteFunctionRegistry.getRegistry(new DataChangeVersion());
+      assertEquals("Registry should contain one jar", registry.getJarList().size(), 1);
+      assertEquals(registry.getJar(0).getName(), defaultBinaryJar);
+    }
   }
 
   @Test
   public void testSuccessfulUnregistrationAfterSeveralRetryAttempts() throws Exception {
-    RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry();
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry(cluster);
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
 
-    reset(remoteFunctionRegistry);
-    doThrow(new VersionMismatchException("Version mismatch detected", 1))
-            .doThrow(new VersionMismatchException("Version mismatch detected", 1))
-            .doCallRealMethod()
-            .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      reset(remoteFunctionRegistry);
+      doThrow(new VersionMismatchException("Version mismatch detected", 1))
+          .doThrow(new VersionMismatchException("Version mismatch detected", 1))
+          .doCallRealMethod()
+          .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    String summary = "The following UDFs in jar %s have been unregistered:\n" +
-            "[custom_lower(VARCHAR-REQUIRED)]";
+      String summary = "The following UDFs in jar %s have been unregistered:\n" +
+          "[custom_lower(VARCHAR-REQUIRED)]";
 
-    testBuilder()
-            .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
-            .unOrdered()
-            .baselineColumns("ok", "summary")
-            .baselineValues(true, String.format(summary, defaultBinaryJar))
-            .go();
+      client.testBuilder()
+          .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(true, String.format(summary, defaultBinaryJar))
+          .go();
 
-    verify(remoteFunctionRegistry, times(3))
-            .updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      verify(remoteFunctionRegistry, times(3))
+          .updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    FileSystem fs = remoteFunctionRegistry.getFs();
+      FileSystem fs = remoteFunctionRegistry.getFs();
 
-    assertFalse("Registry area should be empty", fs.listFiles(remoteFunctionRegistry.getRegistryArea(), false).hasNext());
-    assertEquals("Registry should be empty",
-        remoteFunctionRegistry.getRegistry(new DataChangeVersion()).getJarList().size(), 0);
+      assertFalse("Registry area should be empty", fs.listFiles(remoteFunctionRegistry.getRegistryArea(), false).hasNext());
+      assertEquals("Registry should be empty",
+          remoteFunctionRegistry.getRegistry(new DataChangeVersion()).getJarList().size(), 0);
+    }
   }
 
   @Test
   public void testExceedRetryAttemptsDuringRegistration() throws Exception {
-    RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry();
-    Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
-    Path stagingPath = hadoopToJavaPath(remoteFunctionRegistry.getStagingArea());
-    Path tmpPath = hadoopToJavaPath(remoteFunctionRegistry.getTmpArea());
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry(cluster);
+      Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
+      Path stagingPath = hadoopToJavaPath(remoteFunctionRegistry.getStagingArea());
+      Path tmpPath = hadoopToJavaPath(remoteFunctionRegistry.getTmpArea());
 
-    copyDefaultJarsToStagingArea();
+      copyDefaultJarsToStagingArea(cluster);
 
-    doThrow(new VersionMismatchException("Version mismatch detected", 1))
-        .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      doThrow(new VersionMismatchException("Version mismatch detected", 1))
+          .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    String summary = "Failed to update remote function registry. Exceeded retry attempts limit.";
+      String summary = "Failed to update remote function registry. Exceeded retry attempts limit.";
 
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, summary)
-        .go();
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, summary)
+          .go();
 
-    verify(remoteFunctionRegistry, times(remoteFunctionRegistry.getRetryAttempts() + 1))
-        .updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      verify(remoteFunctionRegistry, times(remoteFunctionRegistry.getRetryAttempts() + 1))
+          .updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    assertTrue("Binary should be present in staging area",
-            stagingPath.resolve(defaultBinaryJar).toFile().exists());
-    assertTrue("Source should be present in staging area",
-            stagingPath.resolve(defaultSourceJar).toFile().exists());
+      assertTrue("Binary should be present in staging area",
+          stagingPath.resolve(defaultBinaryJar).toFile().exists());
+      assertTrue("Source should be present in staging area",
+          stagingPath.resolve(defaultSourceJar).toFile().exists());
 
-    assertTrue("Registry area should be empty", ArrayUtils.isEmpty(registryPath.toFile().listFiles()));
-    assertTrue("Temporary area should be empty", ArrayUtils.isEmpty(tmpPath.toFile().listFiles()));
+      assertTrue("Registry area should be empty", ArrayUtils.isEmpty(registryPath.toFile().listFiles()));
+      assertTrue("Temporary area should be empty", ArrayUtils.isEmpty(tmpPath.toFile().listFiles()));
 
-    assertEquals("Registry should be empty",
-        remoteFunctionRegistry.getRegistry(new DataChangeVersion()).getJarList().size(), 0);
+      assertEquals("Registry should be empty",
+          remoteFunctionRegistry.getRegistry(new DataChangeVersion()).getJarList().size(), 0);
+    }
   }
 
   @Test
   public void testExceedRetryAttemptsDuringUnregistration() throws Exception {
-    RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry();
-    Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry(cluster);
+      Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
 
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
 
-    reset(remoteFunctionRegistry);
-    doThrow(new VersionMismatchException("Version mismatch detected", 1))
-        .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      reset(remoteFunctionRegistry);
+      doThrow(new VersionMismatchException("Version mismatch detected", 1))
+          .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    String summary = "Failed to update remote function registry. Exceeded retry attempts limit.";
+      String summary = "Failed to update remote function registry. Exceeded retry attempts limit.";
 
-    testBuilder()
-        .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, summary)
-        .go();
+      client.testBuilder()
+          .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, summary)
+          .go();
 
-    verify(remoteFunctionRegistry, times(remoteFunctionRegistry.getRetryAttempts() + 1))
-        .updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      verify(remoteFunctionRegistry, times(remoteFunctionRegistry.getRetryAttempts() + 1))
+          .updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    assertTrue("Binary should be present in registry area",
-      registryPath.resolve(defaultBinaryJar).toFile().exists());
-    assertTrue("Source should be present in registry area",
-      registryPath.resolve(defaultSourceJar).toFile().exists());
+      assertTrue("Binary should be present in registry area",
+          registryPath.resolve(defaultBinaryJar).toFile().exists());
+      assertTrue("Source should be present in registry area",
+          registryPath.resolve(defaultSourceJar).toFile().exists());
 
-    Registry registry = remoteFunctionRegistry.getRegistry(new DataChangeVersion());
-    assertEquals("Registry should contain one jar", registry.getJarList().size(), 1);
-    assertEquals(registry.getJar(0).getName(), defaultBinaryJar);
+      Registry registry = remoteFunctionRegistry.getRegistry(new DataChangeVersion());
+      assertEquals("Registry should contain one jar", registry.getJarList().size(), 1);
+      assertEquals(registry.getJar(0).getName(), defaultBinaryJar);
+    }
   }
 
   @Test
   public void testLazyInit() throws Exception {
     thrown.expect(UserRemoteException.class);
     thrown.expectMessage(containsString("No match found for function signature custom_lower(<CHARACTER>)"));
-    test("select custom_lower('A') from (values(1))");
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      client.queryBuilder().sql("select custom_lower('A') from (values(1))").run();
 
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
-    testBuilder()
-        .sqlQuery("select custom_lower('A') as res from (values(1))")
-        .unOrdered()
-        .baselineColumns("res")
-        .baselineValues("a")
-        .go();
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
+      client.testBuilder()
+          .sqlQuery("select custom_lower('A') as res from (values(1))")
+          .unOrdered()
+          .baselineColumns("res")
+          .baselineValues("a")
+          .go();
 
-    Path localUdfDirPath = hadoopToJavaPath((org.apache.hadoop.fs.Path)FieldUtils.readField(
-      getDrillbitContext().getFunctionImplementationRegistry(), "localUdfDir", true));
+      Path localUdfDirPath = hadoopToJavaPath((org.apache.hadoop.fs.Path) FieldUtils.readField(
+          cluster.drillbit().getContext().getFunctionImplementationRegistry(), "localUdfDir", true));
 
-    assertTrue("Binary should exist in local udf directory",
-      localUdfDirPath.resolve(defaultBinaryJar).toFile().exists());
-    assertTrue("Source should exist in local udf directory",
-      localUdfDirPath.resolve(defaultSourceJar).toFile().exists());
+      assertTrue("Binary should exist in local udf directory",
+          localUdfDirPath.resolve(defaultBinaryJar).toFile().exists());
+      assertTrue("Source should exist in local udf directory",
+          localUdfDirPath.resolve(defaultSourceJar).toFile().exists());
+    }
   }
 
   @Test
   public void testLazyInitWhenDynamicUdfSupportIsDisabled() throws Exception {
     thrown.expect(UserRemoteException.class);
     thrown.expectMessage(containsString("No match found for function signature custom_lower(<CHARACTER>)"));
-    test("select custom_lower('A') from (values(1))");
 
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      client.queryBuilder().sql("select custom_lower('A') from (values(1))").run();
 
-    try {
-      testBuilder()
-          .sqlQuery("select custom_lower('A') as res from (values(1))")
-          .optionSettingQueriesForTestQuery("alter system set `exec.udf.enable_dynamic_support` = false")
-          .unOrdered()
-          .baselineColumns("res")
-          .baselineValues("a")
-          .go();
-    } finally {
-      test("alter system reset `exec.udf.enable_dynamic_support`");
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
+
+      try {
+        client.testBuilder()
+            .sqlQuery("select custom_lower('A') as res from (values(1))")
+            .optionSettingQueriesForTestQuery("alter system set `exec.udf.enable_dynamic_support` = false")
+            .unOrdered()
+            .baselineColumns("res")
+            .baselineValues("a")
+            .go();
+      } finally {
+        client.queryBuilder().sql("alter system reset `exec.udf.enable_dynamic_support`").run();
+      }
     }
   }
 
   @Test
   public void testOverloadedFunctionPlanningStage() throws Exception {
     String jarName = "drill-custom-abs";
-    String jar = buildAndCopyJarsToStagingArea(jarName, "**/CustomAbsFunction.java", null);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      String jar = buildAndCopyJarsToStagingArea(cluster, jarName, "**/CustomAbsFunction.java", null);
 
-    test("create function using jar '%s'", jar);
+      client.queryBuilder().sql("create function using jar '%s'", jar).run();
 
-    testBuilder()
-        .sqlQuery("select abs('A', 'A') as res from (values(1))")
-        .unOrdered()
-        .baselineColumns("res")
-        .baselineValues("ABS was overloaded. Input: A, A")
-        .go();
+      client.testBuilder()
+          .sqlQuery("select abs('A', 'A') as res from (values(1))")
+          .unOrdered()
+          .baselineColumns("res")
+          .baselineValues("ABS was overloaded. Input: A, A")
+          .go();
+    }
   }
 
   @Test
   public void testOverloadedFunctionExecutionStage() throws Exception {
     String jarName = "drill-custom-log";
-    String jar = buildAndCopyJarsToStagingArea(jarName, "**/CustomLogFunction.java", null);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      String jar = buildAndCopyJarsToStagingArea(cluster, jarName, "**/CustomLogFunction.java", null);
 
-    test("create function using jar '%s'", jar);
+      client.queryBuilder().sql("create function using jar '%s'", jar).run();
 
-    testBuilder()
-        .sqlQuery("select log('A') as res from (values(1))")
-        .unOrdered()
-        .baselineColumns("res")
-        .baselineValues("LOG was overloaded. Input: A")
-        .go();
+      client.testBuilder()
+          .sqlQuery("select log('A') as res from (values(1))")
+          .unOrdered()
+          .baselineColumns("res")
+          .baselineValues("LOG was overloaded. Input: A")
+          .go();
+    }
   }
 
   @Test
   public void testDropFunction() throws Exception {
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
-    test("select custom_lower('A') from (values(1))");
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
+      client.queryBuilder().sql("select custom_lower('A') from (values(1))").run();
 
-    Path localUdfDirPath = hadoopToJavaPath((org.apache.hadoop.fs.Path)FieldUtils.readField(
-        getDrillbitContext().getFunctionImplementationRegistry(), "localUdfDir", true));
+      Path localUdfDirPath = hadoopToJavaPath((org.apache.hadoop.fs.Path) FieldUtils.readField(
+          cluster.drillbit().getContext().getFunctionImplementationRegistry(), "localUdfDir", true));
 
-    assertTrue("Binary should exist in local udf directory",
-      localUdfDirPath.resolve(defaultBinaryJar).toFile().exists());
-    assertTrue("Source should exist in local udf directory",
-      localUdfDirPath.resolve(defaultSourceJar).toFile().exists());
+      assertTrue("Binary should exist in local udf directory",
+          localUdfDirPath.resolve(defaultBinaryJar).toFile().exists());
+      assertTrue("Source should exist in local udf directory",
+          localUdfDirPath.resolve(defaultSourceJar).toFile().exists());
 
-    String summary = "The following UDFs in jar %s have been unregistered:\n" +
-        "[custom_lower(VARCHAR-REQUIRED)]";
+      String summary = "The following UDFs in jar %s have been unregistered:\n" +
+          "[custom_lower(VARCHAR-REQUIRED)]";
 
-    testBuilder()
-        .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(true, String.format(summary, defaultBinaryJar))
-        .go();
+      client.testBuilder()
+          .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(true, String.format(summary, defaultBinaryJar))
+          .go();
 
-    thrown.expect(UserRemoteException.class);
-    thrown.expectMessage(containsString("No match found for function signature custom_lower(<CHARACTER>)"));
-    test("select custom_lower('A') from (values(1))");
+      thrown.expect(UserRemoteException.class);
+      thrown.expectMessage(containsString("No match found for function signature custom_lower(<CHARACTER>)"));
+      client.queryBuilder().sql("select custom_lower('A') from (values(1))").run();
 
-    RemoteFunctionRegistry remoteFunctionRegistry = getDrillbitContext().getRemoteFunctionRegistry();
-    Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
+      RemoteFunctionRegistry remoteFunctionRegistry = cluster.drillbit().getContext().getRemoteFunctionRegistry();
+      Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
 
-    assertEquals("Remote registry should be empty",
-        remoteFunctionRegistry.getRegistry(new DataChangeVersion()).getJarList().size(), 0);
+      assertEquals("Remote registry should be empty",
+          remoteFunctionRegistry.getRegistry(new DataChangeVersion()).getJarList().size(), 0);
 
-    assertFalse("Binary should not be present in registry area",
-      registryPath.resolve(defaultBinaryJar).toFile().exists());
-    assertFalse("Source should not be present in registry area",
-      registryPath.resolve(defaultSourceJar).toFile().exists());
+      assertFalse("Binary should not be present in registry area",
+          registryPath.resolve(defaultBinaryJar).toFile().exists());
+      assertFalse("Source should not be present in registry area",
+          registryPath.resolve(defaultSourceJar).toFile().exists());
 
-    assertFalse("Binary should not be present in local udf directory",
-      localUdfDirPath.resolve(defaultBinaryJar).toFile().exists());
-    assertFalse("Source should not be present in local udf directory",
-      localUdfDirPath.resolve(defaultSourceJar).toFile().exists());
+      assertFalse("Binary should not be present in local udf directory",
+          localUdfDirPath.resolve(defaultBinaryJar).toFile().exists());
+      assertFalse("Source should not be present in local udf directory",
+          localUdfDirPath.resolve(defaultSourceJar).toFile().exists());
+    }
   }
 
   @Test
   public void testReRegisterTheSameJarWithDifferentContent() throws Exception {
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
-    testBuilder()
-        .sqlQuery("select custom_lower('A') as res from (values(1))")
-        .unOrdered()
-        .baselineColumns("res")
-        .baselineValues("a")
-        .go();
-    test("drop function using jar '%s'", defaultBinaryJar);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
+      client.testBuilder()
+          .sqlQuery("select custom_lower('A') as res from (values(1))")
+          .unOrdered()
+          .baselineColumns("res")
+          .baselineValues("a")
+          .go();
+      client.queryBuilder().sql("drop function using jar '%s'", defaultBinaryJar).run();
 
-    Thread.sleep(1000);
+      Thread.sleep(1000);
 
-    buildAndCopyJarsToStagingArea(DEFAULT_JAR_NAME, "**/CustomLowerFunctionV2.java", null);
+      buildAndCopyJarsToStagingArea(cluster, DEFAULT_JAR_NAME, "**/CustomLowerFunctionV2.java", null);
 
-    test("create function using jar '%s'", defaultBinaryJar);
-    testBuilder()
-        .sqlQuery("select custom_lower('A') as res from (values(1))")
-        .unOrdered()
-        .baselineColumns("res")
-        .baselineValues("a_v2")
-        .go();
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
+      client.testBuilder()
+          .sqlQuery("select custom_lower('A') as res from (values(1))")
+          .unOrdered()
+          .baselineColumns("res")
+          .baselineValues("a_v2")
+          .go();
+    }
   }
 
   @Test
   public void testDropAbsentJar() throws Exception {
     String summary = "Jar %s is not registered in remote registry";
 
-    testBuilder()
-        .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, String.format(summary, defaultBinaryJar))
-        .go();
-  }
-
-  @Test
-  public void testRegistrationFailDuringRegistryUpdate() throws Exception {
-    RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry();
-    Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
-    Path stagingPath = hadoopToJavaPath(remoteFunctionRegistry.getStagingArea());
-    Path tmpPath = hadoopToJavaPath(remoteFunctionRegistry.getTmpArea());
-
-    final String errorMessage = "Failure during remote registry update.";
-    doAnswer(invocation -> {
-      assertTrue("Binary should be present in registry area",
-          registryPath.resolve(defaultBinaryJar).toFile().exists());
-      assertTrue("Source should be present in registry area",
-          registryPath.resolve(defaultSourceJar).toFile().exists());
-      throw new RuntimeException(errorMessage);
-    }).when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
-
-    copyDefaultJarsToStagingArea();
-
-    testBuilder()
-        .sqlQuery("create function using jar '%s'", defaultBinaryJar)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(false, errorMessage)
-        .go();
-
-    assertTrue("Registry area should be empty", ArrayUtils.isEmpty(registryPath.toFile().listFiles()));
-    assertTrue("Temporary area should be empty", ArrayUtils.isEmpty(tmpPath.toFile().listFiles()));
-
-    assertTrue("Binary should be present in staging area", stagingPath.resolve(defaultBinaryJar).toFile().exists());
-    assertTrue("Source should be present in staging area", stagingPath.resolve(defaultSourceJar).toFile().exists());
-  }
-
-  @Test
-  public void testConcurrentRegistrationOfTheSameJar() throws Exception {
-    RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry();
-
-    final CountDownLatch latch1 = new CountDownLatch(1);
-    final CountDownLatch latch2 = new CountDownLatch(1);
-
-    doAnswer(invocation -> {
-      String result = (String) invocation.callRealMethod();
-      latch2.countDown();
-      latch1.await();
-      return result;
-    })
-        .doCallRealMethod()
-        .doCallRealMethod()
-        .when(remoteFunctionRegistry).addToJars(anyString(), any(RemoteFunctionRegistry.Action.class));
-
-
-    final String query = String.format("create function using jar '%s'", defaultBinaryJar);
-
-    Thread thread = new Thread(new SimpleQueryRunner(query));
-    thread.start();
-    latch2.await();
-
-    try {
-      String summary = "Jar with %s name is used. Action: REGISTRATION";
-
-      testBuilder()
-          .sqlQuery(query)
-          .unOrdered()
-          .baselineColumns("ok", "summary")
-          .baselineValues(false, String.format(summary, defaultBinaryJar))
-          .go();
-
-      testBuilder()
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      client.testBuilder()
           .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
           .unOrdered()
           .baselineColumns("ok", "summary")
           .baselineValues(false, String.format(summary, defaultBinaryJar))
           .go();
+    }
+  }
 
-    } finally {
-      latch1.countDown();
-      thread.join();
+  @Test
+  public void testRegistrationFailDuringRegistryUpdate() throws Exception {
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry(cluster);
+      Path registryPath = hadoopToJavaPath(remoteFunctionRegistry.getRegistryArea());
+      Path stagingPath = hadoopToJavaPath(remoteFunctionRegistry.getStagingArea());
+      Path tmpPath = hadoopToJavaPath(remoteFunctionRegistry.getTmpArea());
+
+      final String errorMessage = "Failure during remote registry update.";
+      doAnswer(invocation -> {
+        assertTrue("Binary should be present in registry area",
+            registryPath.resolve(defaultBinaryJar).toFile().exists());
+        assertTrue("Source should be present in registry area",
+            registryPath.resolve(defaultSourceJar).toFile().exists());
+        throw new RuntimeException(errorMessage);
+      }).when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+
+      copyDefaultJarsToStagingArea(cluster);
+
+      client.testBuilder()
+          .sqlQuery("create function using jar '%s'", defaultBinaryJar)
+          .unOrdered()
+          .baselineColumns("ok", "summary")
+          .baselineValues(false, errorMessage)
+          .go();
+
+      assertTrue("Registry area should be empty", ArrayUtils.isEmpty(registryPath.toFile().listFiles()));
+      assertTrue("Temporary area should be empty", ArrayUtils.isEmpty(tmpPath.toFile().listFiles()));
+
+      assertTrue("Binary should be present in staging area", stagingPath.resolve(defaultBinaryJar).toFile().exists());
+      assertTrue("Source should be present in staging area", stagingPath.resolve(defaultSourceJar).toFile().exists());
+
+    }
+  }
+
+  @Test
+  public void testConcurrentRegistrationOfTheSameJar() throws Exception {
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry(cluster);
+
+      final CountDownLatch latch1 = new CountDownLatch(1);
+      final CountDownLatch latch2 = new CountDownLatch(1);
+
+      doAnswer(invocation -> {
+        String result = (String) invocation.callRealMethod();
+        latch2.countDown();
+        latch1.await();
+        return result;
+      })
+          .doCallRealMethod()
+          .doCallRealMethod()
+          .when(remoteFunctionRegistry).addToJars(anyString(), any(RemoteFunctionRegistry.Action.class));
+
+
+      final String query = String.format("create function using jar '%s'", defaultBinaryJar);
+
+      Thread thread = new Thread(new SimpleQueryRunner(query, client));
+      thread.start();
+      latch2.await();
+
+      try {
+        String summary = "Jar with %s name is used. Action: REGISTRATION";
+
+        client.testBuilder()
+            .sqlQuery(query)
+            .unOrdered()
+            .baselineColumns("ok", "summary")
+            .baselineValues(false, String.format(summary, defaultBinaryJar))
+            .go();
+
+        client.testBuilder()
+            .sqlQuery("drop function using jar '%s'", defaultBinaryJar)
+            .unOrdered()
+            .baselineColumns("ok", "summary")
+            .baselineValues(false, String.format(summary, defaultBinaryJar))
+            .go();
+
+      } finally {
+        latch1.countDown();
+        thread.join();
+      }
     }
   }
 
   @Test
   public void testConcurrentRemoteRegistryUpdateWithDuplicates() throws Exception {
-    RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry();
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry(cluster);
 
-    final CountDownLatch latch1 = new CountDownLatch(1);
-    final CountDownLatch latch2 = new CountDownLatch(1);
-    final CountDownLatch latch3 = new CountDownLatch(1);
+      final CountDownLatch latch1 = new CountDownLatch(1);
+      final CountDownLatch latch2 = new CountDownLatch(1);
+      final CountDownLatch latch3 = new CountDownLatch(1);
 
-    doAnswer(invocation -> {
-      latch3.countDown();
-      latch1.await();
-      invocation.callRealMethod();
-      latch2.countDown();
-      return null;
-    }).doAnswer(invocation -> {
-      latch1.countDown();
-      latch2.await();
-      invocation.callRealMethod();
-      return null;
-    })
-        .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      doAnswer(invocation -> {
+        latch3.countDown();
+        latch1.await();
+        invocation.callRealMethod();
+        latch2.countDown();
+        return null;
+      }).doAnswer(invocation -> {
+        latch1.countDown();
+        latch2.await();
+        invocation.callRealMethod();
+        return null;
+      })
+          .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    final String jar1 = defaultBinaryJar;
-    copyDefaultJarsToStagingArea();
+      final String jar1 = defaultBinaryJar;
+      copyDefaultJarsToStagingArea(cluster);
 
-    final String copyJarName = "drill-custom-lower-copy";
-    final String jar2 = buildAndCopyJarsToStagingArea(copyJarName, "**/CustomLowerFunction.java", null);
+      final String copyJarName = "drill-custom-lower-copy";
+      final String jar2 = buildAndCopyJarsToStagingArea(cluster, copyJarName, "**/CustomLowerFunction.java", null);
 
-    final String query = "create function using jar '%s'";
+      final String query = "create function using jar '%s'";
 
-    Thread thread1 = new Thread(new TestBuilderRunner(
-        testBuilder()
-        .sqlQuery(query, jar1)
-        .unOrdered()
-        .baselineColumns("ok", "summary")
-        .baselineValues(true,
-            String.format("The following UDFs in jar %s have been registered:\n" +
-            "[custom_lower(VARCHAR-REQUIRED)]", jar1))
-    ));
+      Thread thread1 = new Thread(new TestBuilderRunner(
+          client.testBuilder()
+              .sqlQuery(query, jar1)
+              .unOrdered()
+              .baselineColumns("ok", "summary")
+              .baselineValues(true,
+                  String.format("The following UDFs in jar %s have been registered:\n" +
+                      "[custom_lower(VARCHAR-REQUIRED)]", jar1))
+      ));
 
-    Thread thread2 = new Thread(new TestBuilderRunner(
-        testBuilder()
-            .sqlQuery(query, jar2)
-            .unOrdered()
-            .baselineColumns("ok", "summary")
-            .baselineValues(false,
-                String.format("Found duplicated function in %s: custom_lower(VARCHAR-REQUIRED)", jar1))
-    ));
+      Thread thread2 = new Thread(new TestBuilderRunner(
+          client.testBuilder()
+              .sqlQuery(query, jar2)
+              .unOrdered()
+              .baselineColumns("ok", "summary")
+              .baselineValues(false,
+                  String.format("Found duplicated function in %s: custom_lower(VARCHAR-REQUIRED)", jar1))
+      ));
 
-    thread1.start();
-    latch3.await();
-    thread2.start();
+      thread1.start();
+      latch3.await();
+      thread2.start();
 
-    thread1.join();
-    thread2.join();
+      thread1.join();
+      thread2.join();
 
-    DataChangeVersion version = new DataChangeVersion();
-    Registry registry = remoteFunctionRegistry.getRegistry(version);
-    assertEquals("Remote registry version should match", 2, version.getVersion());
-    List<Jar> jarList = registry.getJarList();
-    assertEquals("Only one jar should be registered", 1, jarList.size());
-    assertEquals("Jar name should match", jar1, jarList.get(0).getName());
+      DataChangeVersion version = new DataChangeVersion();
+      Registry registry = remoteFunctionRegistry.getRegistry(version);
+      assertEquals("Remote registry version should match", 2, version.getVersion());
+      List<Jar> jarList = registry.getJarList();
+      assertEquals("Only one jar should be registered", 1, jarList.size());
+      assertEquals("Jar name should match", jar1, jarList.get(0).getName());
 
-    verify(remoteFunctionRegistry, times(2)).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      verify(remoteFunctionRegistry, times(2)).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+    }
   }
 
   @Test
   public void testConcurrentRemoteRegistryUpdateForDifferentJars() throws Exception {
-    RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry();
-    final CountDownLatch latch1 = new CountDownLatch(1);
-    final CountDownLatch latch2 = new CountDownLatch(2);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      RemoteFunctionRegistry remoteFunctionRegistry = spyRemoteFunctionRegistry(cluster);
+      final CountDownLatch latch1 = new CountDownLatch(1);
+      final CountDownLatch latch2 = new CountDownLatch(2);
 
-    doAnswer(invocation -> {
-      latch2.countDown();
-      latch1.await();
-      invocation.callRealMethod();
-      return null;
-    })
-        .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
+      doAnswer(invocation -> {
+        latch2.countDown();
+        latch1.await();
+        invocation.callRealMethod();
+        return null;
+      })
+          .when(remoteFunctionRegistry).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
 
-    final String jar1 = defaultBinaryJar;
-    copyDefaultJarsToStagingArea();
+      final String jar1 = defaultBinaryJar;
+      copyDefaultJarsToStagingArea(cluster);
 
-    final String upperJarName = "drill-custom-upper";
-    final String jar2 = buildAndCopyJarsToStagingArea(upperJarName, "**/CustomUpperFunction.java", null);
+      final String upperJarName = "drill-custom-upper";
+      final String jar2 = buildAndCopyJarsToStagingArea(cluster, upperJarName, "**/CustomUpperFunction.java", null);
 
-    final String query = "create function using jar '%s'";
+      final String query = "create function using jar '%s'";
 
-    Thread thread1 = new Thread(new TestBuilderRunner(
-        testBuilder()
-            .sqlQuery(query, jar1)
-            .unOrdered()
-            .baselineColumns("ok", "summary")
-            .baselineValues(true,
-                String.format("The following UDFs in jar %s have been registered:\n" +
-                    "[custom_lower(VARCHAR-REQUIRED)]", jar1))
-    ));
+      Thread thread1 = new Thread(new TestBuilderRunner(
+          client.testBuilder()
+              .sqlQuery(query, jar1)
+              .unOrdered()
+              .baselineColumns("ok", "summary")
+              .baselineValues(true,
+                  String.format("The following UDFs in jar %s have been registered:\n" +
+                      "[custom_lower(VARCHAR-REQUIRED)]", jar1))
+      ));
 
 
-    Thread thread2 = new Thread(new TestBuilderRunner(
-        testBuilder()
-            .sqlQuery(query, jar2)
-            .unOrdered()
-            .baselineColumns("ok", "summary")
-            .baselineValues(true, String.format("The following UDFs in jar %s have been registered:\n" +
-                "[custom_upper(VARCHAR-REQUIRED)]", jar2))
-    ));
+      Thread thread2 = new Thread(new TestBuilderRunner(
+          client.testBuilder()
+              .sqlQuery(query, jar2)
+              .unOrdered()
+              .baselineColumns("ok", "summary")
+              .baselineValues(true, String.format("The following UDFs in jar %s have been registered:\n" +
+                  "[custom_upper(VARCHAR-REQUIRED)]", jar2))
+      ));
 
-    thread1.start();
-    thread2.start();
+      thread1.start();
+      thread2.start();
 
-    latch2.await();
-    latch1.countDown();
+      latch2.await();
+      latch1.countDown();
 
-    thread1.join();
-    thread2.join();
+      thread1.join();
+      thread2.join();
 
-    DataChangeVersion version = new DataChangeVersion();
-    Registry registry = remoteFunctionRegistry.getRegistry(version);
-    assertEquals("Remote registry version should match", 3, version.getVersion());
+      DataChangeVersion version = new DataChangeVersion();
+      Registry registry = remoteFunctionRegistry.getRegistry(version);
+      assertEquals("Remote registry version should match", 3, version.getVersion());
 
-    List<Jar> actualJars = registry.getJarList();
-    List<String> expectedJars = Lists.newArrayList(jar1, jar2);
+      List<Jar> actualJars = registry.getJarList();
+      List<String> expectedJars = Lists.newArrayList(jar1, jar2);
 
-    assertEquals("Only one jar should be registered", 2, actualJars.size());
-    for (Jar jar : actualJars) {
-      assertTrue("Jar should be present in remote function registry", expectedJars.contains(jar.getName()));
+      assertEquals("Only one jar should be registered", 2, actualJars.size());
+      for (Jar jar : actualJars) {
+        assertTrue("Jar should be present in remote function registry", expectedJars.contains(jar.getName()));
+      }
+
+      verify(remoteFunctionRegistry, times(3)).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
     }
-
-    verify(remoteFunctionRegistry, times(3)).updateRegistry(any(Registry.class), any(DataChangeVersion.class));
   }
 
   @Test
   public void testLazyInitConcurrent() throws Exception {
-    FunctionImplementationRegistry functionImplementationRegistry = spyFunctionImplementationRegistry();
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      FunctionImplementationRegistry functionImplementationRegistry = spyFunctionImplementationRegistry(cluster);
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
 
-    final CountDownLatch latch1 = new CountDownLatch(1);
-    final CountDownLatch latch2 = new CountDownLatch(1);
+      final CountDownLatch latch1 = new CountDownLatch(1);
+      final CountDownLatch latch2 = new CountDownLatch(1);
 
-    final String query = "select custom_lower('A') from (values(1))";
+      final String query = "select custom_lower('A') from (values(1))";
 
-    doAnswer(invocation -> {
-      latch1.await();
-      boolean result = (boolean) invocation.callRealMethod();
-      assertTrue("syncWithRemoteRegistry() should return true", result);
-      latch2.countDown();
-      return true;
-    })
-        .doAnswer(invocation -> {
-          latch1.countDown();
-          latch2.await();
-          boolean result = (boolean) invocation.callRealMethod();
-          assertTrue("syncWithRemoteRegistry() should return true", result);
-          return true;
-        })
-        .when(functionImplementationRegistry).syncWithRemoteRegistry(anyInt());
+      doAnswer(invocation -> {
+        latch1.await();
+        boolean result = (boolean) invocation.callRealMethod();
+        assertTrue("syncWithRemoteRegistry() should return true", result);
+        latch2.countDown();
+        return true;
+      })
+          .doAnswer(invocation -> {
+            latch1.countDown();
+            latch2.await();
+            boolean result = (boolean) invocation.callRealMethod();
+            assertTrue("syncWithRemoteRegistry() should return true", result);
+            return true;
+          })
+          .when(functionImplementationRegistry).syncWithRemoteRegistry(anyInt());
 
-    SimpleQueryRunner simpleQueryRunner = new SimpleQueryRunner(query);
-    Thread thread1 = new Thread(simpleQueryRunner);
-    Thread thread2 = new Thread(simpleQueryRunner);
+      SimpleQueryRunner simpleQueryRunner = new SimpleQueryRunner(query, client);
+      Thread thread1 = new Thread(simpleQueryRunner);
+      Thread thread2 = new Thread(simpleQueryRunner);
 
-    thread1.start();
-    thread2.start();
+      thread1.start();
+      thread2.start();
 
-    thread1.join();
-    thread2.join();
+      thread1.join();
+      thread2.join();
 
-    verify(functionImplementationRegistry, times(2)).syncWithRemoteRegistry(anyInt());
-    LocalFunctionRegistry localFunctionRegistry = (LocalFunctionRegistry)FieldUtils.readField(
-        functionImplementationRegistry, "localFunctionRegistry", true);
-    assertEquals("Sync function registry version should match", 2, localFunctionRegistry.getVersion());
+      verify(functionImplementationRegistry, times(2)).syncWithRemoteRegistry(anyInt());
+      LocalFunctionRegistry localFunctionRegistry = (LocalFunctionRegistry) FieldUtils.readField(
+          functionImplementationRegistry, "localFunctionRegistry", true);
+      assertEquals("Sync function registry version should match", 2, localFunctionRegistry.getVersion());
+    }
   }
 
   @Test
   public void testLazyInitNoReload() throws Exception {
-    FunctionImplementationRegistry functionImplementationRegistry = spyFunctionImplementationRegistry();
-    copyDefaultJarsToStagingArea();
-    test("create function using jar '%s'", defaultBinaryJar);
+    try (ClusterFixture cluster = builder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      FunctionImplementationRegistry functionImplementationRegistry = spyFunctionImplementationRegistry(cluster);
+      copyDefaultJarsToStagingArea(cluster);
+      client.queryBuilder().sql("create function using jar '%s'", defaultBinaryJar).run();
 
-    doAnswer(invocation -> {
-      boolean result = (boolean) invocation.callRealMethod();
-      assertTrue("syncWithRemoteRegistry() should return true", result);
-      return true;
-    })
-        .doAnswer(invocation -> {
-          boolean result = (boolean) invocation.callRealMethod();
-          assertFalse("syncWithRemoteRegistry() should return false", result);
-          return false;
-        })
-        .when(functionImplementationRegistry).syncWithRemoteRegistry(anyInt());
+      doAnswer(invocation -> {
+        boolean result = (boolean) invocation.callRealMethod();
+        assertTrue("syncWithRemoteRegistry() should return true", result);
+        return true;
+      })
+          .doAnswer(invocation -> {
+            boolean result = (boolean) invocation.callRealMethod();
+            assertFalse("syncWithRemoteRegistry() should return false", result);
+            return false;
+          })
+          .when(functionImplementationRegistry).syncWithRemoteRegistry(anyInt());
 
-    test("select custom_lower('A') from (values(1))");
+      client.queryBuilder().sql("select custom_lower('A') from (values(1))").run();
 
-    try {
-      test("select unknown_lower('A') from (values(1))");
-      fail();
-    } catch (UserRemoteException e){
-      assertThat(e.getMessage(), containsString("No match found for function signature unknown_lower(<CHARACTER>)"));
+      try {
+        client.queryBuilder().sql("select unknown_lower('A') from (values(1))").run();
+        fail();
+      } catch (UserRemoteException e) {
+        assertThat(e.getMessage(), containsString("No match found for function signature unknown_lower(<CHARACTER>)"));
+      }
+
+      verify(functionImplementationRegistry, times(2)).syncWithRemoteRegistry(anyInt());
+      LocalFunctionRegistry localFunctionRegistry = (LocalFunctionRegistry) FieldUtils.readField(
+          functionImplementationRegistry, "localFunctionRegistry", true);
+      assertEquals("Sync function registry version should match", 2, localFunctionRegistry.getVersion());
     }
-
-    verify(functionImplementationRegistry, times(2)).syncWithRemoteRegistry(anyInt());
-    LocalFunctionRegistry localFunctionRegistry = (LocalFunctionRegistry)FieldUtils.readField(
-        functionImplementationRegistry, "localFunctionRegistry", true);
-    assertEquals("Sync function registry version should match", 2, localFunctionRegistry.getVersion());
   }
 
   private static String buildJars(String jarName, String includeFiles, String includeResources) {
     return jarBuilder.build(jarName, buildDirectory.getAbsolutePath(), includeFiles, includeResources);
   }
 
-  private void copyDefaultJarsToStagingArea() throws IOException {
-    copyJarsToStagingArea(jarsDir.toPath(), defaultBinaryJar, defaultSourceJar);
+  private void copyDefaultJarsToStagingArea(ClusterFixture cluster) throws IOException {
+    copyJarsToStagingArea(cluster, jarsDir.toPath(), defaultBinaryJar, defaultSourceJar);
   }
 
-  private String buildAndCopyJarsToStagingArea(String jarName, String includeFiles, String includeResources) throws IOException {
+  private String buildAndCopyJarsToStagingArea(ClusterFixture cluster, String jarName, String includeFiles, String includeResources) throws IOException {
     String binaryJar = buildJars(jarName, includeFiles, includeResources);
-    copyJarsToStagingArea(buildDirectory.toPath(), binaryJar, JarUtil.getSourceName(binaryJar));
+    copyJarsToStagingArea(cluster, buildDirectory.toPath(), binaryJar, JarUtil.getSourceName(binaryJar));
     return binaryJar;
   }
 
-  private void copyJarsToStagingArea(Path src, String binaryName, String sourceName) throws IOException {
-    RemoteFunctionRegistry remoteFunctionRegistry = getDrillbitContext().getRemoteFunctionRegistry();
+  private void copyJarsToStagingArea(ClusterFixture cluster, Path src, String binaryName, String sourceName) throws IOException {
+    RemoteFunctionRegistry remoteFunctionRegistry = cluster.drillbit().getContext().getRemoteFunctionRegistry();
 
     final Path path = hadoopToJavaPath(remoteFunctionRegistry.getStagingArea());
 
@@ -941,41 +1019,43 @@ public class TestDynamicUDFSupport extends BaseTestQuery {
     FileUtils.copyFile(src.resolve(name).toFile(), destFile);
   }
 
-  private RemoteFunctionRegistry spyRemoteFunctionRegistry() throws IllegalAccessException {
+  private RemoteFunctionRegistry spyRemoteFunctionRegistry(ClusterFixture cluster) throws IllegalAccessException {
     FunctionImplementationRegistry functionImplementationRegistry =
-        getDrillbitContext().getFunctionImplementationRegistry();
+        cluster.drillbit().getContext().getFunctionImplementationRegistry();
     RemoteFunctionRegistry remoteFunctionRegistry = functionImplementationRegistry.getRemoteFunctionRegistry();
     RemoteFunctionRegistry spy = spy(remoteFunctionRegistry);
     FieldUtils.writeField(functionImplementationRegistry, "remoteFunctionRegistry", spy, true);
     return spy;
   }
 
-  private FunctionImplementationRegistry spyFunctionImplementationRegistry() throws IllegalAccessException {
-    DrillbitContext drillbitContext = getDrillbitContext();
+  private FunctionImplementationRegistry spyFunctionImplementationRegistry(ClusterFixture cluster) throws IllegalAccessException {
+    DrillbitContext drillbitContext = cluster.drillbit().getContext();
     FunctionImplementationRegistry spy = spy(drillbitContext.getFunctionImplementationRegistry());
     FieldUtils.writeField(drillbitContext, "functionRegistry", spy, true);
     return spy;
   }
 
-  private class SimpleQueryRunner implements Runnable {
+  private static class SimpleQueryRunner implements Runnable {
 
     private final String query;
+    private final ClientFixture client;
 
-    SimpleQueryRunner(String query) {
+    SimpleQueryRunner(String query, ClientFixture client) {
       this.query = query;
+      this.client = client;
     }
 
     @Override
     public void run() {
       try {
-        test(query);
+        client.queryBuilder().sql(query).run();
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
     }
   }
 
-  private class TestBuilderRunner implements Runnable {
+  private static class TestBuilderRunner implements Runnable {
 
     private final TestBuilder testBuilder;
 
