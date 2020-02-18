@@ -1,0 +1,73 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# This workflow is triggered for each push event to the master branch or pull request.
+# It contains two jobs:
+# - "Main Build" job runs all unit tests jor two LTS java versions and the latest Java version.
+# - "Run checkstyle and generate protobufs" job builds Drill and checks its license,
+# builds Drill native client and regenerates protobufs to ensure that committed files are up-to-date.
+name: Publish Drill Web Site
+
+on: [push]
+
+jobs:
+  test:
+    name: Publish Site
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Ruby
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: '2.6'
+
+      - name: Install Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '2.7'
+
+      - name: Cache gems
+        uses: actions/cache@v1
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+
+      - name: Install Dependencies
+        run: |
+          gem install bundler jekyll:2.5.2 jekyll-redirect-from:0.9.1
+      - name: Build
+        run: |
+          jekyll build --config _config.yml,_config-prod.yml
+          _tools/createdatadocs.py
+      - name: Publish
+        if: github.repository == 'apache/drill-site'
+        run: |
+          git clone -b asf-site https://gitbox.apache.org/repos/asf/drill-site.git ../drill-site
+          rm -rf ../drill-site/*
+          cp -R _site/* ../drill-site/
+          cd ../drill-site
+          git add *
+          git config --local user.email "${{ github.event.head_commit.committer.email }}"
+          git config --local user.name "${{ github.event.head_commit.committer.name }}"
+          git commit -m "Website update for ${{ github.event.head_commit.message }}"
+          git push "https://${{ github.actor }}:${{ github.token }}@gitbox.apache.org/repos/asf/drill-site.git" asf-site
