@@ -52,7 +52,7 @@ jobs:
           jekyll build --config _config.yml,_config-prod.yml
           _tools/createdatadocs.py
       - name: Publish
-        if: github.repository == 'apache/drill-site'
+        if: github.repository == 'apache/drill'
         run: |
           git clone -b asf-site https://gitbox.apache.org/repos/asf/drill-site.git ../drill-site
           rm -rf ../drill-site/*
