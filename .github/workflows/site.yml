@@ -52,7 +52,7 @@ jobs:
           jekyll build --config _config.yml,_config-prod.yml
           _tools/createdatadocs.py
       - name: Publish
-        if: github.repository == 'apache/drill'
+        if: github.repository == 'vvysotskyi/drill'
         run: |
           git clone -b asf-site https://gitbox.apache.org/repos/asf/drill-site.git ../drill-site
           rm -rf ../drill-site/*
@@ -62,4 +62,4 @@ jobs:
           git config --local user.email "${{ github.event.head_commit.committer.email }}"
           git config --local user.name "${{ github.event.head_commit.committer.name }}"
           git commit -m "Website update for ${{ github.event.head_commit.message }}"
-          git push "https://${{ github.actor }}:${{ github.token }}@gitbox.apache.org/repos/asf/drill-site.git" asf-site
+          git push "https://${{ github.actor }}:${{ github.token }}@github.com/vvysotskyi/drill-site.git" asf-site
