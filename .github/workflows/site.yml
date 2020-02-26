@@ -62,4 +62,4 @@ jobs:
           git config --local user.email "${{ github.event.head_commit.committer.email }}"
           git config --local user.name "${{ github.event.head_commit.committer.name }}"
           git commit --allow-empty -m "Website update for ${{ github.event.head_commit.message }}"
-          git push "https://${{ github.actor }}:${{ github.token }}@github.com/vvysotskyi/drill-site.git" asf-site
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/vvysotskyi/drill-site.git" asf-site
