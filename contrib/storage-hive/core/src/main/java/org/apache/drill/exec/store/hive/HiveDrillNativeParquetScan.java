@@ -21,6 +21,9 @@ import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.apache.drill.exec.metastore.store.FileSystemMetadataProviderManager;
+import org.apache.drill.exec.metastore.MetadataProviderManager;
+import org.apache.drill.exec.metastore.store.parquet.ParquetMetadataProviderBuilder;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.metastore.metadata.LocationProvider;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -68,11 +71,19 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.hiveStoragePlugin = engineRegistry.resolve(hiveStoragePluginConfig, HiveStoragePlugin.class);
     this.confProperties = confProperties;
 
-    this.metadataProvider = new HiveParquetTableMetadataProvider(entries, hivePartitionHolder, hiveStoragePlugin, readerConfig);
+    HiveParquetTableMetadataProvider.Builder builder =
+        defaultTableMetadataProviderBuilder(new FileSystemMetadataProviderManager());
 
-    HiveParquetTableMetadataProvider hiveMetadataProvider = (HiveParquetTableMetadataProvider) this.metadataProvider;
-    this.hivePartitionHolder = hiveMetadataProvider.getHivePartitionHolder();
-    this.fileSet = hiveMetadataProvider.getFileSet();
+    HiveParquetTableMetadataProvider metadataProvider = builder
+        .withEntries(entries)
+        .withHivePartitionHolder(hivePartitionHolder)
+        .withHiveStoragePlugin(hiveStoragePlugin)
+        .withReaderConfig(readerConfig)
+        .build();
+
+    this.metadataProvider = metadataProvider;
+    this.hivePartitionHolder = metadataProvider.getHivePartitionHolder();
+    this.fileSet = metadataProvider.getFileSet();
 
     init();
   }
@@ -98,12 +109,19 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.hiveStoragePlugin = hiveStoragePlugin;
     this.confProperties = confProperties;
 
-    this.metadataProvider = new HiveParquetTableMetadataProvider(hiveStoragePlugin, logicalInputSplits, readerConfig);
+    HiveParquetTableMetadataProvider.Builder builder =
+        defaultTableMetadataProviderBuilder(new FileSystemMetadataProviderManager());
 
-    HiveParquetTableMetadataProvider hiveMetadataProvider = (HiveParquetTableMetadataProvider) metadataProvider;
-    this.entries = hiveMetadataProvider.getEntries();
-    this.hivePartitionHolder = hiveMetadataProvider.getHivePartitionHolder();
-    this.fileSet = hiveMetadataProvider.getFileSet();
+    HiveParquetTableMetadataProvider metadataProvider = builder
+        .withHiveStoragePlugin(hiveStoragePlugin)
+        .withLogicalInputSplits(logicalInputSplits)
+        .withReaderConfig(readerConfig)
+        .build();
+
+    this.metadataProvider = metadataProvider;
+    this.entries = metadataProvider.getEntries();
+    this.hivePartitionHolder = metadataProvider.getHivePartitionHolder();
+    this.fileSet = metadataProvider.getFileSet();
 
     init();
   }
@@ -187,7 +205,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected RowGroupScanFilterer getFilterer() {
+  protected RowGroupScanFilterer<?> getFilterer() {
     return new HiveDrillNativeParquetScanFilterer(this);
   }
 
@@ -213,11 +231,25 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     return hivePartitionHolder.get(locationProvider.getPath());
   }
 
+  @Override
+  protected ParquetMetadataProviderBuilder<?> tableMetadataProviderBuilder(MetadataProviderManager source) {
+    if (source.usesMetastore()) {
+      throw new UnsupportedOperationException("Drill Metastore doesn't support native Hive parquet tables.");
+    } else {
+      return defaultTableMetadataProviderBuilder(source);
+    }
+  }
+
+  @Override
+  protected HiveParquetTableMetadataProvider.Builder defaultTableMetadataProviderBuilder(MetadataProviderManager source) {
+    return new HiveParquetTableMetadataProvider.Builder(source);
+  }
+
   /**
    * Implementation of RowGroupScanFilterer which uses {@link HiveDrillNativeParquetScanFilterer} as source and
    * builds {@link HiveDrillNativeParquetScanFilterer} instance with filtered metadata.
    */
-  private class HiveDrillNativeParquetScanFilterer extends RowGroupScanFilterer<HiveDrillNativeParquetScanFilterer> {
+  private static class HiveDrillNativeParquetScanFilterer extends RowGroupScanFilterer<HiveDrillNativeParquetScanFilterer> {
 
     public HiveDrillNativeParquetScanFilterer(HiveDrillNativeParquetScan source) {
       super(source);

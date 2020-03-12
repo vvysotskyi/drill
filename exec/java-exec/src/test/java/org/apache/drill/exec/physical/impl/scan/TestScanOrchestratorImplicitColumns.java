@@ -19,7 +19,10 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.drill.categories.RowSetTests;
@@ -41,6 +44,8 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.exec.physical.rowSet.RowSetTestUtils;
 import org.apache.drill.exec.physical.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetUtilities;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -71,11 +76,17 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
    */
 
   @Test
-  public void testWildcardWithMetadata() {
+  public void testWildcardWithMetadata() throws IOException {
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    // mocks file system to be able to work with non-existent files used in mock scan
+    FileSystem fileSystem = mock(FileSystem.class);
+    when(fileSystem.getFileStatus(filePath))
+        .thenReturn(new FileStatus(0, false, 0, 0,
+            766666800, 0, null, null, null, null));
     ImplicitColumnManager metadataManager = new ImplicitColumnManager(
         fixture.getOptionManager(),
-        standardOptions(filePath));
+        standardOptions(filePath),
+        fileSystem);
 
     ScanOrchestratorBuilder builder = new MockScanBuilder();
     builder.withImplicitColumns(metadataManager);
@@ -88,6 +99,8 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
         ScanTestUtils.FILE_PATH_COL,
         ScanTestUtils.FILE_NAME_COL,
         ScanTestUtils.SUFFIX_COL,
+        ScanTestUtils.LMT_COL,
+        ScanTestUtils.PROJECT_METADATA_COL,
         ScanTestUtils.partitionColName(0),
         ScanTestUtils.partitionColName(1)));
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator(), builder);
@@ -118,8 +131,8 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
     TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
 
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(1, "fred", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "x", "y")
-        .addRow(2, "wilma", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "x", "y")
+        .addRow(1, "fred", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "766666800", "true", "x", "y")
+        .addRow(2, "wilma", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "766666800", "true", "x", "y")
         .build();
 
     RowSetUtilities.verify(expected,

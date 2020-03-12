@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import mockit.Mock;
+import mockit.MockUp;
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -43,11 +45,13 @@ import org.apache.drill.exec.record.BatchSchemaBuilder;
 import org.apache.drill.exec.record.metadata.ColumnBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.exec.physical.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -281,6 +285,15 @@ public class TestFileScanFramework extends SubOperatorTest {
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
 
+    // mocks file system to be able to work with non-existent files used in mock scan
+    new MockUp<DrillFileSystem>() {
+      @Mock
+      public FileStatus getFileStatus(Path f) {
+        return new FileStatus(0, false, 0, 0,
+            766666800, 0, null, null, null, null);
+      }
+    };
+
     // Create the scan operator
     FileScanFixtureBuilder builder = new FileScanFixtureBuilder();
     builder.projectAllWithMetadata(2);
@@ -306,13 +319,15 @@ public class TestFileScanFramework extends SubOperatorTest {
         .add(ScanTestUtils.FILE_PATH_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.FILE_NAME_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.SUFFIX_COL, MinorType.VARCHAR)
+        .add(ScanTestUtils.LMT_COL, MinorType.VARCHAR)
+        .addNullable(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
         .addNullable(ScanTestUtils.partitionColName(0), MinorType.VARCHAR)
         .addNullable(ScanTestUtils.partitionColName(1), MinorType.VARCHAR)
         .addNullable(ScanTestUtils.partitionColName(2), MinorType.VARCHAR)
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(30, "fred", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, MOCK_DIR0, MOCK_DIR1, null)
-        .addRow(40, "wilma", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, MOCK_DIR0, MOCK_DIR1, null)
+        .addRow(30, "fred", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, "766666800", "true", MOCK_DIR0, MOCK_DIR1, null)
+        .addRow(40, "wilma", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, "766666800", "true", MOCK_DIR0, MOCK_DIR1, null)
         .build();
     assertEquals(expected.batchSchema(), scan.batchAccessor().schema());
 

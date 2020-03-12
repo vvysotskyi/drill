@@ -131,6 +131,8 @@ public class ShimBatchReader implements RowBatchReader, NegotiatorListener {
       eof = ! reader.next();
     }
 
+    readerOrchestrator.setEof(eof);
+
     // Add implicit columns, if any.
     // Identify the output container and its schema version.
     // Having a correct row count, even if 0, is important to

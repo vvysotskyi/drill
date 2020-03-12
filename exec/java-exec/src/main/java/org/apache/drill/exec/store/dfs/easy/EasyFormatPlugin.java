@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -315,8 +314,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       readers.add(recordReader);
       final List<String> partitionValues = ColumnExplorer.listPartitionValues(
           work.getPath(), scan.getSelectionRoot(), false);
-      final Map<String, String> implicitValues = columnExplorer.populateImplicitColumns(
-          work.getPath(), partitionValues, supportsFileImplicitColumns);
+      final Map<String, String> implicitValues = columnExplorer.populateImplicitAndInternalColumns(
+          work.getPath(), partitionValues, supportsFileImplicitColumns, dfs);
       implicitColumns.add(implicitValues);
       if (implicitValues.size() > mapWithMaxColumns.size()) {
         mapWithMaxColumns = implicitValues;
@@ -324,7 +323,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     }
 
     // all readers should have the same number of implicit columns, add missing ones with value null
-    final Map<String, String> diff = Maps.transformValues(mapWithMaxColumns, Functions.constant((String) null));
+    final Map<String, String> diff = Maps.transformValues(mapWithMaxColumns, Functions.constant(null));
     for (final Map<String, String> map : implicitColumns) {
       map.putAll(Maps.difference(map, diff).entriesOnlyOnRight());
     }
@@ -387,15 +386,10 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
     // Additional error context to identify this plugin
     builder.errorContext(
-        new CustomErrorContext() {
-          @Override
-          public void addContext(UserException.Builder builder) {
-            builder.addContext("Format plugin:", easyConfig.defaultName);
-            builder.addContext("Format plugin:",
-                EasyFormatPlugin.this.getClass().getSimpleName());
-            builder.addContext("Plugin config name:", getName());
-          }
-        });
+        currentBuilder -> currentBuilder
+            .addContext("Format plugin:", easyConfig.defaultName)
+            .addContext("Format plugin:", EasyFormatPlugin.this.getClass().getSimpleName())
+            .addContext("Plugin config name:", getName()));
   }
 
   public ManagedReader<? extends FileSchemaNegotiator> newBatchReader(

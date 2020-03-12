@@ -107,16 +107,9 @@ public class MetadataAggregateHelper {
         addCollectListCall(fieldsList);
       }
       addMergeSchemaCall();
-      String locationField = MetastoreAnalyzeConstants.LOCATION_FIELD;
-
-      if (context.createNewAggregations()) {
-        locationField = columnNamesOptions.fullyQualifiedName();
-      }
 
       if (context.metadataLevel() == MetadataType.SEGMENT) {
         addParentLocationAggCall();
-      } else {
-        addLocationAggCall(locationField);
       }
     }
 
