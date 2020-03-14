@@ -89,7 +89,8 @@ public class MetastoreFileTableMetadataProvider implements TableMetadataProvider
       try {
         schema = schemaProvider.read().getSchema();
       } catch (IOException e) {
-        logger.debug("Unable to read schema from schema provider [{}]: {}",
+        logger.warn("Unable to read schema from schema provider [{}]: {}.\n" +
+                "Query execution will continue without using the schema.",
             builder.metadataProviderManager.getTableInfo().name(), e.getMessage());
         logger.trace("Error when reading the schema", e);
       }

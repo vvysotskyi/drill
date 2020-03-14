@@ -134,7 +134,8 @@ public abstract class BaseParquetMetadataProvider implements ParquetMetadataProv
       try {
         schema = schemaProvider.read().getSchema();
       } catch (IOException e) {
-        logger.debug("Unable to read schema from schema provider [{}]: {}",
+        logger.warn("Unable to read schema from schema provider [{}]: {}.\n" +
+                "Query execution will continue without using the schema.",
             tableLocation, e.getMessage());
         logger.trace("Error when reading the schema", e);
       }

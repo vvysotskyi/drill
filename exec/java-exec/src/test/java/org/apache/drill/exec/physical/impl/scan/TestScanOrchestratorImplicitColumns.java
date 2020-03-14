@@ -19,10 +19,10 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.List;
 
 import org.apache.drill.categories.RowSetTests;
@@ -40,12 +40,15 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.S
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
+import org.apache.drill.exec.store.ColumnExplorer.ImplicitInternalFileColumns;
+import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.exec.physical.rowSet.RowSetTestUtils;
 import org.apache.drill.exec.physical.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetUtilities;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -66,7 +69,7 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
   private ImplicitColumnOptions standardOptions(List<Path> files) {
     ImplicitColumnOptions options = new ImplicitColumnOptions();
     options.useLegacyWildcardExpansion(false); // Don't expand partition columns for wildcard
-    options.setSelectionRoot(new Path("hdfs:///w"));
+    options.setSelectionRoot(new Path(dirTestWatcher.getRootDir().toURI().getPath()));
     options.setFiles(files);
     return options;
   }
@@ -77,12 +80,12 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
 
   @Test
   public void testWildcardWithMetadata() throws IOException {
-    Path filePath = new Path("hdfs:///w/x/y/z.csv");
-    // mocks file system to be able to work with non-existent files used in mock scan
-    FileSystem fileSystem = mock(FileSystem.class);
-    when(fileSystem.getFileStatus(filePath))
-        .thenReturn(new FileStatus(0, false, 0, 0,
-            766666800, 0, null, null, null, null));
+    File file = dirTestWatcher.copyResourceToRoot(
+        Paths.get("multilevel", "csv", "1994", "Q1", "orders_94_q1.csv"),
+        Paths.get("x", "y", "z.csv"));
+    Path filePath = new Path(file.toURI().getPath());
+
+    DrillFileSystem fileSystem = new DrillFileSystem(new Configuration());
     ImplicitColumnManager metadataManager = new ImplicitColumnManager(
         fixture.getOptionManager(),
         standardOptions(filePath),
@@ -130,9 +133,16 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
 
     TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
 
+    String fqn = ImplicitFileColumns.FQN.getValue(filePath);
+    String filePathValue = ImplicitFileColumns.FILEPATH.getValue(filePath);
+    String fileName = ImplicitFileColumns.FILENAME.getValue(filePath);
+    String suffix = ImplicitFileColumns.SUFFIX.getValue(filePath);
+    String lastModifiedTime = ColumnExplorer.getImplicitColumnValue(ImplicitInternalFileColumns.LAST_MODIFIED_TIME, filePath, fileSystem);
+    String projectMetadata = ColumnExplorer.getImplicitColumnValue(ImplicitInternalFileColumns.PROJECT_METADATA, filePath, fileSystem);
+
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(1, "fred", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "766666800", "true", "x", "y")
-        .addRow(2, "wilma", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "766666800", "true", "x", "y")
+        .addRow(1, "fred", fqn, filePathValue, fileName, suffix, lastModifiedTime, projectMetadata, "x", "y")
+        .addRow(2, "wilma", fqn, filePathValue, fileName, suffix, lastModifiedTime, projectMetadata, "x", "y")
         .build();
 
     RowSetUtilities.verify(expected,
@@ -150,7 +160,10 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
   @Test
   public void testSelectNone() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
-    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    File file = dirTestWatcher.copyResourceToRoot(
+        Paths.get("multilevel", "csv", "1994", "Q1", "orders_94_q1.csv"),
+        Paths.get("x", "y", "z.csv"));
+    Path filePath = new Path(file.toURI().getPath());
     ImplicitColumnManager metadataManager = new ImplicitColumnManager(
         fixture.getOptionManager(),
         standardOptions(filePath));
@@ -219,7 +232,10 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
 
     ScanOrchestratorBuilder builder = new MockScanBuilder();
     builder.nullType(nullType);
-    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    File file = dirTestWatcher.copyResourceToRoot(
+        Paths.get("multilevel", "csv", "1994", "Q1", "orders_94_q1.csv"),
+        Paths.get("x", "y", "z.csv"));
+    Path filePath = new Path(file.toURI().getPath());
     ImplicitColumnManager metadataManager = new ImplicitColumnManager(
         fixture.getOptionManager(),
         standardOptions(filePath));
@@ -295,7 +311,10 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
   @Test
   public void testMixture() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
-    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    File file = dirTestWatcher.copyResourceToRoot(
+        Paths.get("multilevel", "csv", "1994", "Q1", "orders_94_q1.csv"),
+        Paths.get("x", "y", "z.csv"));
+    Path filePath = new Path(file.toURI().getPath());
     ImplicitColumnManager metadataManager = new ImplicitColumnManager(
         fixture.getOptionManager(),
         standardOptions(filePath));
@@ -359,8 +378,14 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
   @Test
   public void testMetadataMulti() {
     ScanOrchestratorBuilder builder = new MockScanBuilder();
-    Path filePathA = new Path("hdfs:///w/x/y/a.csv");
-    Path filePathB = new Path("hdfs:///w/x/b.csv");
+    File file = dirTestWatcher.copyResourceToRoot(
+        Paths.get("multilevel", "csv", "1994", "Q1", "orders_94_q1.csv"),
+        Paths.get("x", "y", "a.csv"));
+    Path filePathA = new Path(file.toURI().getPath());
+    File file2 = dirTestWatcher.copyResourceToRoot(
+        Paths.get("multilevel", "csv", "1994", "Q2", "orders_94_q2.csv"),
+        Paths.get("x", "b.csv"));
+    Path filePathB = new Path(file2.toURI().getPath());
     ImplicitColumnManager metadataManager = new ImplicitColumnManager(
         fixture.getOptionManager(),
         standardOptions(Lists.newArrayList(filePathA, filePathB)));

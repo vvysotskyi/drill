@@ -133,6 +133,12 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     return readerConfig;
   }
 
+  @JsonIgnore
+  @Override
+  public Collection<Path> getFiles() {
+    return super.getFiles();
+  }
+
   @Override
   public boolean canPushdownProjects(List<SchemaPath> columns) {
     return true;

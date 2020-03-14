@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.common.logical.FormatPluginConfig;
@@ -214,7 +215,6 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
   }
 
   @JsonProperty("files")
-  @JsonIgnore(value = false)
   @Override
   public List<Path> getFiles() {
     return selection.getFiles();
@@ -337,8 +337,7 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
     return formatPlugin.supportsPushDown();
   }
 
-  @JsonProperty
-  @JsonIgnore(value = false)
+  @Override
   public TupleMetadata getSchema() {
     return getTableMetadata().getSchema();
   }
@@ -396,7 +395,7 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
       try {
         newScan.initFromSelection(newScan.selection, newScan.formatPlugin);
       } catch (IOException e) {
-        throw new RuntimeException("Failed to initialize scan from the selection.", e);
+        throw new DrillRuntimeException("Failed to initialize scan from the selection.", e);
       }
 
       return newScan;

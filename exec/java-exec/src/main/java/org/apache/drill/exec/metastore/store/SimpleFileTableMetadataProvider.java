@@ -162,7 +162,9 @@ public class SimpleFileTableMetadataProvider implements TableMetadataProvider {
           try {
             schema = schemaProvider.read().getSchema();
           } catch (IOException | IllegalArgumentException e) {
-            logger.debug("Unable to read schema from schema provider [{}]: {}", selectionRoot, e.getMessage());
+            logger.warn("Unable to read schema from schema provider [{}]: {}.\n" +
+                    "Query execution will continue without using the schema.",
+                selectionRoot, e.getMessage());
             logger.trace("Error when reading the schema", e);
           }
         }

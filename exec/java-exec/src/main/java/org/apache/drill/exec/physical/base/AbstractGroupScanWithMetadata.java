@@ -149,7 +149,6 @@ public abstract class AbstractGroupScanWithMetadata<P extends TableMetadataProvi
     return columns;
   }
 
-  @JsonIgnore
   @Override
   public Collection<Path> getFiles() {
     return fileSet;
@@ -434,7 +433,7 @@ public abstract class AbstractGroupScanWithMetadata<P extends TableMetadataProvi
     return FilterBuilder.buildFilterPredicate(materializedFilter, constantBoundaries, udfUtilities, omitUnsupportedExprs);
   }
 
-  @JsonIgnore
+  @JsonProperty
   public TupleMetadata getSchema() {
     // creates a copy of TupleMetadata from tableMetadata
     TupleMetadata tuple = new TupleSchema();

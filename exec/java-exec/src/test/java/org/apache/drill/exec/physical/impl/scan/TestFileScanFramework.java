@@ -21,12 +21,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import mockit.Mock;
-import mockit.MockUp;
 import org.apache.drill.categories.RowSetTests;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -45,14 +46,16 @@ import org.apache.drill.exec.record.BatchSchemaBuilder;
 import org.apache.drill.exec.record.metadata.ColumnBuilder;
 import org.apache.drill.exec.record.metadata.SchemaBuilder;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.store.ColumnExplorer.ImplicitInternalFileColumns;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.exec.physical.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -65,13 +68,31 @@ import org.junit.experimental.categories.Category;
 public class TestFileScanFramework extends SubOperatorTest {
 
   private static final String MOCK_FILE_NAME = "foo.csv";
-  private static final String MOCK_FILE_PATH = "/w/x/y";
-  private static final String MOCK_FILE_FQN = MOCK_FILE_PATH + "/" + MOCK_FILE_NAME;
-  private static final String MOCK_FILE_SYSTEM_NAME = "file:" + MOCK_FILE_FQN;
-  private static final Path MOCK_ROOT_PATH = new Path("file:/w");
   private static final String MOCK_SUFFIX = "csv";
   private static final String MOCK_DIR0 = "x";
   private static final String MOCK_DIR1 = "y";
+
+  private static String pathToFile;
+  private static String fqn;
+  private static String filePath;
+  private static Path rootPath;
+  private static String lastModifiedTime;
+
+  @BeforeClass
+  public static void copyFile() throws IOException {
+    rootPath = new Path(dirTestWatcher.getRootDir().toURI().getPath());
+    File file = dirTestWatcher.copyResourceToRoot(
+        Paths.get("multilevel", "csv", "1994", "Q1", "orders_94_q1.csv"),
+        Paths.get("x/y", MOCK_FILE_NAME));
+    filePath = file.toURI().getPath();
+    Path filePath = new Path(file.toURI().getPath());
+    fqn = ColumnExplorer.ImplicitFileColumns.FQN.getValue(filePath);
+    pathToFile = ColumnExplorer.ImplicitFileColumns.FILEPATH.getValue(filePath);
+    lastModifiedTime = ColumnExplorer.getImplicitColumnValue(
+        ImplicitInternalFileColumns.LAST_MODIFIED_TIME,
+        filePath,
+        new DrillFileSystem(new Configuration()));
+  }
 
   /**
    * For schema-based testing, we only need the file path from the file work.
@@ -129,7 +150,7 @@ public class TestFileScanFramework extends SubOperatorTest {
 
     public FileScanFixtureBuilder() {
       super(fixture);
-      builder.implicitColumnOptions().setSelectionRoot(MOCK_ROOT_PATH);
+      builder.implicitColumnOptions().setSelectionRoot(rootPath);
       builder.implicitColumnOptions().setPartitionDepth(3);
     }
 
@@ -173,7 +194,7 @@ public class TestFileScanFramework extends SubOperatorTest {
     public int batchCount;
     public int batchLimit;
     protected ResultSetLoader tableLoader;
-    protected Path filePath = new Path(MOCK_FILE_SYSTEM_NAME);
+    protected Path filePath = new Path(TestFileScanFramework.filePath);
 
     @Override
     public Path filePath() { return filePath; }
@@ -285,15 +306,6 @@ public class TestFileScanFramework extends SubOperatorTest {
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
 
-    // mocks file system to be able to work with non-existent files used in mock scan
-    new MockUp<DrillFileSystem>() {
-      @Mock
-      public FileStatus getFileStatus(Path f) {
-        return new FileStatus(0, false, 0, 0,
-            766666800, 0, null, null, null, null);
-      }
-    };
-
     // Create the scan operator
     FileScanFixtureBuilder builder = new FileScanFixtureBuilder();
     builder.projectAllWithMetadata(2);
@@ -326,8 +338,8 @@ public class TestFileScanFramework extends SubOperatorTest {
         .addNullable(ScanTestUtils.partitionColName(2), MinorType.VARCHAR)
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(30, "fred", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, "766666800", "true", MOCK_DIR0, MOCK_DIR1, null)
-        .addRow(40, "wilma", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, "766666800", "true", MOCK_DIR0, MOCK_DIR1, null)
+        .addRow(30, "fred", fqn, pathToFile, MOCK_FILE_NAME, MOCK_SUFFIX, lastModifiedTime, "true", MOCK_DIR0, MOCK_DIR1, null)
+        .addRow(40, "wilma", fqn, pathToFile, MOCK_FILE_NAME, MOCK_SUFFIX, lastModifiedTime, "true", MOCK_DIR0, MOCK_DIR1, null)
         .build();
     assertEquals(expected.batchSchema(), scan.batchAccessor().schema());
 

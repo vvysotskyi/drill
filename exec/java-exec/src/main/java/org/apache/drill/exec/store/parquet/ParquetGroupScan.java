@@ -34,7 +34,6 @@ import org.apache.drill.exec.metastore.MetadataProviderManager;
 import org.apache.drill.exec.metastore.store.parquet.ParquetTableMetadataProvider;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.metastore.metadata.LocationProvider;
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.ValueExpressions;
@@ -52,7 +51,6 @@ import org.apache.hadoop.fs.Path;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -80,7 +78,7 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
                           @JsonProperty("cacheFileRoot") Path cacheFileRoot,
                           @JsonProperty("readerConfig") ParquetReaderConfig readerConfig,
                           @JsonProperty("filter") LogicalExpression filter,
-                          @JsonProperty("schema") TupleMetadata schema) throws IOException, ExecutionSetupException {
+                          @JsonProperty("schema") TupleMetadata schema) throws IOException {
     super(ImpersonationUtil.resolveUserName(userName), columns, entries, readerConfig, filter);
     Preconditions.checkNotNull(storageConfig);
     Preconditions.checkNotNull(formatConfig);
@@ -207,12 +205,6 @@ public class ParquetGroupScan extends AbstractParquetGroupScan {
     return cacheFileRoot;
   }
 
-  @JsonProperty
-  @JsonIgnore(value = false)
-  @Override
-  public TupleMetadata getSchema() {
-    return super.getSchema();
-  }
   // getters for serialization / deserialization end
 
   @Override

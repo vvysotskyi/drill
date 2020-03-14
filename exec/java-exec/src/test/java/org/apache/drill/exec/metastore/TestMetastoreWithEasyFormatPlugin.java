@@ -45,12 +45,10 @@ import org.apache.drill.test.ClusterTest;
 import org.apache.hadoop.fs.Path;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.nio.file.Paths;
@@ -101,16 +99,13 @@ public class TestMetastoreWithEasyFormatPlugin extends ClusterTest {
       .addNullable("dir1", TypeProtos.MinorType.VARCHAR)
       .build();
 
-  @ClassRule
-  public static TemporaryFolder defaultFolder = new TemporaryFolder();
-
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
   @BeforeClass
   public static void setUp() throws Exception {
     ClusterFixtureBuilder builder = ClusterFixture.builder(dirTestWatcher);
-    builder.configProperty(ExecConstants.ZK_ROOT, defaultFolder.getRoot().getPath());
+    builder.configProperty(ExecConstants.ZK_ROOT, dirTestWatcher.getRootDir().getPath());
     startCluster(builder);
   }
 

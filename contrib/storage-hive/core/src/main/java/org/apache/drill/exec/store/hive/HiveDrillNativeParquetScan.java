@@ -19,11 +19,12 @@ package org.apache.drill.exec.store.hive;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.metastore.store.FileSystemMetadataProviderManager;
 import org.apache.drill.exec.metastore.MetadataProviderManager;
-import org.apache.drill.exec.metastore.store.parquet.ParquetMetadataProviderBuilder;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.metastore.metadata.LocationProvider;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
@@ -110,7 +111,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     this.confProperties = confProperties;
 
     HiveParquetTableMetadataProvider.Builder builder =
-        defaultTableMetadataProviderBuilder(new FileSystemMetadataProviderManager());
+        tableMetadataProviderBuilder(new FileSystemMetadataProviderManager());
 
     HiveParquetTableMetadataProvider metadataProvider = builder
         .withHiveStoragePlugin(hiveStoragePlugin)
@@ -162,6 +163,12 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     }
     return new HiveDrillNativeParquetRowGroupScan(getUserName(), hiveStoragePlugin, readEntries, columns, subPartitionHolder,
       confProperties, readerConfig, filter, getTableMetadata().getSchema());
+  }
+
+  @Override
+  @JsonIgnore
+  public TupleMetadata getSchema() {
+    return super.getSchema();
   }
 
   @Override
@@ -232,12 +239,8 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
   }
 
   @Override
-  protected ParquetMetadataProviderBuilder<?> tableMetadataProviderBuilder(MetadataProviderManager source) {
-    if (source.usesMetastore()) {
-      throw new UnsupportedOperationException("Drill Metastore doesn't support native Hive parquet tables.");
-    } else {
-      return defaultTableMetadataProviderBuilder(source);
-    }
+  protected HiveParquetTableMetadataProvider.Builder tableMetadataProviderBuilder(MetadataProviderManager source) {
+    return defaultTableMetadataProviderBuilder(source);
   }
 
   @Override
