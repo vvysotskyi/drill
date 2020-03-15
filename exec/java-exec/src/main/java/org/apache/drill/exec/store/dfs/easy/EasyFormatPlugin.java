@@ -74,7 +74,7 @@ import org.slf4j.LoggerFactory;
  * Base class for file readers.
  * <p>
  * Provides a bridge between the legacy {@link RecordReader}-style
- * readers and the newer {@link FileBatchReader} style. Over time, split the
+ * readers and the newer {@link ManagedReader} style. Over time, split the
  * class, or provide a cleaner way to handle the differences.
  *
  * @param <T> the format plugin config for this reader
@@ -104,6 +104,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     // instead of overriding methods.
 
     public boolean supportsProjectPushdown;
+    public boolean supportsFileImplicitColumns = true;
     public boolean supportsAutoPartitioning;
     public boolean supportsStatistics;
     public int readerOperatorType = -1;
@@ -112,7 +113,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     /**
      *  Choose whether to use the "traditional" or "enhanced" reader
      *  structure. Can also be selected at runtime by overriding
-     *  {@link #useEnhancedScan()}.
+     *  {@link #useEnhancedScan(OptionManager)}.
      */
     public boolean useEnhancedScan;
   }
@@ -221,6 +222,16 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   public boolean supportsPushDown() { return easyConfig.supportsProjectPushdown; }
 
   /**
+   * Whether this format plugin supports implicit file columns.
+   *
+   * @return {@code true} if the plugin supports implicit file columns,
+   * {@code false} otherwise
+   */
+  public boolean supportsFileImplicitColumns() {
+    return easyConfig.supportsFileImplicitColumns;
+  }
+
+  /**
    * Whether or not you can split the format based on blocks within file
    * boundaries. If not, the simple format engine will only split on file
    * boundaries.
@@ -314,7 +325,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       readers.add(recordReader);
       final List<String> partitionValues = ColumnExplorer.listPartitionValues(
           work.getPath(), scan.getSelectionRoot(), false);
-      final Map<String, String> implicitValues = columnExplorer.populateImplicitAndInternalColumns(
+      final Map<String, String> implicitValues = columnExplorer.populateColumns(
           work.getPath(), partitionValues, supportsFileImplicitColumns, dfs);
       implicitColumns.add(implicitValues);
       if (implicitValues.size() > mapWithMaxColumns.size()) {
@@ -364,9 +375,9 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
    * The plugin can then customize/revise options as needed.
    *
    * @param builder the scan framework builder you create in the
-   * {@link #frameworkBuilder()} method
+   * {@link #frameworkBuilder(OptionManager, EasySubScan)} method
    * @param scan the physical scan operator definition passed to
-   * the {@link #frameworkBuilder()} method
+   * the {@link #frameworkBuilder(OptionManager, EasySubScan)} method
    */
   protected void initScanBuilder(FileScanBuilder builder, EasySubScan scan) {
     builder.projection(scan.getColumns());
@@ -387,9 +398,9 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     // Additional error context to identify this plugin
     builder.errorContext(
         currentBuilder -> currentBuilder
-            .addContext("Format plugin:", easyConfig.defaultName)
-            .addContext("Format plugin:", EasyFormatPlugin.this.getClass().getSimpleName())
-            .addContext("Plugin config name:", getName()));
+            .addContext("Format plugin", easyConfig.defaultName)
+            .addContext("Format plugin", EasyFormatPlugin.this.getClass().getSimpleName())
+            .addContext("Plugin config name", getName()));
   }
 
   public ManagedReader<? extends FileSchemaNegotiator> newBatchReader(

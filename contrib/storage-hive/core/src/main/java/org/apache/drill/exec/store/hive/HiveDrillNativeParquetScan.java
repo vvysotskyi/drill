@@ -19,7 +19,6 @@ package org.apache.drill.exec.store.hive;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.metastore.store.FileSystemMetadataProviderManager;
@@ -28,7 +27,6 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.store.parquet.ParquetReaderConfig;
 import org.apache.drill.metastore.metadata.LocationProvider;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.ValueExpressions;
@@ -67,7 +65,8 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
                                     @JsonProperty("hivePartitionHolder") HivePartitionHolder hivePartitionHolder,
                                     @JsonProperty("confProperties") Map<String, String> confProperties,
                                     @JsonProperty("readerConfig") ParquetReaderConfig readerConfig,
-                                    @JsonProperty("filter") LogicalExpression filter) throws IOException, ExecutionSetupException {
+                                    @JsonProperty("filter") LogicalExpression filter,
+                                    @JsonProperty("schema") TupleMetadata schema) throws IOException {
     super(ImpersonationUtil.resolveUserName(userName), columns, entries, readerConfig, filter);
     this.hiveStoragePlugin = engineRegistry.resolve(hiveStoragePluginConfig, HiveStoragePlugin.class);
     this.confProperties = confProperties;
@@ -80,6 +79,7 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
         .withHivePartitionHolder(hivePartitionHolder)
         .withHiveStoragePlugin(hiveStoragePlugin)
         .withReaderConfig(readerConfig)
+        .withSchema(schema)
         .build();
 
     this.metadataProvider = metadataProvider;
@@ -163,12 +163,6 @@ public class HiveDrillNativeParquetScan extends AbstractParquetGroupScan {
     }
     return new HiveDrillNativeParquetRowGroupScan(getUserName(), hiveStoragePlugin, readEntries, columns, subPartitionHolder,
       confProperties, readerConfig, filter, getTableMetadata().getSchema());
-  }
-
-  @Override
-  @JsonIgnore
-  public TupleMetadata getSchema() {
-    return super.getSchema();
   }
 
   @Override

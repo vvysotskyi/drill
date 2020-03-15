@@ -48,23 +48,6 @@ public class FileMetadataColumn extends MetadataColumn {
   }
 
   /**
-   * Constructor for resolved column with specific value. The column is resolved at the file
-   * level once we identify the file to which the column is bound.
-   *
-   * @param name name of the column as given in the projection list
-   * @param defn definition of the metadata column
-   * @param value value of this column on a per-file basis
-   * @param source handle to the a logical batch that holds the vectors
-   * to be populated in each row batch
-   * @param sourceIndex the location of the vector to populate
-   */
-  public FileMetadataColumn(String name, FileMetadataColumnDefn defn,
-      String value, VectorSource source, int sourceIndex) {
-    super(name, defn.dataType(), value, source, sourceIndex);
-    this.defn = defn;
-  }
-
-  /**
    * Constructor for unresolved column. A column is unresolved at the scan
    * level: we know that this is a file metadata column, but we don't yet
    * know the file to which to bind the column
@@ -82,11 +65,6 @@ public class FileMetadataColumn extends MetadataColumn {
 
   @Override
   public MetadataColumn resolve(FileMetadata fileInfo, VectorSource source, int sourceIndex) {
-    if (value() == null) {
-      return new FileMetadataColumn(name(), defn, fileInfo, source, sourceIndex);
-    } else {
-      // case of metadata column, which should have null value independently of its column definition
-      return new FileMetadataColumn(name(), defn, (String) null, source, sourceIndex);
-    }
+    return new FileMetadataColumn(name(), defn, fileInfo, source, sourceIndex);
   }
 }

@@ -102,7 +102,7 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
         ScanTestUtils.FILE_PATH_COL,
         ScanTestUtils.FILE_NAME_COL,
         ScanTestUtils.SUFFIX_COL,
-        ScanTestUtils.LMT_COL,
+        ScanTestUtils.LAST_MODIFIED_TIME_COL,
         ScanTestUtils.PROJECT_METADATA_COL,
         ScanTestUtils.partitionColName(0),
         ScanTestUtils.partitionColName(1)));
@@ -138,7 +138,7 @@ public class TestScanOrchestratorImplicitColumns extends SubOperatorTest {
     String fileName = ImplicitFileColumns.FILENAME.getValue(filePath);
     String suffix = ImplicitFileColumns.SUFFIX.getValue(filePath);
     String lastModifiedTime = ColumnExplorer.getImplicitColumnValue(ImplicitInternalFileColumns.LAST_MODIFIED_TIME, filePath, fileSystem);
-    String projectMetadata = ColumnExplorer.getImplicitColumnValue(ImplicitInternalFileColumns.PROJECT_METADATA, filePath, fileSystem);
+    String projectMetadata = ColumnExplorer.getImplicitColumnValue(ImplicitInternalFileColumns.USE_METADATA, filePath, fileSystem);
 
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(1, "fred", fqn, filePathValue, fileName, suffix, lastModifiedTime, projectMetadata, "x", "y")

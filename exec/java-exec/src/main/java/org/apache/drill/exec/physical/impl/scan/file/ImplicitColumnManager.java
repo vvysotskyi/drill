@@ -138,10 +138,8 @@ public class ImplicitColumnManager implements MetadataManager, ReaderProjectionR
   private FileSystem fs;
 
   /**
-   * Specifies whether to plan based on the legacy meaning of "*". See
-   * <a href="https://issues.apache.org/jira/browse/DRILL-5542">DRILL-5542</a>.
-   * If true, then the star column <i>includes</i> implicit and partition
-   * columns. If false, then star matches <i>only</i> table columns.
+   * Constructor for {@link ImplicitColumnManager} for managing the insertion of file metadata
+   * (AKA "implicit" and partition) columns.
    *
    * @param optionManager access to the options for this query; used
    *                      too look up custom names for the metadata columns
@@ -193,10 +191,8 @@ public class ImplicitColumnManager implements MetadataManager, ReaderProjectionR
   }
 
   /**
-   * Specifies whether to plan based on the legacy meaning of "*". See
-   * <a href="https://issues.apache.org/jira/browse/DRILL-5542">DRILL-5542</a>.
-   * If true, then the star column <i>includes</i> implicit and partition
-   * columns. If false, then star matches <i>only</i> table columns.
+   * Constructor for {@link ImplicitColumnManager} for managing the insertion of file metadata
+   * (AKA "implicit" and partition) columns.
    *
    * @param optionManager access to the options for this query; used
    *                      too look up custom names for the metadata columns

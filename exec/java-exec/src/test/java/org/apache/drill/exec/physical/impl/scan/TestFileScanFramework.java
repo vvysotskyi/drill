@@ -331,15 +331,15 @@ public class TestFileScanFramework extends SubOperatorTest {
         .add(ScanTestUtils.FILE_PATH_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.FILE_NAME_COL, MinorType.VARCHAR)
         .add(ScanTestUtils.SUFFIX_COL, MinorType.VARCHAR)
-        .add(ScanTestUtils.LMT_COL, MinorType.VARCHAR)
+        .add(ScanTestUtils.LAST_MODIFIED_TIME_COL, MinorType.VARCHAR)
         .addNullable(ScanTestUtils.PROJECT_METADATA_COL, MinorType.VARCHAR)
         .addNullable(ScanTestUtils.partitionColName(0), MinorType.VARCHAR)
         .addNullable(ScanTestUtils.partitionColName(1), MinorType.VARCHAR)
         .addNullable(ScanTestUtils.partitionColName(2), MinorType.VARCHAR)
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(30, "fred", fqn, pathToFile, MOCK_FILE_NAME, MOCK_SUFFIX, lastModifiedTime, "true", MOCK_DIR0, MOCK_DIR1, null)
-        .addRow(40, "wilma", fqn, pathToFile, MOCK_FILE_NAME, MOCK_SUFFIX, lastModifiedTime, "true", MOCK_DIR0, MOCK_DIR1, null)
+        .addRow(30, "fred", fqn, pathToFile, MOCK_FILE_NAME, MOCK_SUFFIX, lastModifiedTime, null, MOCK_DIR0, MOCK_DIR1, null)
+        .addRow(40, "wilma", fqn, pathToFile, MOCK_FILE_NAME, MOCK_SUFFIX, lastModifiedTime, null, MOCK_DIR0, MOCK_DIR1, null)
         .build();
     assertEquals(expected.batchSchema(), scan.batchAccessor().schema());
 

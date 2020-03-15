@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import org.apache.drill.common.exceptions.CustomErrorContext;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnBuilder.NullBuilderBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedTuple.ResolvedRow;
 import org.apache.drill.exec.physical.resultSet.ResultSetLoader;
@@ -27,7 +28,7 @@ import org.apache.drill.exec.physical.resultSet.impl.ResultSetOptionBuilder;
 import org.apache.drill.exec.physical.resultSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
-import org.apache.drill.exec.store.ColumnExplorer;
+import org.apache.drill.exec.store.ColumnExplorer.ImplicitInternalFileColumns;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
@@ -44,12 +45,6 @@ public class ReaderSchemaOrchestrator implements VectorSource {
   private int readerBatchSize;
   private ResultSetLoaderImpl tableLoader;
   private int prevTableSchemaVersion = -1;
-
-  /**
-   * True once the reader reports EOF. This shim may keep going for another
-   * batch to handle any look-ahead row on the last batch.
-   */
-  private boolean eof;
 
   /**
    * Assembles the table, metadata and null columns into the final output
@@ -110,21 +105,28 @@ public class ReaderSchemaOrchestrator implements VectorSource {
     tableLoader.startBatch();
   }
 
-  public void setEof(boolean eof) {
-    this.eof = eof;
-  }
-
   /**
    * Build the final output batch by projecting columns from the three input sources
    * to the output batch. First, build the metadata and/or null columns for the
    * table row count. Then, merge the sources.
    */
   public void endBatch() {
+    endBatch(false);
+  }
+
+  /**
+   * Build the final output batch by projecting columns from the three input sources
+   * to the output batch. First, build the metadata and/or null columns for the
+   * table row count. Then, merge the sources.
+   *
+   * @param eof is end of file
+   */
+  public void endBatch(boolean eof) {
 
     // Get the batch results in a container.
     tableContainer = tableLoader.harvest();
 
-    boolean projected = resolveProjectingMetadata();
+    boolean projected = resolveProjectingMetadata(eof);
 
     // If the schema changed, set up the final projection based on
     // the new (or first) schema.
@@ -136,7 +138,7 @@ public class ReaderSchemaOrchestrator implements VectorSource {
       populateNonDataColumns();
     }
     if (projected) {
-      setProjectMetadata(null);
+      projectMetadata(false);
     }
     rootTuple.setRowCount(tableContainer.getRecordCount());
   }
@@ -145,9 +147,9 @@ public class ReaderSchemaOrchestrator implements VectorSource {
    * Updates {@code PROJECT_METADATA} implicit column value to {@code "FALSE"} to handle current batch as
    * a batch with metadata information only for the case when this batch is first and empty.
    */
-  private boolean resolveProjectingMetadata() {
+  private boolean resolveProjectingMetadata(boolean eof) {
     if (tableContainer.getRecordCount() == 0 && !hasSchema() && eof) {
-      if (setProjectMetadata(Boolean.FALSE.toString())) {
+      if (projectMetadata(true)) {
         tableContainer.setValueCount(tableContainer.getRecordCount() + 1);
         return true;
       }
@@ -158,28 +160,35 @@ public class ReaderSchemaOrchestrator implements VectorSource {
   /**
    * Sets {@code PROJECT_METADATA} implicit column value.
    *
-   * @param value value to set
+   * @param projectMetadata whether {@code PROJECT_METADATA} should be replaced
    * @return {@code true} if {@code PROJECT_METADATA} implicit column
    * is present in scan projection and its value is updated
    */
-  private boolean setProjectMetadata(String value) {
+  private boolean projectMetadata(boolean projectMetadata) {
+    ImplicitInternalFileColumns original;
+    ImplicitInternalFileColumns newColumn;
+    if (projectMetadata) {
+      original = ImplicitInternalFileColumns.USE_METADATA;
+      newColumn = ImplicitInternalFileColumns.PROJECT_METADATA;
+    } else {
+      original = ImplicitInternalFileColumns.PROJECT_METADATA;
+      newColumn = ImplicitInternalFileColumns.USE_METADATA;
+    }
     List<ColumnProjection> outputColumns = scanOrchestrator.scanProj.columns();
     for (int i = 0; i < outputColumns.size(); i++) {
       ColumnProjection outputColumn = outputColumns.get(i);
       if (outputColumn instanceof FileMetadataColumn) {
         FileMetadataColumn metadataColumn = (FileMetadataColumn) outputColumn;
-        if (metadataColumn.defn().defn == ColumnExplorer.ImplicitInternalFileColumns.PROJECT_METADATA) {
+        if (metadataColumn.defn().defn == original) {
 
-          boolean projectMetadata = scanOrchestrator.scanProj.requestedCols().stream()
+          projectMetadata = scanOrchestrator.scanProj.requestedCols().stream()
               .anyMatch(SchemaPath.getSimplePath(metadataColumn.name())::equals);
 
           if (projectMetadata) {
             outputColumns.set(i,
-                new FileMetadataColumn(metadataColumn.name(),
-                    metadataColumn.defn(),
-                    value,
-                    metadataColumn.source(),
-                    metadataColumn.sourceIndex()));
+                new FileMetadataColumn(
+                    metadataColumn.name(),
+                    new FileMetadataColumnDefn(metadataColumn.defn().colName(), newColumn)));
           }
           return projectMetadata;
         }

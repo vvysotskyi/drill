@@ -232,7 +232,12 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
 
   @Override
   protected boolean supportsFileImplicitColumns() {
-    return true;
+    return formatPlugin.supportsFileImplicitColumns();
+  }
+
+  @Override
+  public boolean supportsFilterPushDown() {
+    return usedMetastore();
   }
 
   @Override

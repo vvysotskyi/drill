@@ -309,13 +309,13 @@ public class MetastoreFileTableMetadataProvider implements TableMetadataProvider
 
     @Override
     public TableMetadataProvider build() throws IOException {
-      if (!selection().isExpandedFully()) {
-        paths = DrillFileSystemUtil.listFiles(fs, selection.getSelectionRoot(), true).stream()
-            .map(fileStatus -> Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()).toUri().getPath())
-            .collect(Collectors.toList());
-      } else {
+      if (selection().isExpandedFully()) {
         paths = selection.getFiles().stream()
             .map(path -> Path.getPathWithoutSchemeAndAuthority(path).toUri().getPath())
+            .collect(Collectors.toList());
+      } else {
+        paths = DrillFileSystemUtil.listFiles(fs, selection.getSelectionRoot(), true).stream()
+            .map(fileStatus -> Path.getPathWithoutSchemeAndAuthority(fileStatus.getPath()).toUri().getPath())
             .collect(Collectors.toList());
       }
       return new MetastoreFileTableMetadataProvider(this);

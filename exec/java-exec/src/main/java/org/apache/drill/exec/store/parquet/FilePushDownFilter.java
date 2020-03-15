@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.parquet;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.drill.exec.physical.base.AbstractGroupScanWithMetadata;
 import org.apache.drill.exec.expr.FilterPredicate;
-import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.shaded.guava.com.google.common.base.Stopwatch;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -69,7 +68,7 @@ public abstract class FilePushDownFilter extends StoragePluginOptimizerRule {
       @Override
       public boolean matches(RelOptRuleCall call) {
         final ScanPrel scan = call.rel(2);
-        if (supportsFilterPushDown(scan.getGroupScan())) {
+        if (scan.getGroupScan().supportsFilterPushDown()) {
           return super.matches(call);
         }
         return false;
@@ -94,7 +93,7 @@ public abstract class FilePushDownFilter extends StoragePluginOptimizerRule {
       @Override
       public boolean matches(RelOptRuleCall call) {
         final ScanPrel scan = call.rel(1);
-        if (supportsFilterPushDown(scan.getGroupScan())) {
+        if (scan.getGroupScan().supportsFilterPushDown()) {
           return super.matches(call);
         }
         return false;
@@ -246,16 +245,5 @@ public abstract class FilePushDownFilter extends StoragePluginOptimizerRule {
 
     final RelNode newFilter = filter.copy(filter.getTraitSet(), Collections.singletonList(newNode));
     call.transformTo(newFilter);
-  }
-
-  /**
-   * Checks whether specified group scan supports filter push down.
-   *
-   * @param groupScan group scan to check
-   * @return {@code true} if specified group scan supports filter push down, {@code false} otherwise
-   */
-  private static boolean supportsFilterPushDown(GroupScan groupScan) {
-    return groupScan instanceof AbstractGroupScanWithMetadata
-        && (groupScan.usedMetastore() || groupScan instanceof AbstractParquetGroupScan);
   }
 }

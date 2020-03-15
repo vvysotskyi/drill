@@ -133,6 +133,10 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
     return readerConfig;
   }
 
+  /**
+   * This method is excluded from serialization in this group scan
+   * since the actual files list to scan in this class is handled by {@link #entries} field.
+   */
   @JsonIgnore
   @Override
   public Collection<Path> getFiles() {
@@ -141,6 +145,11 @@ public abstract class AbstractParquetGroupScan extends AbstractGroupScanWithMeta
 
   @Override
   public boolean canPushdownProjects(List<SchemaPath> columns) {
+    return true;
+  }
+
+  @Override
+  public boolean supportsFilterPushDown() {
     return true;
   }
 

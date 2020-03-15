@@ -268,7 +268,7 @@ public class ColumnExplorer {
    * @param fs                         file system
    * @return implicit columns map
    */
-  public Map<String, String> populateImplicitAndInternalColumns(Path filePath,
+  public Map<String, String> populateColumns(Path filePath,
       List<String> partitionValues, boolean includeFileImplicitColumns, FileSystem fs) {
     Map<String, String> implicitValues =
         new LinkedHashMap<>(populateImplicitColumns(filePath, partitionValues, includeFileImplicitColumns));
@@ -293,11 +293,11 @@ public class ColumnExplorer {
    * @param length                     length of row group to populate
    * @return implicit columns map
    */
-  public Map<String, String> populateImplicitAndInternalColumns(Path filePath,
+  public Map<String, String> populateColumns(Path filePath,
       List<String> partitionValues, boolean includeFileImplicitColumns, FileSystem fs, int index, long start, long length) {
 
     Map<String, String> implicitValues =
-        new LinkedHashMap<>(populateImplicitAndInternalColumns(filePath, partitionValues, includeFileImplicitColumns, fs));
+        new LinkedHashMap<>(populateColumns(filePath, partitionValues, includeFileImplicitColumns, fs));
 
     selectedInternalColumns.forEach(
         (key, value) -> implicitValues.put(key, getImplicitColumnValue(value, filePath, fs, index, start, length)));
@@ -331,7 +331,9 @@ public class ColumnExplorer {
         case ROW_GROUP_LENGTH:
           return length != null ? String.valueOf(length) : null;
         case PROJECT_METADATA:
-          return Boolean.TRUE.toString();
+          return Boolean.FALSE.toString();
+        case USE_METADATA:
+          return null;
         case LAST_MODIFIED_TIME:
           try {
             return fs != null ? String.valueOf(fs.getFileStatus(filePath).getModificationTime()) : null;
@@ -357,7 +359,7 @@ public class ColumnExplorer {
 
   /**
    * Returns list of implicit file columns which includes all elements from {@link ImplicitFileColumns},
-   * {@link ImplicitInternalFileColumns#LAST_MODIFIED_TIME} and {@link ImplicitInternalFileColumns#PROJECT_METADATA}
+   * {@link ImplicitInternalFileColumns#LAST_MODIFIED_TIME} and {@link ImplicitInternalFileColumns#USE_METADATA}
    * columns.
    *
    * @return list of implicit file columns
@@ -367,7 +369,7 @@ public class ColumnExplorer {
     Collections.addAll(implicitColumns, ImplicitFileColumns.values());
 
     implicitColumns.add(ImplicitInternalFileColumns.LAST_MODIFIED_TIME);
-    implicitColumns.add(ImplicitInternalFileColumns.PROJECT_METADATA);
+    implicitColumns.add(ImplicitInternalFileColumns.USE_METADATA);
     return implicitColumns;
   }
 
@@ -558,6 +560,13 @@ public class ColumnExplorer {
     ROW_GROUP_START(ExecConstants.IMPLICIT_ROW_GROUP_START_COLUMN_LABEL),
 
     ROW_GROUP_LENGTH(ExecConstants.IMPLICIT_ROW_GROUP_LENGTH_COLUMN_LABEL),
+
+    USE_METADATA(ExecConstants.IMPLICIT_PROJECT_METADATA_COLUMN_LABEL) {
+      @Override
+      public boolean isOptional() {
+        return true;
+      }
+    },
 
     PROJECT_METADATA(ExecConstants.IMPLICIT_PROJECT_METADATA_COLUMN_LABEL) {
       @Override

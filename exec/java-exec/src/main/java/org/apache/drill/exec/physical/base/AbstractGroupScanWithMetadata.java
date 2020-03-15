@@ -662,7 +662,7 @@ public abstract class AbstractGroupScanWithMetadata<P extends TableMetadataProvi
   /**
    * Compares the last modified time of files obtained from specified selection with
    * the Metastore last modified time to determine whether Metastore metadata
-   * is not outdated. If metadata is outdated, {@link MetadataException} will be thrown.
+   * is up-to-date. If metadata is outdated, {@link MetadataException} will be thrown.
    *
    * @param selection the source of files to check
    * @throws MetadataException if metadata is outdated

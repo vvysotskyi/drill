@@ -52,7 +52,7 @@ public class ScanTestUtils {
   public static final String FILE_PATH_COL = "filepath";
   public static final String SUFFIX_COL = "suffix";
   public static final String PARTITION_COL = "dir";
-  public static final String LMT_COL = "lmt";
+  public static final String LAST_MODIFIED_TIME_COL = "lmt";
   public static final String PROJECT_METADATA_COL = "$project_metadata$";
 
   public static abstract class ScanFixtureBuilder {
@@ -194,7 +194,7 @@ public class ScanTestUtils {
         FILE_PATH_COL,
         FILE_NAME_COL,
         SUFFIX_COL,
-        LMT_COL,
+        LAST_MODIFIED_TIME_COL,
         PROJECT_METADATA_COL);
 
     for (int i = 0; i < dirCount; i++) {
