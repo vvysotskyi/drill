@@ -52,7 +52,7 @@ import static org.junit.Assert.assertNull;
 public class TestTpchDistributedConcurrent extends BaseTestQuery {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestTpchDistributedConcurrent.class);
 
-  @Rule public final TestRule TIMEOUT = TestTools.getTimeoutRule(360000); // Longer timeout than usual.
+  @Rule public final TestRule TIMEOUT = TestTools.getTimeoutRule(400_000); // 400 secs
 
   /*
    * Valid test names taken from TestTpchDistributed. Fuller path prefixes are
