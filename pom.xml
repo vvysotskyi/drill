@@ -3366,13 +3366,17 @@
       <id>cdh</id>
       <properties>
         <alt-hadoop>cdh4</alt-hadoop>
+        <hadoop.version>3.1.1.7.0.3.0-79</hadoop.version>
+        <hbase.version>2.2.0.7.0.3.0-79</hbase.version>
+        <hive.version>3.1.2000.7.0.3.0-79</hive.version>
+        <zookeeper.version>3.5.5.7.0.3.0-79</zookeeper.version>
       </properties>
       <dependencyManagement>
         <dependencies>
           <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-common</artifactId>
-            <version>2.3.0-cdh5.0.3</version>
+            <version>${hadoop.version}</version>
             <exclusions>
               <exclusion>
                 <artifactId>commons-logging</artifactId>
@@ -3387,52 +3391,45 @@
                 <artifactId>servlet-api-2.5</artifactId>
               </exclusion>
               <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty</artifactId>
+                <groupId>io.netty</groupId>
+                <artifactId>netty</artifactId>
               </exclusion>
               <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty-all</artifactId>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-all</artifactId>
               </exclusion>
-            </exclusions>
-          </dependency>
-          <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client</artifactId>
-            <version>2.3.0-cdh5.0.3</version>
-            <exclusions>
+              <exclusion>
+                <groupId>log4j</groupId>
+                <artifactId>log4j</artifactId>
+              </exclusion>
+              <exclusion>
+                <artifactId>slf4j-log4j12</artifactId>
+                <groupId>org.slf4j</groupId>
+              </exclusion>
               <exclusion>
                 <groupId>javax.servlet</groupId>
                 <artifactId>servlet-api</artifactId>
               </exclusion>
               <exclusion>
-                <artifactId>commons-logging</artifactId>
+                <groupId>org.mortbay.jetty</groupId>
+                <artifactId>jetty-util</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-yarn-api</artifactId>
+              </exclusion>
+              <exclusion>
+                <artifactId>jets3t</artifactId>
+                <groupId>net.java.dev.jets3t</groupId>
+              </exclusion>
+              <exclusion>
+                <artifactId>mockito-all</artifactId>
+                <groupId>org.mockito</groupId>
+              </exclusion>
+              <exclusion>
+                <artifactId>commons-logging-api</artifactId>
                 <groupId>commons-logging</groupId>
               </exclusion>
-              <exclusion>
-                <groupId>org.mortbay.jetty</groupId>
-                <artifactId>servlet-api</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>org.mortbay.jetty</groupId>
-                <artifactId>servlet-api-2.5</artifactId>
-              </exclusion>
-              <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty</artifactId>
-              </exclusion>
-              <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty-all</artifactId>
-              </exclusion>
-            </exclusions>
-          </dependency>
-          <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-yarn-client</artifactId>
-            <version>2.3.0-cdh5.0.3</version>
-            <scope>compile</scope>
-            <exclusions>
               <exclusion>
                 <groupId>com.sun.jersey</groupId>
                 <artifactId>jersey-core</artifactId>
@@ -3450,6 +3447,10 @@
                 <artifactId>jersey-client</artifactId>
               </exclusion>
               <exclusion>
+                <artifactId>core</artifactId>
+                <groupId>org.eclipse.jdt</groupId>
+              </exclusion>
+              <exclusion>
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-core-asl</artifactId>
               </exclusion>
@@ -3465,21 +3466,16 @@
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-jaxrs</artifactId>
               </exclusion>
-
-              <!-- Exclude the following to prevent enforcer failures. YARN uses them,
-                   but Drill forbids them. -->
-
+            </exclusions>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <version>${zookeeper.version}</version>
+            <exclusions>
               <exclusion>
-                <groupId>log4j</groupId>
-                <artifactId>log4j</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>javax.servlet</groupId>
-                <artifactId>servlet-api</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>commons-logging</groupId>
-                <artifactId>commons-logging</artifactId>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-all</artifactId>
               </exclusion>
             </exclusions>
           </dependency>
@@ -3496,13 +3492,17 @@
       <id>hdp</id>
       <properties>
         <alt-hadoop>hdp</alt-hadoop>
+        <hbase.version>2.0.2.3.1.0.6-1</hbase.version>
+        <hadoop.version>3.1.1.3.1.5.6-1</hadoop.version>
+        <hive.version>3.1.0.3.1.0.6-1</hive.version>
+        <zookeeper.version>3.4.6.3.3.1.6-1</zookeeper.version>
       </properties>
       <dependencyManagement>
         <dependencies>
           <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-common</artifactId>
-            <version>2.4.0.2.1.3.0-563</version>
+            <version>${hadoop.version}</version>
             <exclusions>
               <exclusion>
                 <artifactId>commons-logging</artifactId>
@@ -3517,52 +3517,45 @@
                 <artifactId>servlet-api-2.5</artifactId>
               </exclusion>
               <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty</artifactId>
+                <groupId>io.netty</groupId>
+                <artifactId>netty</artifactId>
               </exclusion>
               <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty-all</artifactId>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-all</artifactId>
               </exclusion>
-            </exclusions>
-          </dependency>
-          <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client</artifactId>
-            <version>2.4.0.2.1.3.0-563</version>
-            <exclusions>
+              <exclusion>
+                <groupId>log4j</groupId>
+                <artifactId>log4j</artifactId>
+              </exclusion>
+              <exclusion>
+                <artifactId>slf4j-log4j12</artifactId>
+                <groupId>org.slf4j</groupId>
+              </exclusion>
               <exclusion>
                 <groupId>javax.servlet</groupId>
                 <artifactId>servlet-api</artifactId>
               </exclusion>
               <exclusion>
-                <artifactId>commons-logging</artifactId>
+                <groupId>org.mortbay.jetty</groupId>
+                <artifactId>jetty-util</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-yarn-api</artifactId>
+              </exclusion>
+              <exclusion>
+                <artifactId>jets3t</artifactId>
+                <groupId>net.java.dev.jets3t</groupId>
+              </exclusion>
+              <exclusion>
+                <artifactId>mockito-all</artifactId>
+                <groupId>org.mockito</groupId>
+              </exclusion>
+              <exclusion>
+                <artifactId>commons-logging-api</artifactId>
                 <groupId>commons-logging</groupId>
               </exclusion>
-              <exclusion>
-                <groupId>org.mortbay.jetty</groupId>
-                <artifactId>servlet-api</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>org.mortbay.jetty</groupId>
-                <artifactId>servlet-api-2.5</artifactId>
-              </exclusion>
-              <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty</artifactId>
-              </exclusion>
-              <exclusion>
-                  <groupId>io.netty</groupId>
-                  <artifactId>netty-all</artifactId>
-              </exclusion>
-            </exclusions>
-          </dependency>
-          <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-yarn-client</artifactId>
-            <version>2.4.0.2.1.3.0-563</version>
-            <scope>compile</scope>
-            <exclusions>
               <exclusion>
                 <groupId>com.sun.jersey</groupId>
                 <artifactId>jersey-core</artifactId>
@@ -3580,6 +3573,10 @@
                 <artifactId>jersey-client</artifactId>
               </exclusion>
               <exclusion>
+                <artifactId>core</artifactId>
+                <groupId>org.eclipse.jdt</groupId>
+              </exclusion>
+              <exclusion>
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-core-asl</artifactId>
               </exclusion>
@@ -3595,21 +3592,16 @@
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-jaxrs</artifactId>
               </exclusion>
-
-              <!-- Exclude the following to prevent enforcer failures. YARN uses them,
-                   but Drill forbids them. -->
-
+            </exclusions>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <version>${zookeeper.version}</version>
+            <exclusions>
               <exclusion>
-                <groupId>log4j</groupId>
-                <artifactId>log4j</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>javax.servlet</groupId>
-                <artifactId>servlet-api</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>commons-logging</groupId>
-                <artifactId>commons-logging</artifactId>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-all</artifactId>
               </exclusion>
             </exclusions>
           </dependency>
@@ -3629,7 +3621,7 @@
           </snapshots>
           <id>HDPReleases</id>
           <name>HDP Releases</name>
-          <url>http://repo.hortonworks.com/content/repositories/releases</url>
+          <url>https://repo.hortonworks.com/content/repositories/releases</url>
           <layout>default</layout>
         </repository>
       </repositories>
