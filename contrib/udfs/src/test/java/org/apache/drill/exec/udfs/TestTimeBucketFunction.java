@@ -27,6 +27,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
+import java.time.LocalDateTime;
+
 
 @Category({UnlikelyTest.class, SqlFunctionTest.class})
 public class TestTimeBucketFunction extends ClusterTest {
@@ -93,6 +95,28 @@ public class TestTimeBucketFunction extends ClusterTest {
   }
 
   @Test
+  public void testDoubleTimeBucket() throws Exception {
+    String query = "SELECT time_bucket(CAST(1451606760 AS DOUBLE), 300000) AS high FROM (values(1))";
+    testBuilder()
+      .sqlQuery(query)
+      .ordered()
+      .baselineColumns("high")
+      .baselineValues(1451400000L)
+      .go();
+  }
+
+  @Test
+  public void testTimeBucketTimestamp() throws Exception {
+    String query = "SELECT time_bucket(CAST(1585272833845 AS TIMESTAMP), 300000) AS high FROM (values(1))";
+    testBuilder()
+      .sqlQuery(query)
+      .ordered()
+      .baselineColumns("high")
+      .baselineValues(LocalDateTime.of(2020, 3, 27, 1, 30, 0))
+      .go();
+  }
+
+  @Test
   public void testNullTimeBucket() throws Exception {
     String query = "SELECT time_bucket(null, 300000) AS high FROM (values(1))";
     testBuilder()
@@ -124,5 +148,4 @@ public class TestTimeBucketFunction extends ClusterTest {
       .baselineValues((Long) null)
       .go();
   }
-
 }
