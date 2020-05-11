@@ -33,8 +33,6 @@ import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.tools.RelConversionException;
@@ -44,6 +42,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.planner.sql.SchemaUtilites;
+import org.apache.drill.exec.planner.sql.SqlSelectBuilder;
 import org.apache.drill.exec.planner.sql.conversion.SqlConverter;
 import org.apache.drill.exec.planner.sql.parser.DrillParserUtil;
 import org.apache.drill.exec.planner.sql.parser.DrillSqlDescribeTable;
@@ -141,8 +140,11 @@ public class DescribeTableHandler extends DefaultSqlHandler {
 
       where = DrillParserUtil.createCondition(where, SqlStdOperatorTable.AND, columnFilter);
 
-      return new SqlSelect(SqlParserPos.ZERO, null, new SqlNodeList(selectList, SqlParserPos.ZERO),
-          fromClause, where, null, null, null, null, null, null);
+      return new SqlSelectBuilder()
+          .selectList(selectList)
+          .from(fromClause)
+          .where(where)
+          .build();
     } catch (Exception ex) {
       throw UserException.planError(ex)
           .message("Error while rewriting DESCRIBE query: %d", ex.getMessage())

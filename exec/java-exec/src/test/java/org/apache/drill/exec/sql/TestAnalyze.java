@@ -252,137 +252,148 @@ public class TestAnalyze extends ClusterTest {
       run("ANALYZE TABLE dfs.tmp.employeeUseStat COMPUTE STATISTICS");
       run("ANALYZE TABLE dfs.tmp.departmentUseStat COMPUTE STATISTICS");
       client.alterSession(PlannerSettings.STATISTICS_USE.getOptionName(), true);
-      String query = "select employee_id from dfs.tmp.employeeUseStat where department_id = 2";
-      String[] expectedPlan1 = {"Filter\\(condition.*\\).*rowcount = 96.25,.*",
-              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*"};
+
       queryBuilder()
-          .sql(query)
+          .sql("select employee_id from dfs.tmp.employeeUseStat where department_id = 2")
           .detailedPlanMatcher()
-          .include(expectedPlan1)
+          .include(
+              "Filter\\(condition.*\\).*rowcount = 96.25,.*",
+              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*"
+          )
           .match();
 
-      query = "select employee_id from dfs.tmp.employeeUseStat where department_id IN (2, 5)";
-      String[] expectedPlan2 = {"Filter\\(condition.*\\).*rowcount = 192.5,.*",
-              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*"};
       queryBuilder()
-          .sql(query)
+          .sql("select employee_id from dfs.tmp.employeeUseStat where department_id IN (2, 5)")
           .detailedPlanMatcher()
-          .include(expectedPlan2)
+          .include(
+              "Filter\\(condition.*\\).*rowcount = 192.5,.*",
+              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*"
+          )
           .match();
 
-      query = "select employee_id from dfs.tmp.employeeUseStat where department_id IN (2, 5) and employee_id = 5";
-      String[] expectedPlan3 = {"Filter\\(condition.*\\).*rowcount = 1.0,.*",
-              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*"};
       queryBuilder()
-          .sql(query)
+          .sql("select employee_id from dfs.tmp.employeeUseStat where department_id IN (2, 5) and employee_id = 5")
           .detailedPlanMatcher()
-          .include(expectedPlan3)
+          .include(
+              "Filter\\(condition.*\\).*rowcount = 1.0,.*",
+              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*"
+          )
           .match();
 
-      query = " select emp.employee_id from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept"
-          + " on emp.department_id = dept.department_id";
-      String[] expectedPlan4 = {"HashJoin\\(condition.*\\).*rowcount = 1155.0,.*",
-              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*",
-              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"};
       queryBuilder()
-          .sql(query)
+          .sql("select emp.employee_id " +
+              "from dfs.tmp.employeeUseStat emp " +
+              "join dfs.tmp.departmentUseStat dept " +
+              "on emp.department_id = dept.department_id")
           .detailedPlanMatcher()
-          .include(expectedPlan4)
-          .match();
-
-      query = " select emp.employee_id from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept"
-              + " on emp.department_id = dept.department_id where dept.department_id = 5";
-      String[] expectedPlan5 = {"HashJoin\\(condition.*\\).*rowcount = 96.25,.*",
-              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*",
-              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"};
-      queryBuilder()
-          .sql(query)
-          .detailedPlanMatcher()
-          .include(expectedPlan5)
-          .match();
-
-      query = " select emp.employee_id from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept"
-              + " on emp.department_id = dept.department_id"
-              + " where dept.department_id = 5 and emp.employee_id = 10";
-      String[] expectedPlan6 = {"MergeJoin\\(condition.*\\).*rowcount = 1.0,.*",
-              "Filter\\(condition=\\[AND\\(=\\(\\$1, 10\\), =\\(\\$0, 5\\)\\)\\]\\).*rowcount = 1.0,.*",
-              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*",
-              "Filter\\(condition=\\[=\\(\\$0, 5\\)\\]\\).*rowcount = 1.0,.*",
-              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"};
-      queryBuilder()
-          .sql(query)
-          .detailedPlanMatcher()
-          .include(expectedPlan6)
-          .match();
-
-      query = " select emp.employee_id, count(*)"
-              + " from dfs.tmp.employeeUseStat emp"
-              + " group by emp.employee_id";
-      String[] expectedPlan7 = {"HashAgg\\(group=\\[\\{0\\}\\], EXPR\\$1=\\[COUNT\\(\\)\\]\\).*rowcount = 1155.0,.*",
-              "Scan.*columns=\\[`employee_id`\\].*rowcount = 1155.0.*"};
-      queryBuilder()
-          .sql(query)
-          .detailedPlanMatcher()
-          .include(expectedPlan7)
-          .match();
-
-      query = " select emp.employee_id from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept"
-              + " on emp.department_id = dept.department_id "
-              + " group by emp.employee_id";
-      String[] expectedPlan8 = {"HashAgg\\(group=\\[\\{0\\}\\]\\).*rowcount = 730.0992454469841,.*",
+          .include(
               "HashJoin\\(condition.*\\).*rowcount = 1155.0,.*",
               "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*",
-              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"};
-      queryBuilder()
-          .sql(query)
-          .detailedPlanMatcher()
-          .include(expectedPlan8)
+              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"
+          )
           .match();
 
-      query = "select emp.employee_id, dept.department_description"
-              + " from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept"
-              + " on emp.department_id = dept.department_id "
-              + " group by emp.employee_id, emp.store_id, dept.department_description "
-              + " having dept.department_description = 'FINANCE'";
-      String[] expectedPlan9 = {"HashAgg\\(group=\\[\\{0, 1, 2\\}\\]\\).*rowcount = 60.84160378724867.*",
+      queryBuilder()
+          .sql("select emp.employee_id " +
+              "from dfs.tmp.employeeUseStat emp " +
+              "join dfs.tmp.departmentUseStat dept " +
+              "on emp.department_id = dept.department_id " +
+              "where dept.department_id = 5")
+          .detailedPlanMatcher()
+          .include(
+              "HashJoin\\(condition.*\\).*rowcount = 96.25,.*",
+              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*",
+              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"
+          )
+          .match();
+
+      queryBuilder()
+          .sql("select emp.employee_id " +
+              "from dfs.tmp.employeeUseStat emp " +
+              "join dfs.tmp.departmentUseStat dept " +
+              "on emp.department_id = dept.department_id " +
+              "where dept.department_id = 5 and emp.employee_id = 10")
+          .detailedPlanMatcher()
+          .include(
+              "MergeJoin\\(condition.*\\).*rowcount = 1.0,.*",
+              "Filter\\(condition=\\[AND\\(=\\(5, \\$0\\), =\\(\\$1, 10\\)\\)\\]\\).*rowcount = 1.0,.*",
+              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*",
+              "Filter\\(condition=\\[=\\(5, \\$0\\)\\]\\).*rowcount = 1.0,.*",
+              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"
+          )
+          .match();
+
+      queryBuilder()
+          .sql("select emp.employee_id, count(*) " +
+              "from dfs.tmp.employeeUseStat emp " +
+              "group by emp.employee_id")
+          .detailedPlanMatcher()
+          .include(
+              "HashAgg\\(group=\\[\\{0\\}\\], EXPR\\$1=\\[COUNT\\(\\)\\]\\).*rowcount = 1155.0,.*",
+              "Scan.*columns=\\[`employee_id`\\].*rowcount = 1155.0.*"
+          )
+          .match();
+
+      queryBuilder()
+          .sql("select emp.employee_id " +
+              "from dfs.tmp.employeeUseStat emp " +
+              "join dfs.tmp.departmentUseStat dept " +
+              "on emp.department_id = dept.department_id " +
+              "group by emp.employee_id")
+          .detailedPlanMatcher()
+          .include(
+              "HashAgg\\(group=\\[\\{0\\}\\]\\).*rowcount = 730.0992454469841,.*",
+              "HashJoin\\(condition.*\\).*rowcount = 1155.0,.*",
+              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*",
+              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"
+          )
+          .match();
+
+      queryBuilder()
+          .sql("select emp.employee_id, dept.department_description " +
+              "from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept " +
+              "on emp.department_id = dept.department_id " +
+              "group by emp.employee_id, emp.store_id, dept.department_description " +
+              "having dept.department_description = 'FINANCE'")
+          .detailedPlanMatcher()
+          .include(
+              "HashAgg\\(group=\\[\\{0, 1, 2\\}\\]\\).*rowcount = 60.84160378724867.*",
               "HashJoin\\(condition.*\\).*rowcount = 96.25,.*",
               "Scan.*columns=\\[`department_id`, `employee_id`, `store_id`\\].*rowcount = 1155.0.*",
               "Filter\\(condition=\\[=\\(\\$1, 'FINANCE'\\)\\]\\).*rowcount = 1.0,.*",
-              "Scan.*columns=\\[`department_id`, `department_description`\\].*rowcount = 12.0.*"};
-      queryBuilder()
-          .sql(query)
-          .detailedPlanMatcher()
-          .include(expectedPlan9)
-          .match();
+              "Scan.*columns=\\[`department_id`, `department_description`\\].*rowcount = 12.0.*"
+          ).match();
 
-      query = " select emp.employee_id from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept\n"
-              + " on emp.department_id = dept.department_id "
-              + " group by emp.employee_id, emp.store_id "
-              + " having emp.store_id = 7";
-      String[] expectedPlan10 = {"HashAgg\\(group=\\[\\{0, 1\\}\\]\\).*rowcount = 29.203969817879365.*",
+      queryBuilder()
+          .sql("select emp.employee_id from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept " +
+              "on emp.department_id = dept.department_id " +
+              "group by emp.employee_id, emp.store_id " +
+              "having emp.store_id = 7")
+          .detailedPlanMatcher()
+          .include(
+              "HashAgg\\(group=\\[\\{0, 1\\}\\]\\).*rowcount = 29.203969817879365.*",
               "HashJoin\\(condition.*\\).*rowcount = 46.2,.*",
-              "Filter\\(condition=\\[=\\(\\$2, 7\\)\\]\\).*rowcount = 46.2,.*",
+              "Filter\\(condition=\\[=\\(7, \\$2\\)\\]\\).*rowcount = 46.2,.*",
               "Scan.*columns=\\[`department_id`, `employee_id`, `store_id`\\].*rowcount = 1155.0.*",
-              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"};
-      queryBuilder()
-          .sql(query)
-          .detailedPlanMatcher()
-          .include(expectedPlan10)
+              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*"
+          )
           .match();
 
-      query = " select emp.employee_id from dfs.tmp.employeeUseStat emp join dfs.tmp.departmentUseStat dept\n"
-              + " on emp.department_id = dept.department_id "
-              + " group by emp.employee_id "
-              + " having emp.employee_id = 7";
-      String[] expectedPlan11 = {"StreamAgg\\(group=\\[\\{0\\}\\]\\).*rowcount = 1.0.*",
-              "HashJoin\\(condition.*\\).*rowcount = 1.0,.*",
-              "Filter\\(condition=\\[=\\(\\$1, 7\\)\\]\\).*rowcount = 1.0.*",
-              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*",
-              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*"};
       queryBuilder()
-          .sql(query)
+          .sql("select emp.employee_id " +
+              "from dfs.tmp.employeeUseStat emp " +
+              "join dfs.tmp.departmentUseStat dept " +
+              "on emp.department_id = dept.department_id " +
+              "group by emp.employee_id " +
+              "having emp.employee_id = 7")
           .detailedPlanMatcher()
-          .include(expectedPlan11)
+          .include(
+              "StreamAgg\\(group=\\[\\{0\\}\\]\\).*rowcount = 1.0.*",
+              "HashJoin\\(condition.*\\).*rowcount = 1.0,.*",
+              "Filter\\(condition=\\[=\\(7, \\$1\\)\\]\\).*rowcount = 1.0.*",
+              "Scan.*columns=\\[`department_id`\\].*rowcount = 12.0.*",
+              "Scan.*columns=\\[`department_id`, `employee_id`\\].*rowcount = 1155.0.*"
+          )
           .match();
     } finally {
       client.resetSession(ExecConstants.SLICE_TARGET);

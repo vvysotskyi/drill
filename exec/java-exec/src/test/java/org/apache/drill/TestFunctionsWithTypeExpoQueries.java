@@ -317,7 +317,7 @@ public class TestFunctionsWithTypeExpoQueries extends BaseTestQuery {
         "where r_regionkey = negative(-1)";
 
     // Validate the plan
-    final String[] expectedPlan = {"Filter.*condition=\\[=\\(.*, 1\\)\\]\\)"};
+    final String[] expectedPlan = {"Filter.*condition=\\[=\\(1, .*\\)\\]\\)"};
     final String[] excludedPlan = {};
     PlanTestBase.testPlanMatchingPatterns(query, expectedPlan, excludedPlan);
   }

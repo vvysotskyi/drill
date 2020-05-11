@@ -1212,7 +1212,7 @@ public class TestExampleQueries extends BaseTestQuery {
         "(select r_regionkey from cp.`tpch/region.parquet` " +
         "where r_regionkey = 1)";
     PlanTestBase.testPlanMatchingPatterns(query,
-        new String[]{"agg.*SINGLE_VALUE", "Filter.*=\\(\\$0, 1\\)"});
+        new String[]{"agg.*SINGLE_VALUE", "Filter.*=\\(1, \\$0\\)"});
 
     testBuilder()
         .sqlQuery(query)

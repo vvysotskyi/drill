@@ -37,7 +37,6 @@ import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
@@ -98,15 +97,6 @@ public class SqlConverter {
   private RelOptCluster cluster;
   private VolcanoPlanner planner;
   private boolean useRootSchema = false;
-
-  static {
-    /*
-     * Sets value to false to avoid simplifying project expressions
-     * during creating new projects since it may cause changing data mode
-     * which causes to assertion errors during type validation
-     */
-    Hook.REL_BUILDER_SIMPLIFY.add(Hook.propertyJ(false));
-  }
 
   public SqlConverter(QueryContext context) {
     this.settings = context.getPlannerSettings();

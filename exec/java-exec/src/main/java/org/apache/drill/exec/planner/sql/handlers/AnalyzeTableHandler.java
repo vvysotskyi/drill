@@ -43,6 +43,7 @@ import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.logical.DrillWriterRel;
 import org.apache.drill.exec.planner.physical.Prel;
 import org.apache.drill.exec.planner.sql.SchemaUtilites;
+import org.apache.drill.exec.planner.sql.SqlSelectBuilder;
 import org.apache.drill.exec.planner.sql.parser.SqlAnalyzeTable;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
@@ -71,19 +72,10 @@ public class AnalyzeTableHandler extends DefaultSqlHandler {
     verifyNoUnsupportedFunctions(sqlAnalyzeTable);
 
     SqlNode tableRef = sqlAnalyzeTable.getTableRef();
-    SqlSelect scanSql = new SqlSelect(
-        SqlParserPos.ZERO,              /* position */
-        SqlNodeList.EMPTY,              /* keyword list */
-        getColumnList(sqlAnalyzeTable), /* select list */
-        tableRef,                       /* from */
-        null,                           /* where */
-        null,                           /* group by */
-        null,                           /* having */
-        null,                           /* windowDecls */
-        null,                           /* orderBy */
-        null,                           /* offset */
-        null                            /* fetch */
-    );
+    SqlSelect scanSql = new SqlSelectBuilder()
+        .selectList(getColumnList(sqlAnalyzeTable))
+        .from(tableRef)
+        .build();
 
     ConvertedRelNode convertedRelNode = validateAndConvert(rewrite(scanSql));
     RelDataType validatedRowType = convertedRelNode.getValidatedRowType();

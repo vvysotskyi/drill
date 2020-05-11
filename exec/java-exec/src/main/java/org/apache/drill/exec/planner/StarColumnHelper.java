@@ -31,37 +31,15 @@ public class StarColumnHelper {
   public final static String PREFIXED_STAR_COLUMN = PREFIX_DELIMITER + SchemaPath.DYNAMIC_STAR;
 
   public static boolean containsStarColumn(RelDataType type) {
-    if (! type.isStruct()) {
-      return false;
-    }
-
-    List<String> fieldNames = type.getFieldNames();
-
-    for (String fieldName : fieldNames) {
-      if (SchemaPath.DYNAMIC_STAR.equals(fieldName)) {
-        return true;
-      }
-    }
-
-    return false;
+    return type.isStruct() && type.getFieldNames().stream()
+        .anyMatch(SchemaPath.DYNAMIC_STAR::equals);
   }
 
   public static boolean containsStarColumnInProject(RelDataType inputRowType, List<RexNode> projExprs) {
-    if (!inputRowType.isStruct()) {
-      return false;
-    }
-
-    for (RexNode expr : projExprs) {
-      if (expr instanceof RexInputRef) {
-        String name = inputRowType.getFieldNames().get(((RexInputRef) expr).getIndex());
-
-        if (SchemaPath.DYNAMIC_STAR.equals(name)) {
-          return true;
-        }
-      }
-    }
-
-    return false;
+    return inputRowType.isStruct() && projExprs.stream()
+        .filter(expr -> expr instanceof RexInputRef)
+        .map(expr -> inputRowType.getFieldNames().get(((RexInputRef) expr).getIndex()))
+        .anyMatch(SchemaPath.DYNAMIC_STAR::equals);
   }
 
   public static boolean isPrefixedStarColumn(String fieldName) {
@@ -92,22 +70,17 @@ public class StarColumnHelper {
   }
 
   public static String extractColumnPrefix(String fieldName) {
-    if (fieldName.indexOf(PREFIX_DELIMITER) >=0) {
-      return fieldName.substring(0, fieldName.indexOf(PREFIX_DELIMITER));
-    } else {
-      return "";
-    }
+    int prefixEnd = fieldName.indexOf(PREFIX_DELIMITER);
+    return prefixEnd > -1 ? fieldName.substring(0, prefixEnd) : "";
   }
 
   // Given a set of prefixes, check if a regular column is subsumed by any of the prefixed star column in the set.
   public static boolean subsumeColumn(Map<String, String> prefixMap, String fieldName) {
-    String prefix = extractColumnPrefix(fieldName);
-
     if (isRegularColumnOrExp(fieldName)) {
       return false;  // regular column or expression is not subsumed by any star column.
     } else {
-      return prefixMap.containsKey(prefix) && ! fieldName.equals(prefixMap.get(prefix)); // t1*0 is subsumed by t1*.
+      String prefix = extractColumnPrefix(fieldName);
+      return prefixMap.containsKey(prefix) && !fieldName.equals(prefixMap.get(prefix)); // t1*0 is subsumed by t1*.
     }
   }
-
 }

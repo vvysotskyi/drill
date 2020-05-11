@@ -17,9 +17,8 @@
  */
 package org.apache.drill.exec.planner.logical;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
-import org.apache.calcite.adapter.enumerable.EnumerableConvention;
-import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
@@ -28,45 +27,39 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.schema.Table;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
- * This class extends from EnumerableTableScan. It puts the file selection string into it's digest.
+ * This class puts the file selection string into it's digest.
  * When directory-based partition pruning applied, file selection could be different for the same
  * table.
  */
-public class DirPrunedEnumerableTableScan extends EnumerableTableScan {
+public class DrillDirPrunedScanRel extends TableScan {
   private final String digestFromSelection;
 
-  public DirPrunedEnumerableTableScan(RelOptCluster cluster, RelTraitSet traitSet,
-      RelOptTable table, Class elementType, String digestFromSelection) {
-    super(cluster, traitSet, table, elementType);
+  public DrillDirPrunedScanRel(RelOptCluster cluster, RelTraitSet traitSet,
+                               RelOptTable table, String digestFromSelection) {
+    super(cluster, traitSet, Collections.emptyList(), table);
     this.digestFromSelection = digestFromSelection;
   }
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    final Table tbl = this.table.unwrap(Table.class);
-    Class elementType = EnumerableTableScan.deduceElementType(tbl);
-
-    return new DirPrunedEnumerableTableScan(getCluster(), traitSet, table, elementType, digestFromSelection);
+    return new DrillDirPrunedScanRel(getCluster(), traitSet, table, digestFromSelection);
   }
 
-  /** Creates an DirPrunedEnumerableTableScan. */
-  public static EnumerableTableScan create(RelOptCluster cluster,
-      RelOptTable relOptTable, String digestFromSelection) {
-    final Table table = relOptTable.unwrap(Table.class);
-    Class elementType = EnumerableTableScan.deduceElementType(table);
-    final RelTraitSet traitSet =
-        cluster.traitSetOf(EnumerableConvention.INSTANCE)
+  /** Creates an DrillDirPrunedScanRel. */
+  public static TableScan create(RelOptCluster cluster, RelOptTable relOptTable, String digestFromSelection) {
+    RelTraitSet traitSet = getRelTraits(cluster, relOptTable);
+    return new DrillDirPrunedScanRel(cluster, traitSet, relOptTable, digestFromSelection);
+  }
+
+  private static RelTraitSet getRelTraits(RelOptCluster cluster, RelOptTable relOptTable) {
+    Table table = relOptTable.unwrap(Table.class);
+    return cluster.traitSetOf(Convention.NONE)
             .replaceIfs(RelCollationTraitDef.INSTANCE,
-                () -> {
-                  if (table != null) {
-                    return table.getStatistic().getCollations();
-                  }
-                  return ImmutableList.of();
-                });
-    return new DirPrunedEnumerableTableScan(cluster, traitSet, relOptTable, elementType, digestFromSelection);
+                () -> table != null ? table.getStatistic().getCollations() : Collections.emptyList());
   }
 
   @Override

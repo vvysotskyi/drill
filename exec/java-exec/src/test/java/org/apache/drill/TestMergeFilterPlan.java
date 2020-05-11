@@ -26,8 +26,8 @@ public class TestMergeFilterPlan extends PlanTestBase {
 
   @Test
   public void testDRILL_FilterMerge() throws Exception {
-    String expectedPattern1 = "Filter(condition=[AND(OR(=($0, 1), =($0, 2), =($0, 3)), =($4, 'GRADUATE DEGREE'))])";
-    String expectedPattern2 = "Filter(condition=[AND(OR(=($0, 1), =($0, 2), =($0, 3)), LIKE($1, '%VP%'))])";
+    String expectedPattern1 = "Filter(condition=[AND(=($4, 'GRADUATE DEGREE'), OR(=(1, $0), =(2, $0), =(3, $0)))])";
+    String expectedPattern2 = "Filter(condition=[AND(LIKE($1, '%VP%'), OR(=(1, $0), =(2, $0), =(3, $0)))])";
     String excludedPattern = "Filter(condition=[OR(=($0, 1), =($0, 2), =($0, 3))])";
 
     test("use dfs.tmp");

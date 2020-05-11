@@ -25,8 +25,6 @@ import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.tools.RelConversionException;
@@ -35,6 +33,7 @@ import org.apache.calcite.util.NlsString;
 import org.apache.calcite.util.Util;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.planner.sql.SchemaUtilites;
+import org.apache.drill.exec.planner.sql.SqlSelectBuilder;
 import org.apache.drill.exec.planner.sql.parser.DrillParserUtil;
 import org.apache.drill.exec.planner.sql.parser.SqlShowTables;
 import org.apache.drill.exec.store.AbstractSchema;
@@ -110,8 +109,11 @@ public class ShowTablesHandler extends DefaultSqlHandler {
 
     where = DrillParserUtil.createCondition(where, SqlStdOperatorTable.AND, filter);
 
-    return new SqlSelect(SqlParserPos.ZERO, null, new SqlNodeList(selectList, SqlParserPos.ZERO),
-        fromClause, where, null, null, null, null, null, null);
+    return new SqlSelectBuilder()
+        .selectList(selectList)
+        .from(fromClause)
+        .where(where)
+        .build();
   }
 
   /**

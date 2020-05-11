@@ -18,15 +18,16 @@
 package org.apache.drill.exec.planner.physical;
 
 
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.RelFactories;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 
-
+import java.util.ArrayList;
 import java.util.List;
 
 public class PrelFactories {
@@ -38,14 +39,15 @@ public class PrelFactories {
    * {@link org.apache.calcite.rel.logical.LogicalProject}.
    */
   private static class DrillProjectPrelFactory implements RelFactories.ProjectFactory {
-    @Override
-    public RelNode createProject(RelNode child,
-                                 List<? extends RexNode> childExprs, List<String> fieldNames) {
-      final RelOptCluster cluster = child.getCluster();
-      final RelDataType rowType = RexUtil.createStructType(cluster.getTypeFactory(), childExprs, fieldNames);
-      final RelNode project = new ProjectPrel(cluster, child.getTraitSet().plus(Prel.DRILL_PHYSICAL),
-          child, Lists.newArrayList(childExprs), rowType);
 
+    @Override
+    public RelNode createProject(RelNode input, List<RelHint> hints,
+                                 List<? extends RexNode> childExprs, List<String> fieldNames) {
+      RelOptCluster cluster = input.getCluster();
+      RelDataType rowType = RexUtil.createStructType(cluster.getTypeFactory(), childExprs, fieldNames, null);
+      RelTraitSet traits = input.getTraitSet().plus(Prel.DRILL_PHYSICAL);
+      ArrayList<RexNode> exps = new ArrayList<>(childExprs);
+      RelNode project = new ProjectPrel(cluster, traits, input, exps, rowType);
       return project;
     }
   }

@@ -17,12 +17,14 @@
  */
 package org.apache.drill.exec.planner.torel;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.calcite.prepare.Prepare;
 
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.logical.LogicalPlan;
 import org.apache.drill.common.logical.data.Filter;
@@ -74,6 +76,11 @@ public class ConversionContext implements ToRelContext {
   @Override
   public RelOptCluster getCluster() {
     return cluster;
+  }
+
+  @Override
+  public List<RelHint> getTableHints() {
+    return Collections.emptyList();
   }
 
 

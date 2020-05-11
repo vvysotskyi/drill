@@ -18,7 +18,7 @@
 package org.apache.drill.exec.planner.logical;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
 import java.util.BitSet;
 
@@ -46,12 +46,12 @@ public class FilterSplitTest extends BaseTest {
   public void simpleCompound() {
     // a < 1 AND dir0 in (2,3)
     RexNode n = and(
-          lt(c(0), lit(1)),
-          or(
-              eq(c(1), lit(2)),
-              eq(c(1), lit(3))
-              )
-        );
+        lt(c(0), lit(1)),
+        or(
+            eq(c(1), lit(2)),
+            eq(c(1), lit(3))
+        )
+    );
 
     BitSet bs = new BitSet();
     bs.set(1);
@@ -59,24 +59,24 @@ public class FilterSplitTest extends BaseTest {
     c.analyze(n);
 
     RexNode partNode = c.getFinalCondition();
-    assertEquals(n.toString(), "AND(<($0, 1), OR(=($1, 2), =($1, 3)))");
-    assertEquals(partNode.toString(), "OR(=($1, 2), =($1, 3))");
+    assertEquals("AND(>(1, $0), OR(=(2, $1), =(3, $1)))", n.toString());
+    assertEquals("OR(=(2, $1), =(3, $1))", partNode.toString());
   }
 
   @Test
   public void twoLevelDir() {
     // (dir0 = 1 and dir1 = 2) OR (dir0 = 3 and dir1 = 4)
     RexNode n = or(
-          and(
-              eq(c(1), lit(1)),
-              eq(c(2), lit(2))
-              ),
-          and(
-              eq(c(1), lit(3)),
-              eq(c(2), lit(4))
-              )
+        and(
+            eq(c(1), lit(1)),
+            eq(c(2), lit(2))
+        ),
+        and(
+            eq(c(1), lit(3)),
+            eq(c(2), lit(4))
+        )
 
-        );
+    );
 
     BitSet bs = new BitSet();
     bs.set(1);
@@ -85,8 +85,8 @@ public class FilterSplitTest extends BaseTest {
     c.analyze(n);
 
     RexNode partNode = c.getFinalCondition();
-    assertEquals("OR(AND(=($1, 1), =($2, 2)), AND(=($1, 3), =($2, 4)))", n.toString());
-    assertEquals("OR(AND(=($1, 1), =($2, 2)), AND(=($1, 3), =($2, 4)))", partNode.toString());
+    assertEquals("OR(AND(=(1, $1), =(2, $2)), AND(=(3, $1), =(4, $2)))", n.toString());
+    assertEquals("OR(AND(=(1, $1), =(2, $2)), AND(=(3, $1), =(4, $2)))", partNode.toString());
   }
 
   @Test
@@ -106,8 +106,8 @@ public class FilterSplitTest extends BaseTest {
     c.analyze(n);
 
     RexNode partNode = c.getFinalCondition();
-    assertEquals("OR(=($2, 3), AND(=($0, 1), =($1, 2)))", n.toString());
-    assertEquals(null, partNode);
+    assertEquals("OR(=(3, $2), AND(=(1, $0), =(2, $1)))", n.toString());
+    assertNull(partNode);
   }
 
 
@@ -115,7 +115,7 @@ public class FilterSplitTest extends BaseTest {
   public void NotOnAnd() {
     // not (dir0 = 1 AND b = 2)
     RexNode n = not(
-        and (
+        and(
             eq(c(0), lit(1)),
             eq(c(1), lit(2))
         )
@@ -127,8 +127,8 @@ public class FilterSplitTest extends BaseTest {
     c.analyze(n);
 
     RexNode partNode = c.getFinalCondition();
-    assertEquals("NOT(AND(=($0, 1), =($1, 2)))", n.toString());
-    assertEquals(null, partNode);
+    assertEquals("NOT(AND(=(1, $0), =(2, $1)))", n.toString());
+    assertNull(partNode);
   }
 
   @Test
@@ -147,21 +147,21 @@ public class FilterSplitTest extends BaseTest {
     c.analyze(n);
 
     RexNode partNode = c.getFinalCondition();
-    assertEquals("AND(NOT(=($0, 1)), =($1, 2))", n.toString());
-    assertEquals("NOT(=($0, 1))", partNode.toString());
+    assertEquals("AND(=(2, $1), NOT(=(1, $0)))", n.toString());
+    assertEquals("NOT(=(1, $0))", partNode.toString());
   }
 
   @Test
   public void badOr() {
     // (dir0 = 1 and dir1 = 2) OR (a < 5)
     RexNode n = or(
-          and(
-              eq(c(1), lit(1)),
-              eq(c(2), lit(2))
-              ),
-          lt(c(0), lit(5))
+        and(
+            eq(c(1), lit(1)),
+            eq(c(2), lit(2))
+        ),
+        lt(c(0), lit(5))
 
-        );
+    );
 
     BitSet bs = new BitSet();
     bs.set(1);
@@ -170,8 +170,8 @@ public class FilterSplitTest extends BaseTest {
     c.analyze(n);
 
     RexNode partNode = c.getFinalCondition();
-    assertEquals("OR(AND(=($1, 1), =($2, 2)), <($0, 5))", n.toString());
-    assertTrue(partNode == null);
+    assertEquals("OR(>(5, $0), AND(=(1, $1), =(2, $2)))", n.toString());
+    assertNull(partNode);
   }
 
 
@@ -181,7 +181,7 @@ public class FilterSplitTest extends BaseTest {
     RexNode n = fn(
         cs(0),
         cs(1)
-        );
+    );
 
     BitSet bs = new BitSet();
     bs.set(1);
@@ -191,48 +191,48 @@ public class FilterSplitTest extends BaseTest {
 
     RexNode partNode = c.getFinalCondition();
     assertEquals("||($0, $1)", n.toString());
-    assertTrue(partNode == null);
+    assertNull(partNode);
   }
 
 
-  private RexNode and(RexNode...nodes){
+  private RexNode and(RexNode... nodes) {
     return builder.makeCall(SqlStdOperatorTable.AND, nodes);
   }
 
-  private RexNode fn(RexNode...nodes){
+  private RexNode fn(RexNode... nodes) {
     return builder.makeCall(SqlStdOperatorTable.CONCAT, nodes);
   }
 
-  private RexNode or(RexNode...nodes){
+  private RexNode or(RexNode... nodes) {
     return builder.makeCall(SqlStdOperatorTable.OR, nodes);
   }
 
-  private RexNode not(RexNode...nodes){
+  private RexNode not(RexNode... nodes) {
     return builder.makeCall(SqlStdOperatorTable.NOT, nodes);
   }
 
-  private RexNode lt(RexNode left, RexNode right){
+  private RexNode lt(RexNode left, RexNode right) {
     return builder.makeCall(SqlStdOperatorTable.LESS_THAN, left, right);
   }
 
-  private RexNode eq(RexNode left, RexNode right){
+  private RexNode eq(RexNode left, RexNode right) {
     return builder.makeCall(SqlStdOperatorTable.EQUALS, left, right);
   }
 
-  private RexNode lit(int value){
+  private RexNode lit(int value) {
     return builder.makeLiteral(value, intType, true);
   }
 
-  private RexNode c(int index){
+  private RexNode c(int index) {
     return builder.makeInputRef(intType, index);
   }
 
 
-  private RexNode cs(int index){
+  private RexNode cs(int index) {
     return builder.makeInputRef(sType, index);
   }
 
-  private RexNode str(String s){
+  private RexNode str(String s) {
     return builder.makeLiteral(s);
   }
 }

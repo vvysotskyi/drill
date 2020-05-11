@@ -44,7 +44,7 @@ public class TestFlattenPlanning extends PlanTestBase {
         " where comp > 1 " +   // should not be pushed down
         "   and rownum = 100"; // should be pushed down.
 
-    final String[] expectedPlans = {"(?s)Filter.*>.*Flatten.*Filter.*=.*"};
+    final String[] expectedPlans = {"(?s)Filter.*<.*Flatten.*Filter.*=.*"};
     final String[] excludedPlans = {"Filter.*AND.*"};
     PlanTestBase.testPlanMatchingPatterns(query, expectedPlans, excludedPlans);
   }

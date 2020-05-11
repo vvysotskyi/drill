@@ -57,8 +57,8 @@
       In case if new value is org.apache.calcite, one needs to remove `org.apache.calcite:*` from
       avoid_bad_dependencies plugin found in the file.
     -->
-    <calcite.groupId>com.github.vvysotskyi.drill-calcite</calcite.groupId>
-    <calcite.version>1.21.0-drill-r0</calcite.version>
+    <calcite.groupId>com.github.ihuzenko.drill-calcite</calcite.groupId>
+    <calcite.version>1.22.0-drill-r0-test</calcite.version>
     <avatica.version>1.15.0</avatica.version>
     <janino.version>3.0.11</janino.version>
     <sqlline.version>1.9.0</sqlline.version>

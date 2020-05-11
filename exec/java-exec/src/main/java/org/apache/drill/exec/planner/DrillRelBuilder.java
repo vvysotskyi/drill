@@ -30,10 +30,11 @@ import org.apache.calcite.tools.RelBuilderFactory;
 import org.apache.calcite.util.Util;
 
 public class DrillRelBuilder extends RelBuilder {
+  private static final int DISABLE_MERGE_PROJECT = -1;
   private final RelFactories.FilterFactory filterFactory;
 
   protected DrillRelBuilder(Context context, RelOptCluster cluster, RelOptSchema relOptSchema) {
-    super(context, cluster, relOptSchema);
+    super(context = drillContext(context), cluster, relOptSchema);
     this.filterFactory =
         Util.first(context.unwrap(RelFactories.FilterFactory.class),
             RelFactories.DEFAULT_FILTER_FACTORY);
@@ -68,12 +69,15 @@ public class DrillRelBuilder extends RelBuilder {
   }
 
   /**
-   * Disables combining of consecutive {@link org.apache.calcite.rel.core.Project} nodes.
-   * See comments under CALCITE-2470 for details.
-   * @return false
+   * Allows to amend context before passing it to parent {@link RelBuilder}
+   * constructor. Used for applying Drill specific configuration in rel builder.
+   *
+   * @param ctx fallback context
+   * @return context chain with fallback in the end
    */
-  @Override
-  protected boolean shouldMergeProject() {
-    return false;
+  private static Context drillContext(Context ctx) {
+    Config conf = Util.first(ctx.unwrap(Config.class), Config.DEFAULT)
+        .withBloat(DISABLE_MERGE_PROJECT).withSimplify(false);
+    return Contexts.chain(Contexts.of(conf), ctx);
   }
 }

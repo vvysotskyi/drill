@@ -54,6 +54,7 @@ import org.apache.drill.exec.planner.logical.MetadataControllerRel;
 import org.apache.drill.exec.planner.logical.MetadataHandlerRel;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.planner.physical.Prel;
+import org.apache.drill.exec.planner.sql.SqlSelectBuilder;
 import org.apache.drill.exec.planner.sql.parser.SqlMetastoreAnalyzeTable;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.dfs.FormatSelection;
@@ -116,21 +117,13 @@ public class MetastoreAnalyzeTableHandler extends DefaultSqlHandler {
     }
 
     ColumnNamesOptions columnNamesOptions = new ColumnNamesOptions(context.getOptions());
-
+    SqlNodeList columnList = getColumnList(analyzeInfoProvider.getProjectionFields(
+        drillTableInfo.drillTable(), getMetadataType(sqlAnalyzeTable), columnNamesOptions));
     // creates select with DYNAMIC_STAR column and analyze specific columns to obtain corresponding table scan
-    SqlSelect scanSql = new SqlSelect(
-        SqlParserPos.ZERO,
-        SqlNodeList.EMPTY,
-        getColumnList(analyzeInfoProvider.getProjectionFields(drillTableInfo.drillTable(), getMetadataType(sqlAnalyzeTable), columnNamesOptions)),
-        tableRef,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null
-    );
+    SqlSelect scanSql = new SqlSelectBuilder()
+        .selectList(columnList)
+        .from(tableRef)
+        .build();
 
     ConvertedRelNode convertedRelNode = validateAndConvert(rewrite(scanSql));
     RelDataType validatedRowType = convertedRelNode.getValidatedRowType();
