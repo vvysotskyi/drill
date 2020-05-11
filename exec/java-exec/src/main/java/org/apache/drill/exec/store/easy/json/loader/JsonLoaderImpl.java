@@ -44,7 +44,6 @@ import org.apache.drill.exec.vector.accessor.UnsupportedConversionError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.esri.core.geometry.JsonReader;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonToken;
 
@@ -97,8 +96,8 @@ import com.fasterxml.jackson.core.JsonToken;
  *
  * <h4>Comparison to Original JSON Reader</h4>
  *
- * This class replaces the {@link JsonReader} class used in Drill versions 1.17
- * and before. Compared with the previous version, this implementation:
+ * This class replaces the {@link org.apache.drill.exec.vector.complex.fn.JsonReader} class used
+ * in Drill versions 1.17 and before. Compared with the previous version, this implementation:
  * <ul>
  * <li>Materializes parse states as classes rather than as methods and
  * boolean flags as in the prior version.</li>

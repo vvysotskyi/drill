@@ -29,7 +29,7 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.util.List;
 
-@Category(SqlTest.class) // todo: FOR ALL UPDATED FILTERS REWRITE EXCLUDED EXPRESSIONS TO NOT DEPEND ON FILTER ORDERING!!!
+@Category(SqlTest.class)
 public class TestConstantFolding extends PlanTestBase {
 
   public static class SmallFileCreator {
@@ -182,7 +182,7 @@ public class TestConstantFolding extends PlanTestBase {
     testPlanOneExpectedPatternOneExcluded(
         "select * from cp.`functions/interp/test_input.csv` where columns[0] = 2+2",
         "Filter\\(condition=\\[=\\(4, ITEM\\(\\$[0-9]+, 0\\)\\)",
-        "Filter\\(condition=\\[=\\(ITEM\\(\\$[0-9]+, 0\\), \\+\\(2, 2\\)\\)");
+        "Filter\\(condition=\\[=\\(\\+\\(2, 2\\), ITEM\\(\\$[0-9]+, 0\\)\\)");
   }
 
   @Test
@@ -192,7 +192,7 @@ public class TestConstantFolding extends PlanTestBase {
       testPlanOneExpectedPatternOneExcluded(
           "select * from cp.`functions/interp/test_input.csv` where columns[0] = 2+2",
           "Filter\\(condition=\\[=\\(\\+\\(2, 2\\), ITEM\\(\\$[0-9]+, 0\\)\\)",
-          "Filter\\(condition=\\[=\\(ITEM\\(\\$[0-9]+, 0\\), 4\\)");
+          "Filter\\(condition=\\[=\\(4, ITEM\\(\\$[0-9]+, 0\\)\\)");
     } finally {
       test("alter session set `planner.enable_constant_folding` = true");
     }
@@ -211,7 +211,7 @@ public class TestConstantFolding extends PlanTestBase {
     testPlanOneExpectedPatternOneExcluded(
         "select * from cp.`functions/interp/test_input.csv` where columns[0] = random()",
         "Filter\\(condition=\\[=\\(RANDOM\\(\\), ITEM\\(\\$[0-9]+, 0\\)\\)",
-        "Filter\\(condition=\\[=\\(ITEM\\(\\$[0-9]+, 0\\), [0-9\\.]+");
+        "Filter\\(condition=\\[=\\([0-9\\.]+, ITEM\\(\\$[0-9]+, 0\\)");
   }
 
   @Test

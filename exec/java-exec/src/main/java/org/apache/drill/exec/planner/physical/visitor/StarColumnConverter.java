@@ -144,7 +144,6 @@ public class StarColumnConverter extends BasePrelVisitor<Prel, Void, RuntimeExce
 
   @Override
   public Prel visitProject(ProjectPrel prel, Void value) throws RuntimeException {
-    // todo: TestCTASPartitionFilter.testDRILL3414
     // Require prefix rename : there exists other expression, in addition to a star column.
     if (!prefixedForStar  // not set yet.
         && StarColumnHelper.containsStarColumnInProject(prel.getInput().getRowType(), prel.getProjects())

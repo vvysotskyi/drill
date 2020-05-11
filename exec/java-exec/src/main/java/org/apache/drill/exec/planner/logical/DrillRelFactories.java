@@ -53,7 +53,6 @@ import static org.apache.drill.exec.planner.logical.DrillRel.DRILL_LOGICAL;
  */
 
 public class DrillRelFactories {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillRelFactories.class);
   public static final RelFactories.ProjectFactory DRILL_LOGICAL_PROJECT_FACTORY =
       new DrillProjectFactoryImpl();
 
@@ -64,16 +63,8 @@ public class DrillRelFactories {
 
   public static final RelFactories.AggregateFactory DRILL_LOGICAL_AGGREGATE_FACTORY = new DrillAggregateFactoryImpl();
 
-  public static final RelFactories.SemiJoinFactory DRILL_SEMI_JOIN_FACTORY = new SemiJoinFactoryImpl();
+  public static final RelFactories.JoinFactory DRILL_SEMI_JOIN_FACTORY = new JoinFactoryImpl();
 
-  private static class SemiJoinFactoryImpl implements RelFactories.SemiJoinFactory {
-    public RelNode createSemiJoin(RelNode left, RelNode right,
-                                  RexNode condition) {
-      final JoinInfo joinInfo = JoinInfo.of(left, right, condition);
-      return DrillSemiJoinRel.create(left, right,
-              condition, joinInfo.leftKeys, joinInfo.rightKeys);
-    }
-  }
   /**
    * A {@link RelBuilderFactory} that creates a {@link DrillRelBuilder} that will
    * create logical relational expressions for everything.
@@ -90,6 +81,16 @@ public class DrillRelFactories {
               DEFAULT_SET_OP_FACTORY,
               DEFAULT_VALUES_FACTORY,
               DEFAULT_TABLE_SCAN_FACTORY));
+
+  private static class JoinFactoryImpl implements RelFactories.JoinFactory {
+    @Override
+    public RelNode createJoin(RelNode left, RelNode right, List<RelHint> hints,
+        RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType, boolean semiJoinDone) {
+      JoinInfo joinInfo = JoinInfo.of(left, right, condition);
+      return DrillSemiJoinRel.create(left, right,
+          condition, joinInfo.leftKeys, joinInfo.rightKeys);
+    }
+  }
 
   /**
    * Implementation of {@link RelFactories.ProjectFactory} that returns a vanilla
