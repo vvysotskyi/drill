@@ -332,6 +332,15 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     return IterOutcome.OK_NEW_SCHEMA;
   }
 
+  @Override
+  protected IterOutcome getFinalOutcome(boolean hasMoreRecordInBoundary) {
+    // for the case of complex writers vectors were added at runtime, so schema was rebuilt and changed
+    if (complexWriters != null) {
+      return IterOutcome.OK_NEW_SCHEMA;
+    }
+    return super.getFinalOutcome(hasMoreRecordInBoundary);
+  }
+
   private void setupNewSchema(RecordBatch incomingBatch, int configuredBatchSize) {
     memoryManager = new ProjectMemoryManager(configuredBatchSize);
     memoryManager.init(incomingBatch, ProjectRecordBatch.this);
