@@ -35,7 +35,7 @@ import org.apache.calcite.rex.RexRangeRef;
 import org.apache.drill.exec.planner.common.DrillProjectRelBase;
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.LogicalExpression;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 
 import java.util.Map;
@@ -55,14 +55,14 @@ public class RexToExpression {
     return expr.accept(visitor);
   }
 
-  public static class RexToDrillExt extends DrillOptiq.RexToDrill {
+  public static class RexToDrillExt extends CalciteUtils.RexToDrill {
 
     /**
      * projectToInput, this instance of RexToDrill can do convert for expressions that are directly using inputRef of 'input',
      * e.g. rex nodes in 'project'.
      *
      */
-    private final DrillOptiq.RexToDrill projectToInput;
+    private final CalciteUtils.RexToDrill projectToInput;
 
     /**
      * The project in between
@@ -77,7 +77,7 @@ public class RexToExpression {
 
     public RexToDrillExt(DrillParseContext context, DrillProjectRelBase project, RelNode input) {
       super(context, input);
-      projectToInput = new DrillOptiq.RexToDrill(context, input);
+      projectToInput = new CalciteUtils.RexToDrill(context, input);
       this.project = project;
       this.exprToRexs = Maps.newHashMap();
     }

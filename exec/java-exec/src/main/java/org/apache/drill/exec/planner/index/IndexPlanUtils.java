@@ -49,7 +49,7 @@ import org.apache.drill.exec.physical.base.IndexGroupScan;
 import org.apache.drill.exec.planner.common.DrillProjectRelBase;
 import org.apache.drill.exec.planner.common.DrillScanRelBase;
 import org.apache.drill.exec.planner.fragment.DistributionAffinity;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.logical.DrillScanRel;
 import org.apache.drill.exec.planner.physical.DrillDistributionTrait;
@@ -190,7 +190,7 @@ public class IndexPlanUtils {
     }
     else if (indexContext.getLowerProject() != null) {
       for (RexNode rex : indexContext.getLowerProject().getProjects()) {
-        LogicalExpression expr = DrillOptiq.toDrill(parserContext, indexContext.getScan(), rex);
+        LogicalExpression expr = CalciteUtils.toDrill(parserContext, indexContext.getScan(), rex);
         exprs.add(expr);
       }
     }
@@ -248,7 +248,7 @@ public class IndexPlanUtils {
       DrillParseContext parserContext = new DrillParseContext(PrelUtil.getPlannerSettings(input.getCluster()));
       int idx=0;
       for (RexNode rex : projectRexs) {
-        projectExprs.put(DrillOptiq.toDrill(parserContext, input, rex), idx);
+        projectExprs.put(CalciteUtils.toDrill(parserContext, input, rex), idx);
         idx++;
       }
       int idxFieldCount = 0;

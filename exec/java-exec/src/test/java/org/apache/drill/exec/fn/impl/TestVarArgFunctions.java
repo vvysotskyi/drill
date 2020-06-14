@@ -99,10 +99,8 @@ public class TestVarArgFunctions extends ClusterTest {
 
   @Test
   public void testVarargUdfWithDifferentDataModes() throws Exception {
-    thrown.expect(UserException.class);
-    thrown.expectMessage(containsString("Missing function implementation: [concat_varchar"));
-    run("SELECT concat_varchar(first_name, ' ', last_name) as c1\n" +
-        "from cp.`employee.json` limit 10");
+    queryBuilder().sql("SELECT concat_varchar(first_name, ' ', last_name) as c1\n" +
+        "from cp.`employee.json` limit 10").print();
   }
 
   @Test

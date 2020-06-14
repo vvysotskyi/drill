@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.planner.logical;
 
+import org.apache.calcite.rex.RexWindowBounds;
 import org.apache.drill.common.util.GuavaUtils;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableList;
 import org.apache.calcite.rel.RelNode;
@@ -32,15 +33,18 @@ import org.apache.drill.categories.PlannerTest;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.planner.types.DrillRelDataTypeSystem;
 import org.apache.drill.test.BaseTest;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
 import java.util.LinkedList;
 import java.util.List;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
+
 @Category(PlannerTest.class)
-public class DrillOptiqTest extends BaseTest {
+public class CalciteUtilsTest extends BaseTest {
 
   /* Method checks if we raise the appropriate error while dealing with RexNode that cannot be converted to
    * equivalent Drill expressions
@@ -58,16 +62,11 @@ public class DrillOptiqTest extends BaseTest {
 
       // create a dummy RexOver object.
       RexNode window = rex.makeOver(anyType, SqlStdOperatorTable.AVG, emptyList, emptyList, GuavaUtils.convertToUnshadedImmutableList(e),
-          null, null, true, false, false, false);
-      DrillOptiq.toDrill(null, (RelNode) null, window);
+          RexWindowBounds.UNBOUNDED_FOLLOWING, RexWindowBounds.UNBOUNDED_PRECEDING, true, false, false, false, false);
+      CalciteUtils.toDrill(null, (RelNode) null, window);
+      fail("Failed to raise the expected exception");
     } catch (UserException e) {
-      if (e.getMessage().contains(DrillOptiq.UNSUPPORTED_REX_NODE_ERROR)) {
-        // got expected error return
-        return;
-      }
-      Assert.fail("Hit exception with unexpected error message");
+      assertThat("Hit exception with unexpected error message", e.getMessage(), containsString(CalciteUtils.UNSUPPORTED_REX_NODE_ERROR));
     }
-
-    Assert.fail("Failed to raise the expected exception");
   }
 }

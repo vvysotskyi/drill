@@ -21,7 +21,7 @@ import java.io.IOException;
 
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.LogicalExpression;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 import org.apache.drill.exec.planner.physical.FilterPrel;
@@ -58,7 +58,7 @@ public class MongoPushDownFilterForScan extends StoragePluginOptimizerRule {
       return;
     }
 
-    LogicalExpression conditionExp = DrillOptiq.toDrill(
+    LogicalExpression conditionExp = CalciteUtils.toDrill(
         new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, condition);
     MongoFilterBuilder mongoFilterBuilder = new MongoFilterBuilder(groupScan,
         conditionExp);

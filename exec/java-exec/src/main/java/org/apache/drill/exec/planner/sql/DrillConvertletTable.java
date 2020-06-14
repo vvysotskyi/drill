@@ -36,10 +36,8 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlOperatorBinding;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.SqlReturnTypeInference;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql2rel.SqlRexConvertlet;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
@@ -55,15 +53,10 @@ public class DrillConvertletTable implements SqlRexConvertletTable {
 
   public static final SqlRexConvertletTable INSTANCE = new DrillConvertletTable();
   private static final DrillSqlOperator CastHighOp = new DrillSqlOperator("CastHigh", 1, false,
-      new SqlReturnTypeInference() {
-        @Override
-        public RelDataType inferReturnType(SqlOperatorBinding opBinding) {
-          return TypeInferenceUtils.createCalciteTypeWithNullability(
-              opBinding.getTypeFactory(),
-              SqlTypeName.ANY,
-              opBinding.getOperandType(0).isNullable());
-        }
-      }, false);
+      opBinding -> TypeInferenceUtils.createCalciteTypeWithNullability(
+          opBinding.getTypeFactory(),
+          SqlTypeName.ANY,
+          opBinding.getOperandType(0).isNullable()), false);
 
   private final Map<SqlOperator, SqlRexConvertlet> operatorToConvertletMap;
 

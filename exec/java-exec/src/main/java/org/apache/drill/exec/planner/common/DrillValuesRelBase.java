@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.planner.common;
 
-import static org.apache.drill.exec.planner.logical.DrillOptiq.isLiteralNull;
+import static org.apache.drill.exec.planner.logical.CalciteUtils.isLiteralNull;
 
 import java.io.IOException;
 import java.math.BigDecimal;

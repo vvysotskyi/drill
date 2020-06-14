@@ -60,8 +60,8 @@ public abstract class DrillJoinRelBase extends Join implements DrillJoin {
 
   public DrillJoinRelBase(RelOptCluster cluster, RelTraitSet traits, RelNode left, RelNode right, RexNode condition,
       JoinRelType joinType) {
-    super(cluster, traits, left, right, condition,
-        CorrelationId.setOf(Collections.<String> emptySet()), joinType);
+    super(cluster, traits, Collections.emptyList(), left, right, condition,
+        CorrelationId.setOf(Collections.emptySet()), joinType);
     this.joinRowFactor = PrelUtil.getPlannerSettings(cluster.getPlanner()).getRowCountEstimateFactor();
   }
 
@@ -104,12 +104,12 @@ public abstract class DrillJoinRelBase extends Join implements DrillJoin {
       return joinRowFactor * this.getLeft().estimateRowCount(mq) * this.getRight().estimateRowCount(mq);
     }
 
-    LogicalJoin jr = LogicalJoin.create(this.getLeft(), this.getRight(), this.getCondition(),
-            this.getVariablesSet(), this.getJoinType());
+    LogicalJoin join = LogicalJoin.create(this.getLeft(), this.getRight(), Collections.emptyList(),
+        this.getCondition(), this.getVariablesSet(), this.getJoinType());
 
     if (!DrillRelOptUtil.guessRows(this)         //Statistics present for left and right side of the join
-        && jr.getJoinType() == JoinRelType.INNER) {
-      List<Pair<Integer, Integer>> joinConditions = DrillRelOptUtil.analyzeSimpleEquiJoin((Join)jr);
+        && join.getJoinType() == JoinRelType.INNER) {
+      List<Pair<Integer, Integer>> joinConditions = DrillRelOptUtil.analyzeSimpleEquiJoin(join);
       if (joinConditions.size() > 0) {
         List<Integer> leftSide =  new ArrayList<>();
         List<Integer> rightSide = new ArrayList<>();

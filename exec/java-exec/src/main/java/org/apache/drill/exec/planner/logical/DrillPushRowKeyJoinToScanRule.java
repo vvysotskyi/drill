@@ -537,7 +537,7 @@ public class DrillPushRowKeyJoinToScanRule extends RelOptRule {
     logger.debug("Transforming: LeftKeys={}, LeftRowType={}, RightKeys={}, RightRowType={}",
         leftJoinKeys, leftRel.getRowType(), rightJoinKeys, right.getRowType());
     RowKeyJoinRel rowKeyJoin = new RowKeyJoinRel(joinRel.getCluster(), joinRel.getTraitSet(), leftRel, right,
-        joinCondition, joinRel.getJoinType(), joinRel instanceof DrillSemiJoinRel);
+        joinCondition, joinRel.getJoinType(), joinRel.isSemiJoin());
     logger.info("Transforming: SUCCESS: Register runtime filter pushdown plan (rowkeyjoin)");
     call.transformTo(rowKeyJoin);
   }

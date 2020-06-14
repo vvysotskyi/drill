@@ -20,29 +20,31 @@ package org.apache.drill.exec.planner.logical;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptRule;
-import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.logical.LogicalProject;
+
+import java.util.function.Predicate;
 
 /**
  * Rule that converts a {@link org.apache.calcite.rel.logical.LogicalProject} to a Drill "project" operation.
  */
-public class DrillProjectRule extends RelOptRule {
+public class DrillProjectRule extends ConverterRule {
   public static final RelOptRule INSTANCE = new DrillProjectRule();
 
   private DrillProjectRule() {
-    super(RelOptHelper.any(LogicalProject.class, Convention.NONE),
+    super(LogicalProject.class, (Predicate<RelNode>) r -> true, Convention.NONE, DrillRel.DRILL_LOGICAL,
         DrillRelFactories.LOGICAL_BUILDER, "DrillProjectRule");
   }
 
   @Override
-  public void onMatch(RelOptRuleCall call) {
-    final Project project = call.rel(0);
-    final RelNode input = project.getInput();
-    final RelTraitSet traits = project.getTraitSet().plus(DrillRel.DRILL_LOGICAL);
-    final RelNode convertedInput = convert(input, input.getTraitSet().plus(DrillRel.DRILL_LOGICAL).simplify());
-    call.transformTo(new DrillProjectRel(
-        project.getCluster(), traits, convertedInput, project.getProjects(), project.getRowType()));
+  public RelNode convert(RelNode rel) {
+    Project project = (Project) rel;
+    RelNode input = project.getInput();
+    RelTraitSet traits = project.getTraitSet().plus(DrillRel.DRILL_LOGICAL);
+    RelNode convertedInput = convert(input, input.getTraitSet().plus(DrillRel.DRILL_LOGICAL).simplify());
+    return new DrillProjectRel(
+        project.getCluster(), traits, convertedInput, project.getProjects(), project.getRowType());
   }
 }

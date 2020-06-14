@@ -36,7 +36,7 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.exec.physical.base.DbGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.planner.common.DrillScanRelBase;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.logical.DrillScanRel;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
@@ -995,7 +995,7 @@ public class MapRDBStatistics implements Statistics {
       RelDataType type, PlannerSettings settings, RexBuilder builder) {
     LogicalExpression conditionExp;
     try {
-      conditionExp = DrillOptiq.toDrill(new DrillParseContext(settings), type, builder, condition);
+      conditionExp = CalciteUtils.toDrill(new DrillParseContext(settings), type, builder, condition);
     } catch (ClassCastException e) {
       return null;
     }

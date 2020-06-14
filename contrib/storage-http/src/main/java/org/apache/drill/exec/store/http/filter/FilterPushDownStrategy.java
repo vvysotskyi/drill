@@ -34,7 +34,7 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.planner.common.DrillRelOptUtil;
 import org.apache.drill.exec.planner.logical.DrillFilterRel;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.logical.DrillProjectRel;
 import org.apache.drill.exec.planner.logical.DrillScanRel;
@@ -231,7 +231,7 @@ public class FilterPushDownStrategy {
       }
 
       // Extract an AND term, which may be an OR expression.
-      LogicalExpression drillPredicate = DrillOptiq.toDrill(parseContext, scan, pred);
+      LogicalExpression drillPredicate = CalciteUtils.toDrill(parseContext, scan, pred);
       ExprNode expr = drillPredicate.accept(FilterPushDownUtils.REL_OP_EXTRACTOR, null);
       if (expr == null) {
         return null;

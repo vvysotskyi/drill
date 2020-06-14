@@ -66,8 +66,8 @@ public class TestConvertFunctions extends BaseTestQuery {
   private static final String DATE_TIME_BE = "\\x00\\x00\\x00\\x49\\x77\\x85\\x1f\\x8e";
   private static final String DATE_TIME_LE = "\\x8e\\x1f\\x85\\x77\\x49\\x00\\x00\\x00";
 
-  private static LocalTime time = LocalTime.parse("01:23:45.678", DateUtility.getTimeFormatter());
-  private static LocalDate date = LocalDate.parse("1980-01-01", DateUtility.getDateTimeFormatter());
+  private static final LocalTime TIME = LocalTime.parse("01:23:45.678", DateUtility.getTimeFormatter());
+  private static final LocalDate DATE = LocalDate.parse("1980-01-01", DateUtility.getDateTimeFormatter());
 
   private String textFileContent;
 
@@ -127,7 +127,7 @@ public class TestConvertFunctions extends BaseTestQuery {
         .baselineValues(listStr)
         .go();
 
-    Object listVal = listOf(4l, 6l);
+    Object listVal = listOf(4L, 6L);
     testBuilder()
         .sqlQuery("select convert_from(convert_to(rl[1], 'JSON'), 'JSON') list_col from cp.`store/json/input2.json`")
         .unOrdered()
@@ -138,8 +138,8 @@ public class TestConvertFunctions extends BaseTestQuery {
         .baselineValues(listVal)
         .go();
 
-    Object mapVal1 = mapOf("f1", 4l, "f2", 6l);
-    Object mapVal2 = mapOf("f1", 11l);
+    Object mapVal1 = mapOf("f1", 4L, "f2", 6L);
+    Object mapVal2 = mapOf("f1", 11L);
     testBuilder()
         .sqlQuery("select convert_from(convert_to(rl[1], 'JSON'), 'JSON') as map_col from cp.`store/json/json_project_null_object_from_list.json`")
         .unOrdered()
@@ -157,11 +157,11 @@ public class TestConvertFunctions extends BaseTestQuery {
     Object mapVal2 = mapOf("y", "bill", "z", "peter");
 
     // right side of union-all produces 0 rows due to FALSE filter, column t.x is a map
-    String query1 = String.format("select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
+    String query1 = "select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
         + " where t.`integer` = 2010 "
         + " union all "
         + " select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t"
-        + " where 1 = 0");
+        + " where 1 = 0";
 
     testBuilder()
         .sqlQuery(query1)
@@ -171,11 +171,11 @@ public class TestConvertFunctions extends BaseTestQuery {
         .go();
 
     // left side of union-all produces 0 rows due to FALSE filter, column t.x is a map
-    String query2 = String.format("select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
+    String query2 = "select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
         + " where 1 = 0 "
         + " union all "
         + " select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
-        + " where t.`integer` = 2010");
+        + " where t.`integer` = 2010";
 
     testBuilder()
         .sqlQuery(query2)
@@ -185,11 +185,11 @@ public class TestConvertFunctions extends BaseTestQuery {
         .go();
 
     // sanity test where neither side produces 0 rows
-    String query3 = String.format("select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
+    String query3 = "select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
         + " where t.`integer` = 2010 "
         + " union all "
         + " select 'abc' as col1, convert_from(convert_to(t.x, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
-        + " where t.`integer` = 2001");
+        + " where t.`integer` = 2001";
 
     testBuilder()
         .sqlQuery(query3)
@@ -200,13 +200,13 @@ public class TestConvertFunctions extends BaseTestQuery {
         .go();
 
     // convert_from() on a list, column t.rl is a repeated list
-    Object listVal1 = listOf(listOf(2l, 1l), listOf(4l, 6l));
+    Object listVal1 = listOf(listOf(2L, 1L), listOf(4L, 6L));
     Object listVal2 = listOf(); // empty
 
-    String query4 = String.format("select 'abc' as col1, convert_from(convert_to(t.rl, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
+    String query4 = "select 'abc' as col1, convert_from(convert_to(t.rl, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t "
         + " union all "
         + " select 'abc' as col1, convert_from(convert_to(t.rl, 'JSON'), 'JSON') as col2, 'xyz' as col3 from cp.`store/json/input2.json` t"
-        + " where 1 = 0");
+        + " where 1 = 0";
 
     testBuilder()
        .sqlQuery(query4)
@@ -286,22 +286,22 @@ public class TestConvertFunctions extends BaseTestQuery {
 
   @Test
   public void testDateTime1() throws Throwable {
-    verifyPhysicalPlan("(convert_from(binary_string('" + DATE_TIME_BE + "'), 'TIME_EPOCH_BE'))", time);
+    verifyPhysicalPlan("(convert_from(binary_string('" + DATE_TIME_BE + "'), 'TIME_EPOCH_BE'))", TIME);
   }
 
   @Test
   public void testDateTime2() throws Throwable {
-    verifyPhysicalPlan("convert_from(binary_string('" + DATE_TIME_LE + "'), 'TIME_EPOCH')", time);
+    verifyPhysicalPlan("convert_from(binary_string('" + DATE_TIME_LE + "'), 'TIME_EPOCH')", TIME);
   }
 
   @Test
   public void testDateTime3() throws Throwable {
-    verifyPhysicalPlan("convert_from(binary_string('" + DATE_TIME_BE + "'), 'DATE_EPOCH_BE')", date );
+    verifyPhysicalPlan("convert_from(binary_string('" + DATE_TIME_BE + "'), 'DATE_EPOCH_BE')", DATE);
   }
 
   @Test
   public void testDateTime4() throws Throwable {
-    verifyPhysicalPlan("convert_from(binary_string('" + DATE_TIME_LE + "'), 'DATE_EPOCH')", date);
+    verifyPhysicalPlan("convert_from(binary_string('" + DATE_TIME_LE + "'), 'DATE_EPOCH')", DATE);
   }
 
   @Test
@@ -330,7 +330,7 @@ public class TestConvertFunctions extends BaseTestQuery {
            + "   convert_from(binary_string('\\xBE\\xBA\\xFE\\xCA'), 'INT')"
            + " from"
            + "   cp.`employee.json` LIMIT 1",
-            0xCAFEBABE);
+        (long) 0xCAFEBABE);
   }
 
   @Test
@@ -473,17 +473,13 @@ public class TestConvertFunctions extends BaseTestQuery {
   }
 
   @Test
-  public void testFloats1() throws Throwable {
-  }
-
-  @Test
   public void testFloats2() throws Throwable {
-    verifyPhysicalPlan("convert_from(convert_to(cast(77 as float4), 'FLOAT'), 'FLOAT')", new Float(77.0));
+    verifyPhysicalPlan("convert_from(convert_to(cast(77 as float4), 'FLOAT'), 'FLOAT')", 77.0f);
   }
 
   @Test
   public void testFloats2be() throws Throwable {
-    verifyPhysicalPlan("convert_from(convert_to(cast(77 as float4), 'FLOAT_BE'), 'FLOAT_BE')", new Float(77.0));
+    verifyPhysicalPlan("convert_from(convert_to(cast(77 as float4), 'FLOAT_BE'), 'FLOAT_BE')", 77.0f);
   }
 
   @Test
@@ -550,12 +546,12 @@ public class TestConvertFunctions extends BaseTestQuery {
   }
 
   @Test
-  public void testHadooopVInt() throws Exception {
+  public void testHadoopVInt() {
     final int _0 = 0;
     final int _9 = 9;
     final DrillBuf buffer = getAllocator().buffer(_9);
 
-    long longVal = 0;
+    long longVal;
     buffer.clear();
     HadoopWritables.writeVLong(buffer, _0, _9, 0);
     longVal = HadoopWritables.readVLong(buffer, _0, _9);
@@ -571,7 +567,7 @@ public class TestConvertFunctions extends BaseTestQuery {
     longVal = HadoopWritables.readVLong(buffer, _0, _9);
     assertEquals(longVal, Long.MIN_VALUE);
 
-    int intVal = 0;
+    int intVal;
     buffer.clear();
     HadoopWritables.writeVInt(buffer, _0, _9, 0);
     intVal = HadoopWritables.readVInt(buffer, _0, _9);
@@ -635,7 +631,7 @@ public class TestConvertFunctions extends BaseTestQuery {
   protected Object[] getRunResult(QueryType queryType, String planString) throws Exception {
     List<QueryDataBatch> resultList = testRunAndReturn(queryType, planString);
 
-    List<Object> res = new ArrayList<Object>();
+    List<Object> res = new ArrayList<>();
     RecordBatchLoader loader = new RecordBatchLoader(getAllocator());
     for(QueryDataBatch result : resultList) {
       if (result.getData() != null) {
@@ -656,7 +652,7 @@ public class TestConvertFunctions extends BaseTestQuery {
     return res.toArray();
   }
 
-  protected <T> void verifyResults(String expression, T expectedResults, Object[] actualResults) throws Throwable {
+  protected <T> void verifyResults(String expression, T expectedResults, Object[] actualResults) {
     String testName = String.format("Expression: %s.", expression);
     assertEquals(testName, 1, actualResults.length);
     assertNotNull(testName, actualResults[0]);
@@ -665,10 +661,6 @@ public class TestConvertFunctions extends BaseTestQuery {
     } else {
       assertEquals(testName, expectedResults, actualResults[0]);
     }
-  }
-
-  protected void assertArraysEquals(Object expected, Object actual) {
-    assertArraysEquals(null, expected, actual);
   }
 
   protected void assertArraysEquals(String message, Object expected, Object actual) {
@@ -689,7 +681,7 @@ public class TestConvertFunctions extends BaseTestQuery {
     } else if (expected instanceof double[] && actual instanceof double[]) {
       assertArrayEquals(message, (double[]) expected, (double[]) actual, DELTA);
     } else {
-      fail(String.format("%s: Error comparing arrays of type '%s' and '%s'",
+      fail(String.format("Error comparing arrays of type '%s' and '%s'",
           expected.getClass().getName(), (actual == null ? "null" : actual.getClass().getName())));
     }
   }

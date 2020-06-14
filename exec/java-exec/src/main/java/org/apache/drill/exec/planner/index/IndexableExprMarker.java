@@ -36,7 +36,7 @@ import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.drill.common.expression.LogicalExpression;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.physical.PrelUtil;
 
@@ -185,7 +185,7 @@ public class IndexableExprMarker extends RexVisitorImpl<Boolean> {
         directCompareOp = false;
         contextCall = null;
         if (markIt) {
-          LogicalExpression expr = DrillOptiq.toDrill(parserContext, inputRel, operand);
+          LogicalExpression expr = CalciteUtils.toDrill(parserContext, inputRel, operand);
           desiredExpressions.put(operand, expr);
           if (call.getKind() == SqlKind.EQUALS) {
             equalityExpressions.put(operand, expr);
@@ -212,7 +212,7 @@ public class IndexableExprMarker extends RexVisitorImpl<Boolean> {
         if(contextCall != null && contextCall.getKind() == SqlKind.EQUALS
             && (call.getType().getSqlTypeName()== SqlTypeName.CHAR
                 || call.getType().getSqlTypeName()==SqlTypeName.VARCHAR)) {
-          equalOnCastChar.put(contextCall, DrillOptiq.toDrill(parserContext, inputRel, call));
+          equalOnCastChar.put(contextCall, CalciteUtils.toDrill(parserContext, inputRel, call));
         }
 
         RexNode castOp = call.operands.get(0);

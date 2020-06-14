@@ -23,7 +23,7 @@ import org.apache.calcite.plan.RelOptRuleOperand;
 import org.apache.calcite.rex.RexNode;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.exec.physical.base.GroupScan;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 import org.apache.drill.exec.planner.physical.FilterPrel;
@@ -54,7 +54,7 @@ public class KafkaPushDownFilterIntoScan extends StoragePluginOptimizerRule {
     final RexNode condition = filter.getCondition();
 
     LogicalExpression conditionExp =
-        DrillOptiq.toDrill(new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, condition);
+        CalciteUtils.toDrill(new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, condition);
 
     KafkaGroupScan groupScan = (KafkaGroupScan) scan.getGroupScan();
     if (logger.isDebugEnabled()) {

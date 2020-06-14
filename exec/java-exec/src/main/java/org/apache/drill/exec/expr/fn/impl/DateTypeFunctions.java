@@ -540,6 +540,23 @@ public class DateTypeFunctions {
       }
     }
 
+    @FunctionTemplate(name = "castTIMESTAMP",
+                      scope = FunctionTemplate.FunctionScope.SIMPLE,
+                      nulls = NullHandling.NULL_IF_NULL)
+    public static class CastTimeToTimestamp implements DrillSimpleFunc {
+        @Param TimeHolder in;
+        @Output TimeStampHolder out;
+
+        @Override
+        public void setup() {
+        }
+
+        @Override
+        public void eval() {
+            out.value = in.value;
+        }
+    }
+
     @FunctionTemplate(name = "unix_timestamp", scope = FunctionTemplate.FunctionScope.SIMPLE, nulls = NullHandling.NULL_IF_NULL)
     public static class UnixTimeStamp implements DrillSimpleFunc {
       @Output BigIntHolder out;

@@ -50,6 +50,24 @@ class DrillRexBuilder extends RexBuilder {
     return node;
   }
 
+  @Override
+  public RexNode makeLiteral(Object value, RelDataType type,
+      boolean allowCast) {
+    SqlTypeName sqlTypeName = type.getSqlTypeName();
+    switch (sqlTypeName) {
+      case ANY:
+        if (value != null && !type.isNullable() && value instanceof BigDecimal) {
+          BigDecimal bigDecimal = (BigDecimal) value;
+          RelDataType relDataType =
+              typeFactory.createSqlType(SqlTypeName.DECIMAL, bigDecimal.precision(), bigDecimal.scale());
+          return makeLiteral(value, relDataType, allowCast);
+        }
+        // fall through
+      default:
+        return super.makeLiteral(value, type, allowCast);
+    }
+  }
+
   /**
    * Creates a call to the CAST operator, expanding if possible, and optionally
    * also preserving nullability.

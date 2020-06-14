@@ -38,7 +38,7 @@ import org.apache.drill.common.logical.data.NamedExpression;
 import org.apache.drill.exec.planner.StarColumnHelper;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.planner.cost.DrillCostBase.DrillCostFactory;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.physical.PrelUtil;
 import org.apache.calcite.rel.core.Project;
@@ -110,7 +110,7 @@ public abstract class DrillProjectRelBase extends Project implements DrillRelNod
 
     for (Pair<RexNode, String> pair : projects()) {
       if (! StarColumnHelper.subsumeColumn(starColPrefixes, pair.right)) {
-        LogicalExpression expr = DrillOptiq.toDrill(context, getInput(), pair.left);
+        LogicalExpression expr = CalciteUtils.toDrill(context, getInput(), pair.left);
         expressions.add(new NamedExpression(expr, FieldReference.getWithQuotedRef(pair.right)));
       }
     }

@@ -481,6 +481,11 @@ public class ExpressionTreeMaterializer {
         } else if (Types.softEquals(parmType, currentArg.getMajorType(),
             matchedFuncHolder.getNullHandling() == FunctionTemplate.NullHandling.NULL_IF_NULL) ||
                    matchedFuncHolder.isFieldReader(i)) {
+          if (parmType.getMode() == DataMode.OPTIONAL
+              && currentArg.getMajorType().getMode() == DataMode.REQUIRED) {
+            // convert argument to nullable type if function require nullable
+            currentArg = convertToNullableType(currentArg, parmType.getMinorType(), functionLookupContext, errorCollector);
+          }
           // Case 2: argument and parameter matches, or parameter is FieldReader.  Do nothing.
           argsWithCast.add(currentArg);
         } else {
@@ -490,7 +495,13 @@ public class ExpressionTreeMaterializer {
             parmType = MajorType.newBuilder().setMinorType(parmType.getMinorType()).setMode(parmType.getMode()).
                 setScale(currentArg.getMajorType().getScale()).setPrecision(computePrecision(currentArg)).build();
           }
-          argsWithCast.add(addCastExpression(currentArg, parmType, functionLookupContext, errorCollector));
+          LogicalExpression castExpression = addCastExpression(currentArg, parmType, functionLookupContext, errorCollector);
+          if (parmType.getMode() == DataMode.OPTIONAL
+              && currentArg.getMajorType().getMode() == DataMode.REQUIRED) {
+            // convert argument to nullable type if function require nullable
+            castExpression = convertToNullableType(castExpression, parmType.getMinorType(), functionLookupContext, errorCollector);
+          }
+          argsWithCast.add(castExpression);
         }
       }
 

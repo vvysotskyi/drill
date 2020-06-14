@@ -25,7 +25,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.NestedLoopJoinPOP;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.planner.cost.DrillCostBase.DrillCostFactory;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.calcite.rel.InvalidRelException;
@@ -102,7 +102,7 @@ public class NestedLoopJoinPrel  extends JoinPrel {
 
        Both tables have the same column name thus duplicated column name in second table are renamed: i1 -> i10.
     */
-    LogicalExpression condition = DrillOptiq.toDrill(
+    LogicalExpression condition = CalciteUtils.toDrill(
         new DrillParseContext(PrelUtil.getSettings(getCluster())),
         getInputs(),
         getCondition());

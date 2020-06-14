@@ -61,7 +61,7 @@ import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.planner.FileSystemPartitionDescriptor;
 import org.apache.drill.exec.planner.PartitionDescriptor;
 import org.apache.drill.exec.planner.PartitionLocation;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.DrillRelFactories;
@@ -513,7 +513,7 @@ public abstract class PruneScanRule extends StoragePluginOptimizerRule {
       ) {
     // materialize the expression
     logger.debug("Attempting to prune {}", pruneCondition);
-    final LogicalExpression expr = DrillOptiq.toDrill(new DrillParseContext(settings), scanRel, pruneCondition);
+    final LogicalExpression expr = CalciteUtils.toDrill(new DrillParseContext(settings), scanRel, pruneCondition);
     final ErrorCollectorImpl errors = new ErrorCollectorImpl();
 
     LogicalExpression materializedExpr = ExpressionTreeMaterializer.materialize(expr, container, errors, optimizerContext.getFunctionRegistry());

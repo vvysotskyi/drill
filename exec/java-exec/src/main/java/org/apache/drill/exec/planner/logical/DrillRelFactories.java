@@ -63,8 +63,6 @@ public class DrillRelFactories {
 
   public static final RelFactories.AggregateFactory DRILL_LOGICAL_AGGREGATE_FACTORY = new DrillAggregateFactoryImpl();
 
-  public static final RelFactories.JoinFactory DRILL_SEMI_JOIN_FACTORY = new JoinFactoryImpl();
-
   /**
    * A {@link RelBuilderFactory} that creates a {@link DrillRelBuilder} that will
    * create logical relational expressions for everything.
@@ -74,23 +72,12 @@ public class DrillRelFactories {
           Contexts.of(DEFAULT_PROJECT_FACTORY,
               DEFAULT_FILTER_FACTORY,
               DEFAULT_JOIN_FACTORY,
-              DRILL_SEMI_JOIN_FACTORY,
               DEFAULT_SORT_FACTORY,
               DEFAULT_AGGREGATE_FACTORY,
               DEFAULT_MATCH_FACTORY,
               DEFAULT_SET_OP_FACTORY,
               DEFAULT_VALUES_FACTORY,
               DEFAULT_TABLE_SCAN_FACTORY));
-
-  private static class JoinFactoryImpl implements RelFactories.JoinFactory {
-    @Override
-    public RelNode createJoin(RelNode left, RelNode right, List<RelHint> hints,
-        RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType, boolean semiJoinDone) {
-      JoinInfo joinInfo = JoinInfo.of(left, right, condition);
-      return DrillSemiJoinRel.create(left, right,
-          condition, joinInfo.leftKeys, joinInfo.rightKeys);
-    }
-  }
 
   /**
    * Implementation of {@link RelFactories.ProjectFactory} that returns a vanilla

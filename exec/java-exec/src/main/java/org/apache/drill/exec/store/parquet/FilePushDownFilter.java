@@ -32,7 +32,7 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.ValueExpressions;
 import org.apache.drill.exec.ops.OptimizerRulesContext;
 import org.apache.drill.exec.planner.common.DrillRelOptUtil;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 import org.apache.drill.exec.planner.physical.FilterPrel;
@@ -145,7 +145,7 @@ public abstract class FilePushDownFilter extends StoragePluginOptimizerRule {
 
     for (RexNode pred : predList) {
       if (DrillRelOptUtil.findOperators(pred, Collections.emptyList(), BANNED_OPERATORS) == null) {
-        LogicalExpression drillPredicate = DrillOptiq.toDrill(
+        LogicalExpression drillPredicate = CalciteUtils.toDrill(
             new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, pred);
 
         // checks whether predicate may be used for filter pushdown
@@ -170,7 +170,7 @@ public abstract class FilePushDownFilter extends StoragePluginOptimizerRule {
       return;
     }
 
-    LogicalExpression conditionExp = DrillOptiq.toDrill(
+    LogicalExpression conditionExp = CalciteUtils.toDrill(
         new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, qualifiedPred);
 
     // Default - pass the original filter expr to (potentially) be used at run-time
@@ -206,7 +206,7 @@ public abstract class FilePushDownFilter extends StoragePluginOptimizerRule {
               nonConvertedPredList,
               true));
 
-          LogicalExpression filterPredicate = DrillOptiq.toDrill(
+          LogicalExpression filterPredicate = CalciteUtils.toDrill(
             new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, theNewFilter.getCondition());
 
           groupScan.setFilterForRuntime(filterPredicate, optimizerContext); // pass the new filter expr to (potentialy) be used at run-time
@@ -232,7 +232,7 @@ public abstract class FilePushDownFilter extends StoragePluginOptimizerRule {
             nonConvertedPredList,
             true));
 
-        LogicalExpression filterPredicate = DrillOptiq.toDrill(
+        LogicalExpression filterPredicate = CalciteUtils.toDrill(
           new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, theFilterRel.getCondition());
 
         newGroupScan.setFilterForRuntime(filterPredicate, optimizerContext); // pass the new filter expr to (potentialy) be used at run-time

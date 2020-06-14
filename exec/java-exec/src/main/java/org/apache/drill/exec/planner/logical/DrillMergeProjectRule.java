@@ -35,6 +35,7 @@ import org.apache.drill.exec.planner.DrillRelBuilder;
 import org.apache.drill.exec.planner.physical.PrelFactories;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -46,7 +47,7 @@ import java.util.List;
  */
 public class DrillMergeProjectRule extends RelOptRule {
 
-  private FunctionImplementationRegistry functionRegistry;
+  private final FunctionImplementationRegistry functionRegistry;
   private final boolean force;
 
   public static DrillMergeProjectRule getInstance(boolean force, ProjectFactory pFactory,
@@ -71,11 +72,7 @@ public class DrillMergeProjectRule extends RelOptRule {
     Project bottomProject = call.rel(1);
 
     // We have a complex output type do not fire the merge project rule
-    if (checkComplexOutput(topProject) || checkComplexOutput(bottomProject)) {
-      return false;
-    }
-
-    return true;
+    return !checkComplexOutput(topProject) && !checkComplexOutput(bottomProject);
   }
 
   private boolean checkComplexOutput(Project project) {
@@ -178,14 +175,13 @@ public class DrillMergeProjectRule extends RelOptRule {
     // replace the two projects with a combined projection
     if (topProject instanceof DrillProjectRel) {
       RelNode newProjectRel = DrillRelFactories.DRILL_LOGICAL_PROJECT_FACTORY.createProject(
-          bottomProject.getInput(), newProjects,
+          bottomProject.getInput(), Collections.emptyList(), newProjects,
           topProject.getRowType().getFieldNames());
 
       return (Project) newProjectRel;
-    }
-    else {
+    } else {
       RelNode newProjectRel = PrelFactories.PROJECT_FACTORY.createProject(
-          bottomProject.getInput(), newProjects,
+          bottomProject.getInput(), Collections.emptyList(), newProjects,
           topProject.getRowType().getFieldNames());
 
       return (Project) newProjectRel;

@@ -21,7 +21,7 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.FlattenPOP;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.calcite.rel.RelNode;
@@ -72,6 +72,6 @@ public class FlattenPrel extends SinglePrel implements Prel {
   }
 
   protected LogicalExpression getFlattenExpression(DrillParseContext context){
-    return DrillOptiq.toDrill(context, getInput(), toFlatten);
+    return CalciteUtils.toDrill(context, getInput(), toFlatten);
   }
 }

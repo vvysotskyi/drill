@@ -22,7 +22,7 @@ import org.apache.calcite.util.NumberUtil;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.planner.cost.DrillCostBase.DrillCostFactory;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.physical.PrelUtil;
 
@@ -78,7 +78,7 @@ public abstract class DrillFilterRelBase extends Filter implements DrillRelNode 
   }
 
   protected LogicalExpression getFilterExpression(DrillParseContext context){
-    return DrillOptiq.toDrill(context, getInput(), getCondition());
+    return CalciteUtils.toDrill(context, getInput(), getCondition());
   }
 
   /* Given the condition (C1 and C2 and C3 and ... C_n), here is how to estimate cpu cost of FILTER :

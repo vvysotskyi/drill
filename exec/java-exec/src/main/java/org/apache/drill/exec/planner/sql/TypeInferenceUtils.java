@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.planner.sql;
 
-import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableMap;
 import org.apache.drill.shaded.guava.com.google.common.collect.ImmutableSet;
 import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
@@ -142,7 +141,6 @@ public class TypeInferenceUtils {
 
   private static final ImmutableMap<String, SqlReturnTypeInference> funcNameToInference = ImmutableMap.<String, SqlReturnTypeInference> builder()
       .put("DATE_PART", DrillDatePartSqlReturnTypeInference.INSTANCE)
-      .put(SqlStdOperatorTable.TIMESTAMP_ADD.getName(), DrillTimestampAddTypeInference.INSTANCE)
       .put(SqlKind.SUM.name(), DrillSumSqlReturnTypeInference.INSTANCE)
       .put(SqlKind.COUNT.name(), DrillCountSqlReturnTypeInference.INSTANCE)
       .put("CONCAT", DrillConcatSqlReturnTypeInference.INSTANCE_CONCAT)
@@ -195,6 +193,7 @@ public class TypeInferenceUtils {
       .put(SqlKind.VAR_SAMP.name(), DrillAvgAggSqlReturnTypeInference.INSTANCE)
       .put(SqlKind.MIN.name(), DrillSameSqlReturnTypeInference.ALL_NULLABLE)
       .put(SqlKind.MAX.name(), DrillSameSqlReturnTypeInference.ALL_NULLABLE)
+//      .put("TO_TIMESTAMP", DrillSameSqlReturnTypeInference.ALL_NULLABLE)
       .build();
 
   /**
@@ -533,7 +532,7 @@ public class TypeInferenceUtils {
         }
       }
 
-      totalPrecision = totalPrecision > Types.MAX_VARCHAR_LENGTH ? Types.MAX_VARCHAR_LENGTH : totalPrecision;
+      totalPrecision = Math.min(totalPrecision, Types.MAX_VARCHAR_LENGTH);
       boolean isNullable = isNullIfNull && isNullable(opBinding.collectOperandTypes());
 
       return opBinding.getTypeFactory().createTypeWithNullability(
@@ -588,86 +587,6 @@ public class TypeInferenceUtils {
           opBinding.getTypeFactory(),
           SqlTypeName.VARCHAR,
           isNullable(opBinding.collectOperandTypes()));
-    }
-  }
-
-  private static class DrillTimestampAddTypeInference implements SqlReturnTypeInference {
-    private static final SqlReturnTypeInference INSTANCE = new DrillTimestampAddTypeInference();
-
-    @Override
-    public RelDataType inferReturnType(SqlOperatorBinding opBinding) {
-      RelDataTypeFactory factory = opBinding.getTypeFactory();
-      // operands count ond order is checked at parsing stage
-      RelDataType inputType = opBinding.getOperandType(2);
-      boolean isNullable = inputType.isNullable() || opBinding.getOperandType(1).isNullable();
-
-      SqlTypeName inputTypeName = inputType.getSqlTypeName();
-
-      TimeUnit qualifier = ((SqlLiteral) ((SqlCallBinding) opBinding).operand(0)).getValueAs(TimeUnit.class);
-
-      SqlTypeName sqlTypeName;
-
-      // follow up with type inference of reduced expression
-      switch (qualifier) {
-        case DAY:
-        case WEEK:
-        case MONTH:
-        case QUARTER:
-        case YEAR:
-        case NANOSECOND:  // NANOSECOND is not supported by Calcite SqlTimestampAddFunction.
-                          // Once it is fixed, NANOSECOND should be moved to the group below.
-          sqlTypeName = inputTypeName;
-          break;
-        case MICROSECOND:
-        case MILLISECOND:
-          // precision should be specified for MICROSECOND and MILLISECOND
-          return factory.createTypeWithNullability(
-              factory.createSqlType(SqlTypeName.TIMESTAMP, 3),
-              isNullable);
-        case SECOND:
-        case MINUTE:
-        case HOUR:
-          if (inputTypeName == SqlTypeName.TIME) {
-            sqlTypeName = SqlTypeName.TIME;
-          } else {
-            sqlTypeName = SqlTypeName.TIMESTAMP;
-          }
-          break;
-        default:
-          sqlTypeName = SqlTypeName.ANY;
-      }
-
-      // preserves precision of input type if it was specified
-      if (inputType.getSqlTypeName().allowsPrecNoScale()) {
-        RelDataType type = factory.createSqlType(sqlTypeName, inputType.getPrecision());
-        return factory.createTypeWithNullability(type, isNullable);
-      }
-      return createCalciteTypeWithNullability(
-          opBinding.getTypeFactory(),
-          sqlTypeName,
-          isNullable);
-    }
-  }
-
-  private static class DrillSubstringSqlReturnTypeInference implements SqlReturnTypeInference {
-    private static final DrillSubstringSqlReturnTypeInference INSTANCE = new DrillSubstringSqlReturnTypeInference();
-
-    @Override
-    public RelDataType inferReturnType(SqlOperatorBinding opBinding) {
-      boolean isNullable = isNullable(opBinding.collectOperandTypes());
-
-      boolean isScalarString = isScalarStringType(opBinding.getOperandType(0).getSqlTypeName());
-      int precision = opBinding.getOperandType(0).getPrecision();
-
-      if (isScalarString && precision != RelDataType.PRECISION_NOT_SPECIFIED) {
-        RelDataType sqlType = opBinding.getTypeFactory().createSqlType(SqlTypeName.VARCHAR, precision);
-        return opBinding.getTypeFactory().createTypeWithNullability(sqlType, isNullable);
-      }
-
-      return createCalciteTypeWithNullability(
-          opBinding.getTypeFactory(),
-          SqlTypeName.VARCHAR,
-          isNullable);
     }
   }
 

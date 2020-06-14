@@ -18,6 +18,7 @@
 package org.apache.drill.exec.planner.sql.conversion;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -93,7 +94,7 @@ public class SqlConverter {
   private final UserSession session;
   private final DrillConfig drillConfig;
   // Allow the default config to be modified using immutable configs
-  private SqlToRelConverter.Config sqlToRelConverterConfig;
+  private final SqlToRelConverter.Config sqlToRelConverterConfig;
   private RelOptCluster cluster;
   private VolcanoPlanner planner;
   private boolean useRootSchema = false;
@@ -105,7 +106,6 @@ public class SqlConverter {
     this.parserConfig = new DrillParserConfig(settings);
     this.sqlToRelConverterConfig = SqlToRelConverter.configBuilder()
         .withInSubQueryThreshold((int) settings.getInSubqueryThreshold())
-        .withConvertTableAccess(false)
         .withExpand(false)
         .withRelBuilderFactory(DrillRelFactories.LOGICAL_BUILDER)
         .build();
@@ -207,7 +207,7 @@ public class SqlConverter {
           .map(f -> builder.makeInputRef(relNode, f.left))
           .collect(Collectors.toList());
 
-      RelNode project = LogicalProject.create(rel.rel, expressions, rel.validatedRowType);
+      RelNode project = LogicalProject.create(rel.rel, Collections.emptyList(), expressions, rel.validatedRowType);
       rel = RelRoot.of(project, rel.validatedRowType, rel.kind);
     }
     return rel.withRel(sqlToRelConverter.flattenTypes(rel.rel, true));

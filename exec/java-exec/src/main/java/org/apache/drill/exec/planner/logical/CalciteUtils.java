@@ -19,6 +19,7 @@ package org.apache.drill.exec.planner.logical;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.LinkedList;
 import java.util.List;
@@ -77,9 +78,9 @@ import static org.apache.drill.exec.planner.physical.PlannerSettings.ENABLE_DECI
 /**
  * Utilities for Drill's planner.
  */
-public class DrillOptiq {
+public class CalciteUtils {
   public static final String UNSUPPORTED_REX_NODE_ERROR = "Cannot convert RexNode to equivalent Drill expression. ";
-  private static final Logger logger = LoggerFactory.getLogger(DrillOptiq.class);
+  private static final Logger logger = LoggerFactory.getLogger(CalciteUtils.class);
 
   /**
    * Converts a tree of {@link RexNode} operators into a scalar expression in Drill syntax using one input.
@@ -90,7 +91,7 @@ public class DrillOptiq {
    * @return converted expression
    */
   public static LogicalExpression toDrill(DrillParseContext context, RelNode input, RexNode expr) {
-    return toDrill(context, Lists.newArrayList(input), expr);
+    return toDrill(context, Collections.singletonList(input), expr);
   }
 
   /**
@@ -149,7 +150,7 @@ public class DrillOptiq {
       }
     }
     public RexToDrill(DrillParseContext context, RelNode input) {
-      this(context, Lists.newArrayList(input));
+      this(context, Collections.singletonList(input));
     }
 
     public RexToDrill(DrillParseContext context, RelDataType rowType, RexBuilder builder) {
@@ -739,6 +740,7 @@ public class DrillOptiq {
         if (isLiteralNull(literal)) {
           return createNullExpr(MinorType.BIGINT);
         }
+//        if (literal.getTypeName() == SqlTypeName.DECIMAL && literal.)
         long l = (((BigDecimal) literal.getValue()).setScale(0, BigDecimal.ROUND_HALF_UP)).longValue();
         return ValueExpressions.getBigInt(l);
       case BOOLEAN:

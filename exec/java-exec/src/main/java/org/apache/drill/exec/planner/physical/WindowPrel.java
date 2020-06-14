@@ -29,7 +29,7 @@ import org.apache.drill.common.logical.data.Order;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.config.WindowPOP;
 import org.apache.drill.exec.planner.common.DrillWindowRelBase;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
 import org.apache.drill.exec.record.BatchSchema;
@@ -122,7 +122,7 @@ public class WindowPrel extends DrillWindowRelBase implements Prel {
         args.add(new FieldReference(fn.get(i)));
       } else {
         final RexLiteral constant = constants.get(indexInConstants);
-        LogicalExpression expr = DrillOptiq.toDrill(context, getInput(), constant);
+        LogicalExpression expr = CalciteUtils.toDrill(context, getInput(), constant);
         args.add(expr);
       }
     }

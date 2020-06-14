@@ -23,7 +23,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rex.RexNode;
 import org.apache.drill.common.expression.LogicalExpression;
-import org.apache.drill.exec.planner.logical.DrillOptiq;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.planner.logical.DrillParseContext;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 import org.apache.drill.exec.planner.physical.FilterPrel;
@@ -125,7 +125,7 @@ public abstract class MapRDBPushFilterIntoScan extends StoragePluginOptimizerRul
 
     LogicalExpression conditionExp;
     try {
-      conditionExp = DrillOptiq.toDrill(new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, condition);
+      conditionExp = CalciteUtils.toDrill(new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, condition);
     } catch (ClassCastException e) {
       // MD-771 bug in DrillOptiq.toDrill() causes filter condition on ITEM operator to throw ClassCastException
       // For such cases, we return without pushdown
@@ -173,7 +173,7 @@ public abstract class MapRDBPushFilterIntoScan extends StoragePluginOptimizerRul
       return;
     }
 
-    final LogicalExpression conditionExp = DrillOptiq.toDrill(new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, condition);
+    final LogicalExpression conditionExp = CalciteUtils.toDrill(new DrillParseContext(PrelUtil.getPlannerSettings(call.getPlanner())), scan, condition);
     final MapRDBFilterBuilder maprdbFilterBuilder = new MapRDBFilterBuilder(groupScan, conditionExp);
     final HBaseScanSpec newScanSpec = maprdbFilterBuilder.parseTree();
     if (newScanSpec == null) {

@@ -21,6 +21,7 @@ import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate;
 import org.apache.drill.exec.expr.annotations.Output;
 import org.apache.drill.exec.expr.annotations.Param;
+import org.apache.drill.exec.planner.logical.CalciteUtils;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter;
 
@@ -28,7 +29,7 @@ import org.apache.drill.exec.vector.complex.writer.BaseWriter;
  * Implementation of Calcite's ROW(col1, col2, ..., colN) constructor function.
  * Function expects field name before every value.
  *
- * @see org.apache.drill.exec.planner.logical.DrillOptiq
+ * @see CalciteUtils
  */
 @FunctionTemplate(name = "row", scope = FunctionTemplate.FunctionScope.SIMPLE,
     isVarArg = true, isInternal = true)
