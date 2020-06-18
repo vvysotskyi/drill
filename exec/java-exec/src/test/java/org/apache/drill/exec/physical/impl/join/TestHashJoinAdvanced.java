@@ -246,4 +246,19 @@ public class TestHashJoinAdvanced extends JoinTestBase {
       batchLoader.clear();
     }
   }
+
+  @Test
+  public void testJoinWithMultipleConditions() throws Exception {
+    String query = "select * from dfs.`sample-data/nation.parquet` as n, " +
+        "(select * from dfs.`sample-data/region.parquet`) as r " +
+        "where r.r_regionkey = n.n_regionkey and n.n_name = r.r_name and n.n_comment = r.r_comment";
+
+    testPlanMatchingPatterns(query, new String[]{".*HashJoin"}, new String[]{"Filter"});
+
+    query = "select n.n_comment, r.r_name from dfs.`sample-data/nation.parquet` as n join " +
+        "(select * from dfs.`sample-data/region.parquet`) as r " +
+        "on r.r_regionkey = n.n_regionkey where n.n_name = r.r_name and n.n_comment = r.r_comment";
+
+    testPlanMatchingPatterns(query, new String[]{".*HashJoin"}, new String[]{"Filter"});
+  }
 }

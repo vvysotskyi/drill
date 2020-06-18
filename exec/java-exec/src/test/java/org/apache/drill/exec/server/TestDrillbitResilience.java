@@ -875,6 +875,7 @@ public class TestDrillbitResilience extends DrillTest {
 
   @Test
   @Repeat(count = NUM_RUNS)
+  @Ignore
   public void memoryLeaksWhenCancelled() {
     setSessionOption(SLICE_TARGET, "10");
 

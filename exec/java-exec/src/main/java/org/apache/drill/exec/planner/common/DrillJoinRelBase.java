@@ -23,16 +23,20 @@ import java.util.HashSet;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
+import org.apache.calcite.plan.RelOptCostFactory;
 import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.metadata.RelMdUtil;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.drill.exec.ExecConstants;
@@ -61,7 +65,7 @@ public abstract class DrillJoinRelBase extends Join implements DrillJoin {
   public DrillJoinRelBase(RelOptCluster cluster, RelTraitSet traits, RelNode left, RelNode right, RexNode condition,
       JoinRelType joinType) {
     super(cluster, traits, left, right, condition,
-        CorrelationId.setOf(Collections.<String> emptySet()), joinType);
+        CorrelationId.setOf(Collections.emptySet()), joinType);
     this.joinRowFactor = PrelUtil.getPlannerSettings(cluster.getPlanner()).getRowCountEstimateFactor();
   }
 
@@ -109,7 +113,7 @@ public abstract class DrillJoinRelBase extends Join implements DrillJoin {
 
     if (!DrillRelOptUtil.guessRows(this)         //Statistics present for left and right side of the join
         && jr.getJoinType() == JoinRelType.INNER) {
-      List<Pair<Integer, Integer>> joinConditions = DrillRelOptUtil.analyzeSimpleEquiJoin((Join)jr);
+      List<Pair<Integer, Integer>> joinConditions = DrillRelOptUtil.analyzeSimpleEquiJoin(jr);
       if (joinConditions.size() > 0) {
         List<Integer> leftSide =  new ArrayList<>();
         List<Integer> rightSide = new ArrayList<>();
@@ -133,9 +137,7 @@ public abstract class DrillJoinRelBase extends Join implements DrillJoin {
       }
     }
 
-    return joinRowFactor * Math.max(
-        mq.getRowCount(this.getLeft()),
-        mq.getRowCount(this.getRight()));
+    return joinRowFactor * super.estimateRowCount(mq);
   }
 
   /**
@@ -185,14 +187,27 @@ public abstract class DrillJoinRelBase extends Join implements DrillJoin {
   }
 
   protected RelOptCost computeLogicalJoinCost(RelOptPlanner planner, RelMetadataQuery mq) {
-    // During Logical Planning, although we don't care much about the actual physical join that will
-    // be chosen, we do care about which table - bigger or smaller - is chosen as the right input
-    // of the join since that is important at least for hash join and we don't currently have
-    // hybrid-hash-join that can swap the inputs dynamically.  The Calcite planner's default cost of a join
-    // is the same whether the bigger table is used as left input or right. In order to overcome that,
-    // we will use the Hash Join cost as the logical cost such that cardinality of left and right inputs
-    // is considered appropriately.
-    return computeHashJoinCost(planner, mq);
+    double probeRowCount = mq.getRowCount(left);
+    double buildRowCount = mq.getRowCount(right);
+
+    double joinConditionCost = probeRowCount * buildRowCount;
+
+    List<RexNode> conjunctions = RelOptUtil.conjunctions(condition);
+
+    // Assumes short circuit evaluation will be applied to the boolean expression evaluation to be
+    // consistent with calculating cost for filter operator
+    for (int i = 1; i <= conjunctions.size(); i++) {
+      RexNode conjFilter = RexUtil.composeConjunction(this.getCluster().getRexBuilder(), conjunctions.subList(0, i), false);
+      joinConditionCost += RelMdUtil.getJoinRowCount(mq, this, conjFilter);
+    }
+
+    // cpu cost of evaluating each leftKey=rightKey join condition
+    double cpuCost = joinConditionCost * DrillCostBase.COMPARE_CPU_COST;
+
+    RelOptCostFactory costFactory = planner.getCostFactory();
+
+    return costFactory.makeCost(estimateRowCount(mq), cpuCost, 0);
+//    return computeHashJoinCost(planner, mq);
   }
 
   protected RelOptCost computeHashJoinCost(RelOptPlanner planner, RelMetadataQuery mq) {
