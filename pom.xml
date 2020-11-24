@@ -60,7 +60,7 @@
     <calcite.groupId>com.github.vvysotskyi.drill-calcite</calcite.groupId>
     <calcite.version>1.21.0-drill-r2</calcite.version>
     <avatica.version>1.15.0</avatica.version>
-    <janino.version>3.0.11</janino.version>
+    <janino.version>3.1.3</janino.version>
     <sqlline.version>1.9.0</sqlline.version>
     <jackson.version>2.12.1</jackson.version>
     <zookeeper.version>3.5.7</zookeeper.version>
@@ -93,7 +93,7 @@
     <metrics.version>4.0.2</metrics.version>
     <jetty.version>9.3.28.v20191105</jetty.version>
     <jersey.version>2.25.1</jersey.version>
-    <asm.version>7.3.1</asm.version>
+    <asm.version>9.1</asm.version>
     <excludedGroups />
     <memoryMb>4000</memoryMb>
     <directMemoryMb>2500</directMemoryMb>
@@ -110,7 +110,7 @@
     <codemodel.version>2.6</codemodel.version>
     <joda.version>2.10.5</joda.version>
     <javax.el.version>3.0.0</javax.el.version>
-    <surefire.version>3.0.0-M4</surefire.version>
+    <surefire.version>3.0.0-M5</surefire.version>
     <commons.compress.version>1.20</commons.compress.version>
     <hikari.version>3.4.2</hikari.version>
     <netty.version>4.0.48.Final</netty.version>
@@ -869,7 +869,7 @@
               -XX:MaxDirectMemorySize=${directMemoryMb}M
               -Djava.net.preferIPv4Stack=true
               -Djava.awt.headless=true
-              -XX:+CMSClassUnloadingEnabled -ea
+              -ea
               -Djdk.attach.allowAttachSelf=true
               -javaagent:${settings.localRepository}/org/jmockit/jmockit/${jmockit.version}/jmockit-${jmockit.version}.jar
             </argLine>
