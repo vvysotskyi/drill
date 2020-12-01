@@ -148,13 +148,151 @@ public class TestClassTransformation extends BaseTestQuery {
 
   @Test
   public void testScalarReplacementWithArrayAssignment() throws Exception {
-    ClassTransformer.ClassNames classNames = new ClassTransformer.ClassNames("org.apache.drill.CompileClassWithArraysAssignment");
-    String entireClass = DrillFileUtils.getResourceAsString(DrillFileUtils.SEPARATOR + classNames.slash + ".java");
+    ClassTransformer.ClassNames classNames = new ClassTransformer.ClassNames("StreamingAggregatorGen4");
+    String entireClass = "\n" +
+        "\n" +
+        "import org.apache.drill.exec.exception.SchemaChangeException;\n" +
+        "import org.apache.drill.exec.expr.holders.BigIntHolder;\n" +
+        "import org.apache.drill.exec.physical.impl.aggregate.InternalBatch;\n" +
+        "import org.apache.drill.exec.record.RecordBatch;\n" +
+        "import org.apache.drill.exec.vector.BigIntVector;\n" +
+        "\n" +
+        "public class StreamingAggregatorGen4 {\n" +
+        "\n" +
+        "  BigIntHolder work0;\n" +
+        "  BigIntHolder const1;\n" +
+        "  BigIntHolder constant2;\n" +
+        "  BigIntVector vv4;\n" +
+        "\n" +
+        "  public void addRecord(int index)\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "    {\n" +
+        "      constant2 = new BigIntHolder();\n" +
+        "      constant2 .value = const1 .value;\n" +
+        "      BigIntHolder in = constant2;\n" +
+        "      BigIntHolder value = work0;\n" +
+        "        CountFunctions$BigIntCountFunction_add:\n" +
+        "      {\n" +
+        "        value.value++;\n" +
+        "      }\n" +
+        "      work0 = value;\n" +
+        "    }\n" +
+        "  }\n" +
+        "\n" +
+        "  public int getVectorIndex(int recordIndex)\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "    {\n" +
+        "      return (recordIndex);\n" +
+        "    }\n" +
+        "  }\n" +
+        "\n" +
+        "  public boolean isSame(int index1, int index2)\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "    {\n" +
+        "      return true;\n" +
+        "    }\n" +
+        "  }\n" +
+        "\n" +
+        "  public boolean isSamePrev(int b1Index, InternalBatch b1, int b2Index)\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "    {\n" +
+        "      return true;\n" +
+        "    }\n" +
+        "  }\n" +
+        "\n" +
+        "  public void outputRecordKeys(int inIndex, int outIndex)\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "  }\n" +
+        "\n" +
+        "  public void outputRecordKeysPrev(InternalBatch previous, int previousIndex, int outIndex)\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "  }\n" +
+        "\n" +
+        "  public void outputRecordValues(int outIndex)\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "    {\n" +
+        "      BigIntHolder out3;\n" +
+        "      {\n" +
+        "        final BigIntHolder out = new BigIntHolder();\n" +
+        "        BigIntHolder value = work0;\n" +
+        "          CountFunctions$BigIntCountFunction_output:\n" +
+        "        {\n" +
+        "          out.value = value.value;\n" +
+        "        }\n" +
+        "        work0 = value;\n" +
+        "        out3 = out;\n" +
+        "      }\n" +
+        "      vv4 .getMutator().setSafe((outIndex), out3 .value);\n" +
+        "    }\n" +
+        "  }\n" +
+        "\n" +
+        "  public boolean resetValues()\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "    {\n" +
+        "      /** start RESET for function count **/\n" +
+        "      {\n" +
+        "        BigIntHolder value = work0;\n" +
+        "          CountFunctions$BigIntCountFunction_reset:\n" +
+        "        {\n" +
+        "          value.value = 0;\n" +
+        "        }\n" +
+        "        work0 = value;\n" +
+        "      }\n" +
+        "      /** end RESET for function count **/\n" +
+        "      return true;\n" +
+        "    }\n" +
+        "  }\n" +
+        "\n" +
+        "  public void setupInterior(RecordBatch incoming, RecordBatch outgoing)\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "    {\n" +
+        "      /** start SETUP for function count **/\n" +
+        "      {\n" +
+        "        BigIntHolder value = work0;\n" +
+        "          CountFunctions$BigIntCountFunction_setup:\n" +
+        "        {\n" +
+        "          value = new BigIntHolder();\n" +
+        "          value.value = 0;\n" +
+        "        }\n" +
+        "        work0 = value;\n" +
+        "      }\n" +
+        "      /** end SETUP for function count **/\n" +
+        "      int[] fieldIds5 = new int[ 1 ] ;\n" +
+        "      fieldIds5 [ 0 ] = 0;\n" +
+        "      Object tmp6 = (outgoing).getValueAccessorById(BigIntVector.class, fieldIds5).getValueVector();\n" +
+        "      if (tmp6 == null) {\n" +
+        "        throw new SchemaChangeException(\"Failure while loading vector vv4 with id: TypedFieldId [fieldIds=[0], remainder=null].\");\n" +
+        "      }\n" +
+        "      vv4 = ((BigIntVector) tmp6);\n" +
+        "    }\n" +
+        "  }\n" +
+        "\n" +
+        "  public void __DRILL_INIT__()\n" +
+        "      throws SchemaChangeException\n" +
+        "  {\n" +
+        "    {\n" +
+        "      work0 = new BigIntHolder();\n" +
+        "    }\n" +
+        "  }\n" +
+        "\n" +
+        "}\n";
 
     sessionOptions.setLocalOption(ClassCompilerSelector.JAVA_COMPILER_DEBUG_OPTION, false);
 
-    List<String> compilers = Arrays.asList(ClassCompilerSelector.CompilerPolicy.JANINO.name(),
-        ClassCompilerSelector.CompilerPolicy.JDK.name());
+    List<String> compilers = Arrays.asList(
+        ClassCompilerSelector.CompilerPolicy.JANINO.name()
+//        ,
+//        ClassCompilerSelector.CompilerPolicy.JDK.name()
+        );
     for (String compilerName : compilers) {
       sessionOptions.setLocalOption(ClassCompilerSelector.JAVA_COMPILER_OPTION, compilerName);
 
@@ -162,23 +300,25 @@ public class TestClassTransformation extends BaseTestQuery {
 
       byte[][] implementationClasses = queryClassLoader.getClassByteCode(classNames, entireClass);
 
+//      Files.write(implementationClasses[0], new File("strclass.class"));
+
       ClassNode originalClass = AsmUtil.classFromBytes(implementationClasses[0], ClassReader.EXPAND_FRAMES);
 
-      ClassNode transformedClass = new ClassNode();
-      DrillCheckClassAdapter mergeGenerator = new DrillCheckClassAdapter(CompilationConfig.ASM_API_VERSION,
-          new CheckClassVisitorFsm(CompilationConfig.ASM_API_VERSION, transformedClass), true);
-      originalClass.accept(new ValueHolderReplacementVisitor(mergeGenerator, true));
-
-      if (!AsmUtil.isClassOk(logger, classNames.dot, transformedClass)) {
-        throw new IllegalStateException(String.format("Problem found after transforming %s", classNames.dot));
-      }
-      ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-      transformedClass.accept(writer);
-      byte[] outputClass = writer.toByteArray();
-
-      queryClassLoader.injectByteCode(classNames.dot, outputClass);
-      Class<?> transformedClazz = queryClassLoader.findClass(classNames.dot);
-      transformedClazz.getMethod("doSomething").invoke(null);
+//      ClassNode transformedClass = new ClassNode();
+//      DrillCheckClassAdapter mergeGenerator = new DrillCheckClassAdapter(CompilationConfig.ASM_API_VERSION,
+//          new CheckClassVisitorFsm(CompilationConfig.ASM_API_VERSION, transformedClass), true);
+//      originalClass.accept(new ValueHolderReplacementVisitor(mergeGenerator, true));
+//
+//      if (!AsmUtil.isClassOk(logger, classNames.dot, transformedClass)) {
+//        throw new IllegalStateException(String.format("Problem found after transforming %s", classNames.dot));
+//      }
+//      ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+//      transformedClass.accept(writer);
+//      byte[] outputClass = writer.toByteArray();
+//
+//      queryClassLoader.injectByteCode(classNames.dot, outputClass);
+//      Class<?> transformedClazz = queryClassLoader.findClass(classNames.dot);
+//      transformedClazz.getMethod("doSomething").invoke(null);
     }
   }
 

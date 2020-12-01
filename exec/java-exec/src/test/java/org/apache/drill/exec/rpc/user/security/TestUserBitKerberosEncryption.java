@@ -89,7 +89,7 @@ public class TestUserBitKerberosEncryption extends BaseTestQuery {
     // initialization which causes the tests to fail. So the following two changes are required.
 
     // (1) Refresh Kerberos config.
-    sun.security.krb5.Config.refresh();
+//    sun.security.krb5.Config.refresh();
     // (2) Reset the default realm.
     final Field defaultRealm = KerberosName.class.getDeclaredField("defaultRealm");
     defaultRealm.setAccessible(true);

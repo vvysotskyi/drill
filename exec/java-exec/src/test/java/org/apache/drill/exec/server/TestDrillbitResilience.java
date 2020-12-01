@@ -110,7 +110,7 @@ public class TestDrillbitResilience extends DrillTest {
   /**
    * The number of times test (that are repeated) should be repeated.
    */
-  private static final int NUM_RUNS = 3;
+  private static final int NUM_RUNS = 1;
 
   /**
    * Note: Counting sys.memory executes a fragment on every drillbit. This is a better check in comparison to

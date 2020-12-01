@@ -63,7 +63,7 @@ public class TestSpnegoConfig extends BaseTest {
     spnegoHelper.setupKdc(dirTestWatcher.getTmpDir());
 
 
-    sun.security.krb5.Config.refresh();
+//    sun.security.krb5.Config.refresh();
 
     // (2) Reset the default realm.
     final Field defaultRealm = KerberosName.class.getDeclaredField("defaultRealm");
