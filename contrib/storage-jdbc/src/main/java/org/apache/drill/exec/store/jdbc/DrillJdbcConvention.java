@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.jdbc;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -31,6 +32,7 @@ import org.apache.calcite.linq4j.tree.ConstantUntypedNull;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.drill.exec.planner.RuleInstance;
 import org.apache.drill.exec.planner.logical.DrillRel;
@@ -54,11 +56,15 @@ class DrillJdbcConvention extends JdbcConvention {
   DrillJdbcConvention(SqlDialect dialect, String name, JdbcStoragePlugin plugin) {
     super(dialect, ConstantUntypedNull.INSTANCE, name);
     this.plugin = plugin;
-    List<RelOptRule> calciteJdbcRules = JdbcRules.rules(this, DrillRelFactories.LOGICAL_BUILDER).stream()
-        .filter(rule -> !EXCLUDED_CALCITE_RULES.contains(rule.getClass()))
-        .collect(Collectors.toList());
-    this.rules = ImmutableSet.<RelOptRule>builder()
-        .addAll(calciteJdbcRules)
+    ImmutableSet.Builder<RelOptRule> builder = ImmutableSet.builder();
+    List<RelTrait> inTraits = Arrays.asList(Convention.NONE, DrillRel.DRILL_LOGICAL);
+    for (RelTrait in : inTraits) {
+      builder.addAll(JdbcRules.rules(in, this, DrillRelFactories.LOGICAL_BUILDER).stream()
+          .filter(rule -> !EXCLUDED_CALCITE_RULES.contains(rule.getClass()))
+          .collect(Collectors.toList()));
+    }
+
+    this.rules = builder
         .add(JdbcIntermediatePrelConverterRule.INSTANCE)
         .add(new JdbcDrelConverterRule(this))
         .add(new DrillJdbcRuleBase.DrillJdbcProjectRule(Convention.NONE, this))
