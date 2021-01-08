@@ -25,7 +25,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReade
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
@@ -35,6 +34,8 @@ import org.apache.hadoop.conf.Configuration;
 public class SyslogFormatPlugin extends EasyFormatPlugin<SyslogFormatConfig> {
 
   public static final String DEFAULT_NAME = "syslog";
+
+  public static final String OPERATOR_TYPE = "SYSLOG_SUB_SCAN";
 
   private static class SyslogReaderFactory extends FileReaderFactory {
 
@@ -70,7 +71,7 @@ public class SyslogFormatPlugin extends EasyFormatPlugin<SyslogFormatConfig> {
     config.extensions = pluginConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = CoreOperatorType.SYSLOG_SUB_SCAN_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     return config;

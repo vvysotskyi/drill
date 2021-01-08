@@ -46,7 +46,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchem
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
-import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.record.metadata.Propertied;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
@@ -83,6 +82,7 @@ import java.util.Objects;
  * as to support provided schema.)
  */
 public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextFormatConfig> {
+
   private final static String PLUGIN_NAME = "text";
 
   public static final int MAXIMUM_NUMBER_COLUMNS = 64 * 1024;
@@ -108,6 +108,9 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   public static final String LINE_DELIM_PROP = TEXT_PREFIX + "lineDelimiter";
   public static final String TRIM_WHITESPACE_PROP = TEXT_PREFIX + "trim";
   public static final String PARSE_UNESCAPED_QUOTES_PROP = TEXT_PREFIX + "parseQuotes";
+
+  public static final String OPERATOR_TYPE = "TEXT_SUB_SCAN";
+  public static final String WRITER_OPERATOR_TYPE = "TEXT_WRITER";
 
   @JsonTypeName(PLUGIN_NAME)
   @JsonInclude(Include.NON_DEFAULT)
@@ -143,8 +146,8 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
       this.quote = Strings.isNullOrEmpty(quote) ? '"' : quote.charAt(0);
       this.escape = Strings.isNullOrEmpty(escape) ? '"' : escape.charAt(0);
       this.comment = Strings.isNullOrEmpty(comment) ? '#' : comment.charAt(0);
-      this.skipFirstLine = skipFirstLine == null ? false : skipFirstLine;
-      this.extractHeader = extractHeader == null ? false : extractHeader;
+      this.skipFirstLine = skipFirstLine != null && skipFirstLine;
+      this.extractHeader = extractHeader != null && extractHeader;
     }
 
     public TextFormatConfig() {
@@ -240,8 +243,8 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     config.extensions = pluginConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = PLUGIN_NAME;
-    config.readerOperatorType = CoreOperatorType.TEXT_SUB_SCAN_VALUE;
-    config.writerOperatorType = CoreOperatorType.TEXT_WRITER_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
+    config.writerOperatorType = WRITER_OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     return config;

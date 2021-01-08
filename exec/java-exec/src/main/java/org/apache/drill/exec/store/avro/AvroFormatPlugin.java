@@ -22,7 +22,6 @@ import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
@@ -35,6 +34,8 @@ import org.apache.hadoop.conf.Configuration;
 public class AvroFormatPlugin extends EasyFormatPlugin<AvroFormatConfig> {
 
   public static final String DEFAULT_NAME = "avro";
+
+  public static final String OPERATOR_TYPE = "AVRO_SUB_SCAN";
 
   public AvroFormatPlugin(String name,
                           DrillbitContext context,
@@ -54,7 +55,7 @@ public class AvroFormatPlugin extends EasyFormatPlugin<AvroFormatConfig> {
     config.extensions = formatConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = CoreOperatorType.AVRO_SUB_SCAN_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     return config;

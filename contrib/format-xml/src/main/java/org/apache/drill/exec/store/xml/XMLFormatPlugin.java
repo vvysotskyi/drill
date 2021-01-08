@@ -24,7 +24,6 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
@@ -36,6 +35,8 @@ import org.apache.hadoop.conf.Configuration;
 public class XMLFormatPlugin extends EasyFormatPlugin<XMLFormatConfig> {
 
   public static final String DEFAULT_NAME = "xml";
+
+  public static final String OPERATOR_TYPE = "XML_SUB_SCAN";
 
   public static class XMLReaderFactory extends FileScanFramework.FileReaderFactory {
     private final XMLBatchReader.XMLReaderConfig readerConfig;
@@ -70,7 +71,7 @@ public class XMLFormatPlugin extends EasyFormatPlugin<XMLFormatConfig> {
     config.extensions = Lists.newArrayList(pluginConfig.getExtensions());
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = CoreOperatorType.XML_SUB_SCAN_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     return config;

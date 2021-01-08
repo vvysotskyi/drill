@@ -26,7 +26,6 @@ import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.common.logical.StoragePluginConfig;
-import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.hadoop.conf.Configuration;
@@ -35,6 +34,8 @@ import org.apache.drill.exec.store.pcap.PcapBatchReader.PcapReaderConfig;
 public class PcapFormatPlugin extends EasyFormatPlugin<PcapFormatConfig> {
 
   public static final String PLUGIN_NAME = "pcap";
+
+  public static final String OPERATOR_TYPE = "PCAP_SUB_SCAN";
 
   private static class PcapReaderFactory extends FileReaderFactory {
 
@@ -68,7 +69,7 @@ public class PcapFormatPlugin extends EasyFormatPlugin<PcapFormatConfig> {
     config.extensions = pluginConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = PLUGIN_NAME;
-    config.readerOperatorType = UserBitShared.CoreOperatorType.PCAP_SUB_SCAN_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     return config;

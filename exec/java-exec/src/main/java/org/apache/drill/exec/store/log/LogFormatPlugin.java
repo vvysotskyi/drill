@@ -28,7 +28,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReade
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.Propertied;
@@ -51,12 +50,15 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
+
   private static final Logger logger = LoggerFactory.getLogger(LogFormatPlugin.class);
 
   public static final String PLUGIN_NAME = "logRegex";
   public static final String PROP_PREFIX = Propertied.pluginPrefix(PLUGIN_NAME);
   public static final String REGEX_PROP = PROP_PREFIX + "regex";
   public static final String MAX_ERRORS_PROP = PROP_PREFIX + "maxErrors";
+
+  public static final String OPERATOR_TYPE = "REGEX_SUB_SCAN";
 
   private static class LogReaderFactory extends FileReaderFactory {
     private final LogReaderConfig readerConfig;
@@ -90,7 +92,7 @@ public class LogFormatPlugin extends EasyFormatPlugin<LogFormatConfig> {
     config.extensions = Collections.singletonList(pluginConfig.getExtension());
     config.fsConf = fsConf;
     config.defaultName = PLUGIN_NAME;
-    config.readerOperatorType = CoreOperatorType.REGEX_SUB_SCAN_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     return config;

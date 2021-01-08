@@ -2365,7 +2365,7 @@ public final class SchemaUserBitShared
                 if(message.hasOperatorId())
                     output.writeInt32(3, message.getOperatorId(), false);
                 if(message.hasOperatorType())
-                    output.writeInt32(4, message.getOperatorType(), false);
+                    output.writeString(4, message.getOperatorType(), false);
                 if(message.hasSetupNanos())
                     output.writeInt64(5, message.getSetupNanos(), false);
                 if(message.hasProcessNanos())
@@ -2424,7 +2424,7 @@ public final class SchemaUserBitShared
                             builder.setOperatorId(input.readInt32());
                             break;
                         case 4:
-                            builder.setOperatorType(input.readInt32());
+                            builder.setOperatorType(input.readString());
                             break;
                         case 5:
                             builder.setSetupNanos(input.readInt64());

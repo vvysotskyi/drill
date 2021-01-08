@@ -109,8 +109,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     public boolean supportsFileImplicitColumns = true;
     public boolean supportsAutoPartitioning;
     public boolean supportsStatistics;
-    public int readerOperatorType = -1;
-    public int writerOperatorType = -1;
+    public String readerOperatorType = "";
+    public String writerOperatorType = "";
 
     /**
      *  Choose whether to use the "traditional" or "enhanced" reader
@@ -514,8 +514,8 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     return ImmutableSet.of();
   }
 
-  public int getReaderOperatorType() { return easyConfig.readerOperatorType; }
-  public int getWriterOperatorType() { return easyConfig.writerOperatorType; }
+  public String getReaderOperatorType() { return easyConfig.readerOperatorType; }
+  public String getWriterOperatorType() { return easyConfig.writerOperatorType; }
 
   @Override
   public boolean supportsStatistics() { return easyConfig.supportsStatistics; }

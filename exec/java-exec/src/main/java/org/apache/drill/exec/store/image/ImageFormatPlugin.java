@@ -26,7 +26,6 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.planner.common.DrillStatsTable;
-import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
@@ -41,6 +40,8 @@ import org.apache.hadoop.fs.Path;
 public class ImageFormatPlugin extends EasyFormatPlugin<ImageFormatConfig> {
 
   private final static String DEFAULT_NAME = "image";
+
+  public static final String OPERATOR_TYPE = "IMAGE_SUB_SCAN";
 
   public ImageFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
                            StoragePluginConfig storageConfig) {
@@ -67,12 +68,12 @@ public class ImageFormatPlugin extends EasyFormatPlugin<ImageFormatConfig> {
   }
 
   @Override
-  public int getReaderOperatorType() {
-    return CoreOperatorType.IMAGE_SUB_SCAN_VALUE;
+  public String getReaderOperatorType() {
+    return OPERATOR_TYPE;
   }
 
   @Override
-  public int getWriterOperatorType() {
+  public String getWriterOperatorType() {
     throw new UnsupportedOperationException("Drill doesn't currently support writing to image files.");
   }
 

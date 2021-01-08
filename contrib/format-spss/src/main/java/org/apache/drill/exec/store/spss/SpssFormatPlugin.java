@@ -26,7 +26,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanB
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchemaNegotiator;
 
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
@@ -37,6 +36,8 @@ import org.apache.hadoop.conf.Configuration;
 public class SpssFormatPlugin extends EasyFormatPlugin<SpssFormatConfig> {
 
   protected static final String DEFAULT_NAME = "spss";
+
+  public static final String OPERATOR_TYPE = "SPSS_SUB_SCAN";
 
   private static class SpssReaderFactory extends FileReaderFactory {
 
@@ -68,7 +69,7 @@ public class SpssFormatPlugin extends EasyFormatPlugin<SpssFormatConfig> {
     config.extensions = pluginConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = UserBitShared.CoreOperatorType.SPSS_SUB_SCAN_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     return config;

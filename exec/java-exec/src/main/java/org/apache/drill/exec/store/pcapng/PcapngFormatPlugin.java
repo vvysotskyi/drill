@@ -25,7 +25,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReade
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanBuilder;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
@@ -33,6 +32,8 @@ import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.hadoop.conf.Configuration;
 
 public class PcapngFormatPlugin extends EasyFormatPlugin<PcapngFormatConfig> {
+
+  public static final String OPERATOR_TYPE = "PCAPNG_SUB_SCAN";
 
   public PcapngFormatPlugin(String name,
                             DrillbitContext context,
@@ -50,7 +51,7 @@ public class PcapngFormatPlugin extends EasyFormatPlugin<PcapngFormatConfig> {
     config.compressible = true;
     config.extensions = pluginConfig.getExtensions();
     config.fsConf = fsConf;
-    config.readerOperatorType = CoreOperatorType.PCAPNG_SUB_SCAN_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     config.supportsProjectPushdown = true;

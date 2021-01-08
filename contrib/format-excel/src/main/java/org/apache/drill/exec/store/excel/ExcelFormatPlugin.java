@@ -28,7 +28,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanB
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileSchemaNegotiator;
 
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
@@ -43,6 +42,8 @@ public class ExcelFormatPlugin extends EasyFormatPlugin<ExcelFormatConfig> {
 
   protected static final String DEFAULT_NAME = "excel";
   private static final Logger logger = LoggerFactory.getLogger(ExcelFormatPlugin.class);
+
+  public static final String OPERATOR_TYPE = "EXCEL_SUB_SCAN";
 
   private static class ExcelReaderFactory extends FileReaderFactory {
     private final ExcelBatchReader.ExcelReaderConfig readerConfig;
@@ -75,7 +76,7 @@ public class ExcelFormatPlugin extends EasyFormatPlugin<ExcelFormatConfig> {
     config.extensions = pluginConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = UserBitShared.CoreOperatorType.EXCEL_SUB_SCAN_VALUE;
+    config.readerOperatorType = OPERATOR_TYPE;
     config.useEnhancedScan = true;
     config.supportsLimitPushdown = true;
     return config;
