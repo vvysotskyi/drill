@@ -109,7 +109,6 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   public static final String TRIM_WHITESPACE_PROP = TEXT_PREFIX + "trim";
   public static final String PARSE_UNESCAPED_QUOTES_PROP = TEXT_PREFIX + "parseQuotes";
 
-  public static final String OPERATOR_TYPE = "TEXT_SUB_SCAN";
   public static final String WRITER_OPERATOR_TYPE = "TEXT_WRITER";
 
   @JsonTypeName(PLUGIN_NAME)
@@ -234,20 +233,19 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, TextFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = true;
-    config.blockSplittable = true;
-    config.compressible = true;
-    config.supportsProjectPushdown = true;
-    config.extensions = pluginConfig.getExtensions();
-    config.fsConf = fsConf;
-    config.defaultName = PLUGIN_NAME;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.writerOperatorType = WRITER_OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(true)
+        .blockSplittable(true)
+        .compressible(true)
+        .supportsProjectPushdown(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .defaultName(PLUGIN_NAME)
+        .writerOperatorType(WRITER_OPERATOR_TYPE)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .build();
   }
 
   @Override

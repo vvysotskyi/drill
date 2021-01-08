@@ -39,8 +39,6 @@ public class ShpFormatPlugin extends EasyFormatPlugin<ShpFormatConfig> {
 
   public static final String PLUGIN_NAME = "shp";
 
-  public static final String OPERATOR_TYPE = "SHP_SUB_SCAN";
-
   public static class ShpReaderFactory extends FileReaderFactory {
     private final ShpReaderConfig readerConfig;
 
@@ -76,18 +74,17 @@ public class ShpFormatPlugin extends EasyFormatPlugin<ShpFormatConfig> {
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, ShpFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = false;
-    config.compressible = false;
-    config.supportsProjectPushdown = true;
-    config.extensions = Lists.newArrayList(pluginConfig.getExtensions());
-    config.fsConf = fsConf;
-    config.defaultName = PLUGIN_NAME;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(false)
+        .blockSplittable(false)
+        .compressible(false)
+        .supportsProjectPushdown(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .defaultName(PLUGIN_NAME)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .build();
   }
 }

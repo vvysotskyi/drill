@@ -37,8 +37,6 @@ public class SpssFormatPlugin extends EasyFormatPlugin<SpssFormatConfig> {
 
   protected static final String DEFAULT_NAME = "spss";
 
-  public static final String OPERATOR_TYPE = "SPSS_SUB_SCAN";
-
   private static class SpssReaderFactory extends FileReaderFactory {
 
     private final int maxRecords;
@@ -60,19 +58,18 @@ public class SpssFormatPlugin extends EasyFormatPlugin<SpssFormatConfig> {
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, SpssFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = false;
-    config.compressible = true;
-    config.supportsProjectPushdown = true;
-    config.extensions = pluginConfig.getExtensions();
-    config.fsConf = fsConf;
-    config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(false)
+        .blockSplittable(false)
+        .compressible(true)
+        .supportsProjectPushdown(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .defaultName(DEFAULT_NAME)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .build();
   }
 
   @Override

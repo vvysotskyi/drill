@@ -35,8 +35,6 @@ public class SyslogFormatPlugin extends EasyFormatPlugin<SyslogFormatConfig> {
 
   public static final String DEFAULT_NAME = "syslog";
 
-  public static final String OPERATOR_TYPE = "SYSLOG_SUB_SCAN";
-
   private static class SyslogReaderFactory extends FileReaderFactory {
 
     private final int maxRecords;
@@ -62,19 +60,18 @@ public class SyslogFormatPlugin extends EasyFormatPlugin<SyslogFormatConfig> {
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, SyslogFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = false;
-    config.compressible = true;
-    config.supportsProjectPushdown = true;
-    config.extensions = pluginConfig.getExtensions();
-    config.fsConf = fsConf;
-    config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(false)
+        .blockSplittable(false)
+        .compressible(true)
+        .supportsProjectPushdown(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .defaultName(DEFAULT_NAME)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .build();
   }
 
   @Override

@@ -35,8 +35,6 @@ public class PcapFormatPlugin extends EasyFormatPlugin<PcapFormatConfig> {
 
   public static final String PLUGIN_NAME = "pcap";
 
-  public static final String OPERATOR_TYPE = "PCAP_SUB_SCAN";
-
   private static class PcapReaderFactory extends FileReaderFactory {
 
     private final PcapReaderConfig readerConfig;
@@ -60,19 +58,18 @@ public class PcapFormatPlugin extends EasyFormatPlugin<PcapFormatConfig> {
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, PcapFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = false;
-    config.compressible = true;
-    config.supportsProjectPushdown = true;
-    config.extensions = pluginConfig.getExtensions();
-    config.fsConf = fsConf;
-    config.defaultName = PLUGIN_NAME;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(false)
+        .blockSplittable(false)
+        .compressible(true)
+        .supportsProjectPushdown(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .defaultName(PLUGIN_NAME)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .build();
   }
 
   @Override

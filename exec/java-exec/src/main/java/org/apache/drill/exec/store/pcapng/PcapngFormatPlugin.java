@@ -33,8 +33,6 @@ import org.apache.hadoop.conf.Configuration;
 
 public class PcapngFormatPlugin extends EasyFormatPlugin<PcapngFormatConfig> {
 
-  public static final String OPERATOR_TYPE = "PCAPNG_SUB_SCAN";
-
   public PcapngFormatPlugin(String name,
                             DrillbitContext context,
                             Configuration fsConf,
@@ -44,19 +42,18 @@ public class PcapngFormatPlugin extends EasyFormatPlugin<PcapngFormatConfig> {
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, PcapngFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = false;
-    config.compressible = true;
-    config.extensions = pluginConfig.getExtensions();
-    config.fsConf = fsConf;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    config.supportsProjectPushdown = true;
-    config.defaultName = PcapngFormatConfig.NAME;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(false)
+        .blockSplittable(false)
+        .compressible(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .supportsProjectPushdown(true)
+        .defaultName(PcapngFormatConfig.NAME)
+        .build();
   }
 
   private static class PcapngReaderFactory extends FileReaderFactory {

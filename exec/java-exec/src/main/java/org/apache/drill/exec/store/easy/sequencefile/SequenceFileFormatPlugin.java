@@ -44,19 +44,19 @@ public class SequenceFileFormatPlugin extends EasyFormatPlugin<SequenceFileForma
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, SequenceFileFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = true;
-    config.compressible = true;
-    config.extensions = pluginConfig.getExtensions();
-    config.fsConf = fsConf;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    config.supportsProjectPushdown = true;
-    config.defaultName = SequenceFileFormatConfig.NAME;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(false)
+        .blockSplittable(true)
+        .compressible(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .readerOperatorType(OPERATOR_TYPE)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .supportsProjectPushdown(true)
+        .defaultName(SequenceFileFormatConfig.NAME)
+        .build();
   }
 
   private static class SequenceFileReaderFactory extends FileReaderFactory {

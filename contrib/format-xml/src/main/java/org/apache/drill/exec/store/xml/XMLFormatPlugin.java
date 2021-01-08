@@ -28,15 +28,11 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
-
 
 public class XMLFormatPlugin extends EasyFormatPlugin<XMLFormatConfig> {
 
   public static final String DEFAULT_NAME = "xml";
-
-  public static final String OPERATOR_TYPE = "XML_SUB_SCAN";
 
   public static class XMLReaderFactory extends FileScanFramework.FileReaderFactory {
     private final XMLBatchReader.XMLReaderConfig readerConfig;
@@ -62,19 +58,18 @@ public class XMLFormatPlugin extends EasyFormatPlugin<XMLFormatConfig> {
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, XMLFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = false;
-    config.compressible = true;
-    config.supportsProjectPushdown = true;
-    config.extensions = Lists.newArrayList(pluginConfig.getExtensions());
-    config.fsConf = fsConf;
-    config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(false)
+        .blockSplittable(false)
+        .compressible(true)
+        .supportsProjectPushdown(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .defaultName(DEFAULT_NAME)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .build();
   }
 
   @Override

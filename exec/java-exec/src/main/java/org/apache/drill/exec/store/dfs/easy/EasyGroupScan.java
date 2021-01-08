@@ -87,7 +87,6 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
   private List<EndpointAffinity> endpointAffinities;
   private final Path selectionRoot;
   private final int maxRecords;
-  private final boolean supportsLimitPushdown;
 
   @JsonCreator
   public EasyGroupScan(
@@ -106,7 +105,6 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
     this.columns = columns == null ? ALL_COLUMNS : columns;
     this.selectionRoot = selectionRoot;
     this.maxRecords = getMaxRecords();
-    this.supportsLimitPushdown = formatPlugin.easyConfig().supportsLimitPushdown;
     this.metadataProvider = defaultTableMetadataProviderBuilder(new FileSystemMetadataProviderManager())
         .withSelection(selection)
         .withSchema(schema)
@@ -142,7 +140,6 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
     this.usedMetastore = metadataProviderManager.usesMetastore();
     initFromSelection(selection, formatPlugin);
     checkMetadataConsistency(selection, formatPlugin.getFsConf());
-    this.supportsLimitPushdown = formatPlugin.easyConfig().supportsLimitPushdown;
     this.maxRecords = getMaxRecords();
   }
 
@@ -180,7 +177,6 @@ public class EasyGroupScan extends AbstractGroupScanWithMetadata<TableMetadataPr
     partitionDepth = that.partitionDepth;
     metadataProvider = that.metadataProvider;
     maxRecords = getMaxRecords();
-    supportsLimitPushdown = that.formatPlugin.easyConfig().supportsLimitPushdown;
   }
 
   @JsonIgnore

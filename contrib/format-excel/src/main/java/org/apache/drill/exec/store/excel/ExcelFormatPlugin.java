@@ -18,7 +18,6 @@
 
 package org.apache.drill.exec.store.excel;
 
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.common.types.TypeProtos;
@@ -43,8 +42,6 @@ public class ExcelFormatPlugin extends EasyFormatPlugin<ExcelFormatConfig> {
   protected static final String DEFAULT_NAME = "excel";
   private static final Logger logger = LoggerFactory.getLogger(ExcelFormatPlugin.class);
 
-  public static final String OPERATOR_TYPE = "EXCEL_SUB_SCAN";
-
   private static class ExcelReaderFactory extends FileReaderFactory {
     private final ExcelBatchReader.ExcelReaderConfig readerConfig;
     private final int maxRecords;
@@ -67,29 +64,28 @@ public class ExcelFormatPlugin extends EasyFormatPlugin<ExcelFormatConfig> {
   }
 
   private static EasyFormatConfig easyConfig(Configuration fsConf, ExcelFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = false;
-    config.compressible = true;
-    config.supportsProjectPushdown = true;
-    config.extensions = pluginConfig.getExtensions();
-    config.fsConf = fsConf;
-    config.defaultName = DEFAULT_NAME;
-    config.readerOperatorType = OPERATOR_TYPE;
-    config.useEnhancedScan = true;
-    config.supportsLimitPushdown = true;
-    return config;
+    return EasyFormatConfig.builder()
+        .readable(true)
+        .writable(false)
+        .blockSplittable(false)
+        .compressible(true)
+        .supportsProjectPushdown(true)
+        .extensions(pluginConfig.getExtensions())
+        .fsConf(fsConf)
+        .defaultName(DEFAULT_NAME)
+        .useEnhancedScan(true)
+        .supportsLimitPushdown(true)
+        .build();
   }
 
   @Override
   public ManagedReader<? extends FileSchemaNegotiator> newBatchReader(
-    EasySubScan scan, OptionManager options) throws ExecutionSetupException {
+    EasySubScan scan, OptionManager options) {
     return new ExcelBatchReader(formatConfig.getReaderConfig(this), scan.getMaxRecords());
   }
 
   @Override
-  protected FileScanBuilder frameworkBuilder(OptionManager options, EasySubScan scan) throws ExecutionSetupException {
+  protected FileScanBuilder frameworkBuilder(OptionManager options, EasySubScan scan) {
     FileScanBuilder builder = new FileScanBuilder();
     ExcelReaderConfig readerConfig = new ExcelReaderConfig(this);
 
