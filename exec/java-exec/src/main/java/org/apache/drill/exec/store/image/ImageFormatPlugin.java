@@ -41,8 +41,6 @@ public class ImageFormatPlugin extends EasyFormatPlugin<ImageFormatConfig> {
 
   private final static String DEFAULT_NAME = "image";
 
-  public static final String OPERATOR_TYPE = "IMAGE_SUB_SCAN";
-
   public ImageFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
                            StoragePluginConfig storageConfig) {
     super(name, context, fsConf, storageConfig, new ImageFormatConfig(), true, false, false, false,
@@ -65,11 +63,6 @@ public class ImageFormatPlugin extends EasyFormatPlugin<ImageFormatConfig> {
   @Override
   public RecordWriter getRecordWriter(FragmentContext context, EasyWriter writer) throws IOException {
     throw new UnsupportedOperationException("Drill doesn't currently support writing to image files.");
-  }
-
-  @Override
-  public String getReaderOperatorType() {
-    return OPERATOR_TYPE;
   }
 
   @Override

@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -333,6 +334,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     }
 
     public EasyFormatConfig build() {
+      Objects.requireNonNull(defaultName, "defaultName is not set");
       readerOperatorType = readerOperatorType == null
           ? defaultName.toUpperCase(Locale.ROOT) + "_SUB_SCAN"
           : readerOperatorType;
@@ -390,6 +392,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
         .blockSplittable(blockSplittable)
         .compressible(compressible)
         .fsConf(fsConf)
+        .defaultName(defaultName)
         .build();
     this.context = context;
     this.storageConfig = storageConfig;
