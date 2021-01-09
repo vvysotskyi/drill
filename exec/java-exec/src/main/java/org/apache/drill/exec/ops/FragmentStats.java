@@ -62,7 +62,7 @@ public class FragmentStats {
    */
   public OperatorStats newOperatorStats(final OpProfileDef profileDef, final BufferAllocator allocator) {
     final OperatorStats stats = new OperatorStats(profileDef, allocator);
-    if(profileDef.operatorType != null) {
+    if (profileDef.operatorType != null) {
       addOperatorStats(stats);
     }
     return stats;

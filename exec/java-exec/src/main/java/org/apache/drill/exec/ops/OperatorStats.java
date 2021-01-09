@@ -191,7 +191,8 @@ public class OperatorStats {
   }
 
   public String getId() {
-    return new StringBuilder().append(this.operatorId)
+    return new StringBuilder()
+        .append(this.operatorId)
         .append(":")
         .append("[")
         .append(operatorType)
@@ -201,11 +202,11 @@ public class OperatorStats {
 
   @SuppressWarnings("deprecation")
   public OperatorProfile getProfile() {
-    final OperatorProfile.Builder b = OperatorProfile //
-        .newBuilder() //
-        .setOperatorTypeName(operatorType) //
-        .setOperatorId(operatorId) //
-        .setSetupNanos(setupNanos) //
+    final OperatorProfile.Builder b = OperatorProfile
+        .newBuilder()
+        .setOperatorTypeName(operatorType)
+        .setOperatorId(operatorId)
+        .setSetupNanos(setupNanos)
         .setProcessNanos(processingNanos)
         .setWaitNanos(waitNanos);
 

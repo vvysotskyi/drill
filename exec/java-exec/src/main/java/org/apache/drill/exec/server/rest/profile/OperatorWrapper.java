@@ -77,11 +77,9 @@ public class OperatorWrapper {
       operatorType = firstProfile.getOperatorTypeName();
     } else {
       CoreOperatorType operatorType = CoreOperatorType.valueOf(firstProfile.getOperatorType());
-      if (operatorType != null) {
-        this.operatorType = Objects.requireNonNull(operatorType).name();
-      } else {
-        this.operatorType = null;
-      }
+      this.operatorType = operatorType != null
+          ? Objects.requireNonNull(operatorType).name()
+          : null;
     }
     //Update Name from Physical Map
     String path = new OperatorPathBuilder().setMajor(major).setOperator(firstProfile).build();
