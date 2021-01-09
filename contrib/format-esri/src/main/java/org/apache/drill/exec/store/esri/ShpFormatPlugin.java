@@ -33,8 +33,6 @@ import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.esri.ShpBatchReader.ShpReaderConfig;
 import org.apache.hadoop.conf.Configuration;
 
-import org.apache.drill.shaded.guava.com.google.common.collect.Lists;
-
 public class ShpFormatPlugin extends EasyFormatPlugin<ShpFormatConfig> {
 
   public static final String PLUGIN_NAME = "shp";

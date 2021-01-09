@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
@@ -72,7 +73,16 @@ public class OperatorWrapper {
     Preconditions.checkArgument(opsAndHostsList.size() > 0);
     this.major = major;
     firstProfile = opsAndHostsList.get(0).getLeft().getLeft();
-    operatorType = firstProfile.getOperatorType();
+    if (firstProfile.hasOperatorTypeName()) {
+      operatorType = firstProfile.getOperatorTypeName();
+    } else {
+      CoreOperatorType operatorType = CoreOperatorType.valueOf(firstProfile.getOperatorType());
+      if (operatorType != null) {
+        this.operatorType = Objects.requireNonNull(operatorType).name();
+      } else {
+        this.operatorType = null;
+      }
+    }
     //Update Name from Physical Map
     String path = new OperatorPathBuilder().setMajor(major).setOperator(firstProfile).build();
     //Use Plan Extracted Operator Names if available

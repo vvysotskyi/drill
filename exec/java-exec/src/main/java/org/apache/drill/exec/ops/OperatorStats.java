@@ -201,7 +201,7 @@ public class OperatorStats {
   public OperatorProfile getProfile() {
     final OperatorProfile.Builder b = OperatorProfile //
         .newBuilder() //
-        .setOperatorType(operatorType) //
+        .setOperatorTypeName(operatorType) //
         .setOperatorId(operatorId) //
         .setSetupNanos(setupNanos) //
         .setProcessNanos(processingNanos)

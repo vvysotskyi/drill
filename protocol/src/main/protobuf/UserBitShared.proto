@@ -280,12 +280,13 @@ message MinorFragmentProfile {
 message OperatorProfile {
   repeated StreamProfile input_profile = 1;
   optional int32 operator_id = 3;
-  optional string operator_type = 4;
+  optional int32 operator_type = 4 [deprecated = true];
   optional int64 setup_nanos = 5;
   optional int64 process_nanos = 6;
   optional int64 peak_local_memory_allocated = 7;
   repeated MetricValue metric = 8;
   optional int64 wait_nanos = 9;
+  optional string operator_type_name = 10;
 }
 
 message StreamProfile {

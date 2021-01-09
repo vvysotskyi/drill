@@ -22552,21 +22552,15 @@ public final class UserBitShared {
     int getOperatorId();
 
     /**
-     * <code>optional string operator_type = 4;</code>
+     * <code>optional int32 operator_type = 4 [deprecated = true];</code>
      * @return Whether the operatorType field is set.
      */
-    boolean hasOperatorType();
+    @java.lang.Deprecated boolean hasOperatorType();
     /**
-     * <code>optional string operator_type = 4;</code>
+     * <code>optional int32 operator_type = 4 [deprecated = true];</code>
      * @return The operatorType.
      */
-    java.lang.String getOperatorType();
-    /**
-     * <code>optional string operator_type = 4;</code>
-     * @return The bytes for operatorType.
-     */
-    com.google.protobuf.ByteString
-        getOperatorTypeBytes();
+    @java.lang.Deprecated int getOperatorType();
 
     /**
      * <code>optional int64 setup_nanos = 5;</code>
@@ -22635,6 +22629,23 @@ public final class UserBitShared {
      * @return The waitNanos.
      */
     long getWaitNanos();
+
+    /**
+     * <code>optional string operator_type_name = 10;</code>
+     * @return Whether the operatorTypeName field is set.
+     */
+    boolean hasOperatorTypeName();
+    /**
+     * <code>optional string operator_type_name = 10;</code>
+     * @return The operatorTypeName.
+     */
+    java.lang.String getOperatorTypeName();
+    /**
+     * <code>optional string operator_type_name = 10;</code>
+     * @return The bytes for operatorTypeName.
+     */
+    com.google.protobuf.ByteString
+        getOperatorTypeNameBytes();
   }
   /**
    * Protobuf type {@code exec.shared.OperatorProfile}
@@ -22650,8 +22661,8 @@ public final class UserBitShared {
     }
     private OperatorProfile() {
       inputProfile_ = java.util.Collections.emptyList();
-      operatorType_ = "";
       metric_ = java.util.Collections.emptyList();
+      operatorTypeName_ = "";
     }
 
     @java.lang.Override
@@ -22699,10 +22710,9 @@ public final class UserBitShared {
               operatorId_ = input.readInt32();
               break;
             }
-            case 34: {
-              com.google.protobuf.ByteString bs = input.readBytes();
+            case 32: {
               bitField0_ |= 0x00000002;
-              operatorType_ = bs;
+              operatorType_ = input.readInt32();
               break;
             }
             case 40: {
@@ -22732,6 +22742,12 @@ public final class UserBitShared {
             case 72: {
               bitField0_ |= 0x00000020;
               waitNanos_ = input.readInt64();
+              break;
+            }
+            case 82: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000040;
+              operatorTypeName_ = bs;
               break;
             }
             default: {
@@ -22826,48 +22842,20 @@ public final class UserBitShared {
     }
 
     public static final int OPERATOR_TYPE_FIELD_NUMBER = 4;
-    private volatile java.lang.Object operatorType_;
+    private int operatorType_;
     /**
-     * <code>optional string operator_type = 4;</code>
+     * <code>optional int32 operator_type = 4 [deprecated = true];</code>
      * @return Whether the operatorType field is set.
      */
-    public boolean hasOperatorType() {
+    @java.lang.Deprecated public boolean hasOperatorType() {
       return ((bitField0_ & 0x00000002) != 0);
     }
     /**
-     * <code>optional string operator_type = 4;</code>
+     * <code>optional int32 operator_type = 4 [deprecated = true];</code>
      * @return The operatorType.
      */
-    public java.lang.String getOperatorType() {
-      java.lang.Object ref = operatorType_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          operatorType_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string operator_type = 4;</code>
-     * @return The bytes for operatorType.
-     */
-    public com.google.protobuf.ByteString
-        getOperatorTypeBytes() {
-      java.lang.Object ref = operatorType_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        operatorType_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
+    @java.lang.Deprecated public int getOperatorType() {
+      return operatorType_;
     }
 
     public static final int SETUP_NANOS_FIELD_NUMBER = 5;
@@ -22973,6 +22961,51 @@ public final class UserBitShared {
       return waitNanos_;
     }
 
+    public static final int OPERATOR_TYPE_NAME_FIELD_NUMBER = 10;
+    private volatile java.lang.Object operatorTypeName_;
+    /**
+     * <code>optional string operator_type_name = 10;</code>
+     * @return Whether the operatorTypeName field is set.
+     */
+    public boolean hasOperatorTypeName() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <code>optional string operator_type_name = 10;</code>
+     * @return The operatorTypeName.
+     */
+    public java.lang.String getOperatorTypeName() {
+      java.lang.Object ref = operatorTypeName_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          operatorTypeName_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string operator_type_name = 10;</code>
+     * @return The bytes for operatorTypeName.
+     */
+    public com.google.protobuf.ByteString
+        getOperatorTypeNameBytes() {
+      java.lang.Object ref = operatorTypeName_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        operatorTypeName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -22994,7 +23027,7 @@ public final class UserBitShared {
         output.writeInt32(3, operatorId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, operatorType_);
+        output.writeInt32(4, operatorType_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
         output.writeInt64(5, setupNanos_);
@@ -23010,6 +23043,9 @@ public final class UserBitShared {
       }
       if (((bitField0_ & 0x00000020) != 0)) {
         output.writeInt64(9, waitNanos_);
+      }
+      if (((bitField0_ & 0x00000040) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, operatorTypeName_);
       }
       unknownFields.writeTo(output);
     }
@@ -23029,7 +23065,8 @@ public final class UserBitShared {
           .computeInt32Size(3, operatorId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, operatorType_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(4, operatorType_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.CodedOutputStream
@@ -23050,6 +23087,9 @@ public final class UserBitShared {
       if (((bitField0_ & 0x00000020) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(9, waitNanos_);
+      }
+      if (((bitField0_ & 0x00000040) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, operatorTypeName_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -23075,8 +23115,8 @@ public final class UserBitShared {
       }
       if (hasOperatorType() != other.hasOperatorType()) return false;
       if (hasOperatorType()) {
-        if (!getOperatorType()
-            .equals(other.getOperatorType())) return false;
+        if (getOperatorType()
+            != other.getOperatorType()) return false;
       }
       if (hasSetupNanos() != other.hasSetupNanos()) return false;
       if (hasSetupNanos()) {
@@ -23100,6 +23140,11 @@ public final class UserBitShared {
         if (getWaitNanos()
             != other.getWaitNanos()) return false;
       }
+      if (hasOperatorTypeName() != other.hasOperatorTypeName()) return false;
+      if (hasOperatorTypeName()) {
+        if (!getOperatorTypeName()
+            .equals(other.getOperatorTypeName())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -23121,7 +23166,7 @@ public final class UserBitShared {
       }
       if (hasOperatorType()) {
         hash = (37 * hash) + OPERATOR_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + getOperatorType().hashCode();
+        hash = (53 * hash) + getOperatorType();
       }
       if (hasSetupNanos()) {
         hash = (37 * hash) + SETUP_NANOS_FIELD_NUMBER;
@@ -23146,6 +23191,10 @@ public final class UserBitShared {
         hash = (37 * hash) + WAIT_NANOS_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getWaitNanos());
+      }
+      if (hasOperatorTypeName()) {
+        hash = (37 * hash) + OPERATOR_TYPE_NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getOperatorTypeName().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -23290,7 +23339,7 @@ public final class UserBitShared {
         }
         operatorId_ = 0;
         bitField0_ = (bitField0_ & ~0x00000002);
-        operatorType_ = "";
+        operatorType_ = 0;
         bitField0_ = (bitField0_ & ~0x00000004);
         setupNanos_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000008);
@@ -23306,6 +23355,8 @@ public final class UserBitShared {
         }
         waitNanos_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000080);
+        operatorTypeName_ = "";
+        bitField0_ = (bitField0_ & ~0x00000100);
         return this;
       }
 
@@ -23348,9 +23399,9 @@ public final class UserBitShared {
           to_bitField0_ |= 0x00000001;
         }
         if (((from_bitField0_ & 0x00000004) != 0)) {
+          result.operatorType_ = operatorType_;
           to_bitField0_ |= 0x00000002;
         }
-        result.operatorType_ = operatorType_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           result.setupNanos_ = setupNanos_;
           to_bitField0_ |= 0x00000004;
@@ -23376,6 +23427,10 @@ public final class UserBitShared {
           result.waitNanos_ = waitNanos_;
           to_bitField0_ |= 0x00000020;
         }
+        if (((from_bitField0_ & 0x00000100) != 0)) {
+          to_bitField0_ |= 0x00000040;
+        }
+        result.operatorTypeName_ = operatorTypeName_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -23455,9 +23510,7 @@ public final class UserBitShared {
           setOperatorId(other.getOperatorId());
         }
         if (other.hasOperatorType()) {
-          bitField0_ |= 0x00000004;
-          operatorType_ = other.operatorType_;
-          onChanged();
+          setOperatorType(other.getOperatorType());
         }
         if (other.hasSetupNanos()) {
           setSetupNanos(other.getSetupNanos());
@@ -23496,6 +23549,11 @@ public final class UserBitShared {
         }
         if (other.hasWaitNanos()) {
           setWaitNanos(other.getWaitNanos());
+        }
+        if (other.hasOperatorTypeName()) {
+          bitField0_ |= 0x00000100;
+          operatorTypeName_ = other.operatorTypeName_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -23804,86 +23862,39 @@ public final class UserBitShared {
         return this;
       }
 
-      private java.lang.Object operatorType_ = "";
+      private int operatorType_ ;
       /**
-       * <code>optional string operator_type = 4;</code>
+       * <code>optional int32 operator_type = 4 [deprecated = true];</code>
        * @return Whether the operatorType field is set.
        */
-      public boolean hasOperatorType() {
+      @java.lang.Deprecated public boolean hasOperatorType() {
         return ((bitField0_ & 0x00000004) != 0);
       }
       /**
-       * <code>optional string operator_type = 4;</code>
+       * <code>optional int32 operator_type = 4 [deprecated = true];</code>
        * @return The operatorType.
        */
-      public java.lang.String getOperatorType() {
-        java.lang.Object ref = operatorType_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            operatorType_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
+      @java.lang.Deprecated public int getOperatorType() {
+        return operatorType_;
       }
       /**
-       * <code>optional string operator_type = 4;</code>
-       * @return The bytes for operatorType.
-       */
-      public com.google.protobuf.ByteString
-          getOperatorTypeBytes() {
-        java.lang.Object ref = operatorType_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          operatorType_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string operator_type = 4;</code>
+       * <code>optional int32 operator_type = 4 [deprecated = true];</code>
        * @param value The operatorType to set.
        * @return This builder for chaining.
        */
-      public Builder setOperatorType(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
+      @java.lang.Deprecated public Builder setOperatorType(int value) {
+        bitField0_ |= 0x00000004;
         operatorType_ = value;
         onChanged();
         return this;
       }
       /**
-       * <code>optional string operator_type = 4;</code>
+       * <code>optional int32 operator_type = 4 [deprecated = true];</code>
        * @return This builder for chaining.
        */
-      public Builder clearOperatorType() {
+      @java.lang.Deprecated public Builder clearOperatorType() {
         bitField0_ = (bitField0_ & ~0x00000004);
-        operatorType_ = getDefaultInstance().getOperatorType();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string operator_type = 4;</code>
-       * @param value The bytes for operatorType to set.
-       * @return This builder for chaining.
-       */
-      public Builder setOperatorTypeBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        operatorType_ = value;
+        operatorType_ = 0;
         onChanged();
         return this;
       }
@@ -24272,6 +24283,90 @@ public final class UserBitShared {
       public Builder clearWaitNanos() {
         bitField0_ = (bitField0_ & ~0x00000080);
         waitNanos_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object operatorTypeName_ = "";
+      /**
+       * <code>optional string operator_type_name = 10;</code>
+       * @return Whether the operatorTypeName field is set.
+       */
+      public boolean hasOperatorTypeName() {
+        return ((bitField0_ & 0x00000100) != 0);
+      }
+      /**
+       * <code>optional string operator_type_name = 10;</code>
+       * @return The operatorTypeName.
+       */
+      public java.lang.String getOperatorTypeName() {
+        java.lang.Object ref = operatorTypeName_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            operatorTypeName_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string operator_type_name = 10;</code>
+       * @return The bytes for operatorTypeName.
+       */
+      public com.google.protobuf.ByteString
+          getOperatorTypeNameBytes() {
+        java.lang.Object ref = operatorTypeName_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          operatorTypeName_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string operator_type_name = 10;</code>
+       * @param value The operatorTypeName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOperatorTypeName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000100;
+        operatorTypeName_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string operator_type_name = 10;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearOperatorTypeName() {
+        bitField0_ = (bitField0_ & ~0x00000100);
+        operatorTypeName_ = getDefaultInstance().getOperatorTypeName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string operator_type_name = 10;</code>
+       * @param value The bytes for operatorTypeName to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOperatorTypeNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000100;
+        operatorTypeName_ = value;
         onChanged();
         return this;
       }
@@ -28401,32 +28496,33 @@ public final class UserBitShared {
       "y_used\030\007 \001(\003\022\027\n\017max_memory_used\030\010 \001(\003\022(\n" +
       "\010endpoint\030\t \001(\0132\026.exec.DrillbitEndpoint\022" +
       "\023\n\013last_update\030\n \001(\003\022\025\n\rlast_progress\030\013 " +
-      "\001(\003\"\377\001\n\017OperatorProfile\0221\n\rinput_profile" +
+      "\001(\003\"\237\002\n\017OperatorProfile\0221\n\rinput_profile" +
       "\030\001 \003(\0132\032.exec.shared.StreamProfile\022\023\n\013op" +
-      "erator_id\030\003 \001(\005\022\025\n\roperator_type\030\004 \001(\t\022\023" +
-      "\n\013setup_nanos\030\005 \001(\003\022\025\n\rprocess_nanos\030\006 \001" +
-      "(\003\022#\n\033peak_local_memory_allocated\030\007 \001(\003\022" +
-      "(\n\006metric\030\010 \003(\0132\030.exec.shared.MetricValu" +
-      "e\022\022\n\nwait_nanos\030\t \001(\003\"B\n\rStreamProfile\022\017" +
-      "\n\007records\030\001 \001(\003\022\017\n\007batches\030\002 \001(\003\022\017\n\007sche" +
-      "mas\030\003 \001(\003\"J\n\013MetricValue\022\021\n\tmetric_id\030\001 " +
-      "\001(\005\022\022\n\nlong_value\030\002 \001(\003\022\024\n\014double_value\030" +
-      "\003 \001(\001\")\n\010Registry\022\035\n\003jar\030\001 \003(\0132\020.exec.sh" +
-      "ared.Jar\"/\n\003Jar\022\014\n\004name\030\001 \001(\t\022\032\n\022functio" +
-      "n_signature\030\002 \003(\t\"W\n\013SaslMessage\022\021\n\tmech" +
-      "anism\030\001 \001(\t\022\014\n\004data\030\002 \001(\014\022\'\n\006status\030\003 \001(" +
-      "\0162\027.exec.shared.SaslStatus*5\n\nRpcChannel" +
-      "\022\017\n\013BIT_CONTROL\020\000\022\014\n\010BIT_DATA\020\001\022\010\n\004USER\020" +
-      "\002*V\n\tQueryType\022\007\n\003SQL\020\001\022\013\n\007LOGICAL\020\002\022\014\n\010" +
-      "PHYSICAL\020\003\022\r\n\tEXECUTION\020\004\022\026\n\022PREPARED_ST" +
-      "ATEMENT\020\005*\207\001\n\rFragmentState\022\013\n\007SENDING\020\000" +
-      "\022\027\n\023AWAITING_ALLOCATION\020\001\022\013\n\007RUNNING\020\002\022\014" +
-      "\n\010FINISHED\020\003\022\r\n\tCANCELLED\020\004\022\n\n\006FAILED\020\005\022" +
-      "\032\n\026CANCELLATION_REQUESTED\020\006*g\n\nSaslStatu" +
-      "s\022\020\n\014SASL_UNKNOWN\020\000\022\016\n\nSASL_START\020\001\022\024\n\020S" +
-      "ASL_IN_PROGRESS\020\002\022\020\n\014SASL_SUCCESS\020\003\022\017\n\013S" +
-      "ASL_FAILED\020\004B.\n\033org.apache.drill.exec.pr" +
-      "otoB\rUserBitSharedH\001"
+      "erator_id\030\003 \001(\005\022\031\n\roperator_type\030\004 \001(\005B\002" +
+      "\030\001\022\023\n\013setup_nanos\030\005 \001(\003\022\025\n\rprocess_nanos" +
+      "\030\006 \001(\003\022#\n\033peak_local_memory_allocated\030\007 " +
+      "\001(\003\022(\n\006metric\030\010 \003(\0132\030.exec.shared.Metric" +
+      "Value\022\022\n\nwait_nanos\030\t \001(\003\022\032\n\022operator_ty" +
+      "pe_name\030\n \001(\t\"B\n\rStreamProfile\022\017\n\007record" +
+      "s\030\001 \001(\003\022\017\n\007batches\030\002 \001(\003\022\017\n\007schemas\030\003 \001(" +
+      "\003\"J\n\013MetricValue\022\021\n\tmetric_id\030\001 \001(\005\022\022\n\nl" +
+      "ong_value\030\002 \001(\003\022\024\n\014double_value\030\003 \001(\001\")\n" +
+      "\010Registry\022\035\n\003jar\030\001 \003(\0132\020.exec.shared.Jar" +
+      "\"/\n\003Jar\022\014\n\004name\030\001 \001(\t\022\032\n\022function_signat" +
+      "ure\030\002 \003(\t\"W\n\013SaslMessage\022\021\n\tmechanism\030\001 " +
+      "\001(\t\022\014\n\004data\030\002 \001(\014\022\'\n\006status\030\003 \001(\0162\027.exec" +
+      ".shared.SaslStatus*5\n\nRpcChannel\022\017\n\013BIT_" +
+      "CONTROL\020\000\022\014\n\010BIT_DATA\020\001\022\010\n\004USER\020\002*V\n\tQue" +
+      "ryType\022\007\n\003SQL\020\001\022\013\n\007LOGICAL\020\002\022\014\n\010PHYSICAL" +
+      "\020\003\022\r\n\tEXECUTION\020\004\022\026\n\022PREPARED_STATEMENT\020" +
+      "\005*\207\001\n\rFragmentState\022\013\n\007SENDING\020\000\022\027\n\023AWAI" +
+      "TING_ALLOCATION\020\001\022\013\n\007RUNNING\020\002\022\014\n\010FINISH" +
+      "ED\020\003\022\r\n\tCANCELLED\020\004\022\n\n\006FAILED\020\005\022\032\n\026CANCE" +
+      "LLATION_REQUESTED\020\006*g\n\nSaslStatus\022\020\n\014SAS" +
+      "L_UNKNOWN\020\000\022\016\n\nSASL_START\020\001\022\024\n\020SASL_IN_P" +
+      "ROGRESS\020\002\022\020\n\014SASL_SUCCESS\020\003\022\017\n\013SASL_FAIL" +
+      "ED\020\004B.\n\033org.apache.drill.exec.protoB\rUse" +
+      "rBitSharedH\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -28536,7 +28632,7 @@ public final class UserBitShared {
     internal_static_exec_shared_OperatorProfile_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_exec_shared_OperatorProfile_descriptor,
-        new java.lang.String[] { "InputProfile", "OperatorId", "OperatorType", "SetupNanos", "ProcessNanos", "PeakLocalMemoryAllocated", "Metric", "WaitNanos", });
+        new java.lang.String[] { "InputProfile", "OperatorId", "OperatorType", "SetupNanos", "ProcessNanos", "PeakLocalMemoryAllocated", "Metric", "WaitNanos", "OperatorTypeName", });
     internal_static_exec_shared_StreamProfile_descriptor =
       getDescriptor().getMessageTypes().get(17);
     internal_static_exec_shared_StreamProfile_fieldAccessorTable = new

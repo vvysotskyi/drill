@@ -4153,12 +4153,13 @@ class OperatorProfile :
   enum : int {
     kInputProfileFieldNumber = 1,
     kMetricFieldNumber = 8,
+    kOperatorTypeNameFieldNumber = 10,
+    kOperatorIdFieldNumber = 3,
     kOperatorTypeFieldNumber = 4,
     kSetupNanosFieldNumber = 5,
     kProcessNanosFieldNumber = 6,
     kPeakLocalMemoryAllocatedFieldNumber = 7,
     kWaitNanosFieldNumber = 9,
-    kOperatorIdFieldNumber = 3,
   };
   // repeated .exec.shared.StreamProfile input_profile = 1;
   int input_profile_size() const;
@@ -4196,24 +4197,50 @@ class OperatorProfile :
   const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::exec::shared::MetricValue >&
       metric() const;
 
-  // optional string operator_type = 4;
-  bool has_operator_type() const;
+  // optional string operator_type_name = 10;
+  bool has_operator_type_name() const;
+  private:
+  bool _internal_has_operator_type_name() const;
+  public:
+  void clear_operator_type_name();
+  const std::string& operator_type_name() const;
+  void set_operator_type_name(const std::string& value);
+  void set_operator_type_name(std::string&& value);
+  void set_operator_type_name(const char* value);
+  void set_operator_type_name(const char* value, size_t size);
+  std::string* mutable_operator_type_name();
+  std::string* release_operator_type_name();
+  void set_allocated_operator_type_name(std::string* operator_type_name);
+  private:
+  const std::string& _internal_operator_type_name() const;
+  void _internal_set_operator_type_name(const std::string& value);
+  std::string* _internal_mutable_operator_type_name();
+  public:
+
+  // optional int32 operator_id = 3;
+  bool has_operator_id() const;
+  private:
+  bool _internal_has_operator_id() const;
+  public:
+  void clear_operator_id();
+  ::PROTOBUF_NAMESPACE_ID::int32 operator_id() const;
+  void set_operator_id(::PROTOBUF_NAMESPACE_ID::int32 value);
+  private:
+  ::PROTOBUF_NAMESPACE_ID::int32 _internal_operator_id() const;
+  void _internal_set_operator_id(::PROTOBUF_NAMESPACE_ID::int32 value);
+  public:
+
+  // optional int32 operator_type = 4 [deprecated = true];
+  PROTOBUF_DEPRECATED bool has_operator_type() const;
   private:
   bool _internal_has_operator_type() const;
   public:
-  void clear_operator_type();
-  const std::string& operator_type() const;
-  void set_operator_type(const std::string& value);
-  void set_operator_type(std::string&& value);
-  void set_operator_type(const char* value);
-  void set_operator_type(const char* value, size_t size);
-  std::string* mutable_operator_type();
-  std::string* release_operator_type();
-  void set_allocated_operator_type(std::string* operator_type);
+  PROTOBUF_DEPRECATED void clear_operator_type();
+  PROTOBUF_DEPRECATED ::PROTOBUF_NAMESPACE_ID::int32 operator_type() const;
+  PROTOBUF_DEPRECATED void set_operator_type(::PROTOBUF_NAMESPACE_ID::int32 value);
   private:
-  const std::string& _internal_operator_type() const;
-  void _internal_set_operator_type(const std::string& value);
-  std::string* _internal_mutable_operator_type();
+  ::PROTOBUF_NAMESPACE_ID::int32 _internal_operator_type() const;
+  void _internal_set_operator_type(::PROTOBUF_NAMESPACE_ID::int32 value);
   public:
 
   // optional int64 setup_nanos = 5;
@@ -4268,19 +4295,6 @@ class OperatorProfile :
   void _internal_set_wait_nanos(::PROTOBUF_NAMESPACE_ID::int64 value);
   public:
 
-  // optional int32 operator_id = 3;
-  bool has_operator_id() const;
-  private:
-  bool _internal_has_operator_id() const;
-  public:
-  void clear_operator_id();
-  ::PROTOBUF_NAMESPACE_ID::int32 operator_id() const;
-  void set_operator_id(::PROTOBUF_NAMESPACE_ID::int32 value);
-  private:
-  ::PROTOBUF_NAMESPACE_ID::int32 _internal_operator_id() const;
-  void _internal_set_operator_id(::PROTOBUF_NAMESPACE_ID::int32 value);
-  public:
-
   // @@protoc_insertion_point(class_scope:exec.shared.OperatorProfile)
  private:
   class _Internal;
@@ -4290,12 +4304,13 @@ class OperatorProfile :
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::exec::shared::StreamProfile > input_profile_;
   ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField< ::exec::shared::MetricValue > metric_;
-  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr operator_type_;
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr operator_type_name_;
+  ::PROTOBUF_NAMESPACE_ID::int32 operator_id_;
+  ::PROTOBUF_NAMESPACE_ID::int32 operator_type_;
   ::PROTOBUF_NAMESPACE_ID::int64 setup_nanos_;
   ::PROTOBUF_NAMESPACE_ID::int64 process_nanos_;
   ::PROTOBUF_NAMESPACE_ID::int64 peak_local_memory_allocated_;
   ::PROTOBUF_NAMESPACE_ID::int64 wait_nanos_;
-  ::PROTOBUF_NAMESPACE_ID::int32 operator_id_;
   friend struct ::TableStruct_UserBitShared_2eproto;
 };
 // -------------------------------------------------------------------
@@ -9232,7 +9247,7 @@ OperatorProfile::input_profile() const {
 
 // optional int32 operator_id = 3;
 inline bool OperatorProfile::_internal_has_operator_id() const {
-  bool value = (_has_bits_[0] & 0x00000020u) != 0;
+  bool value = (_has_bits_[0] & 0x00000002u) != 0;
   return value;
 }
 inline bool OperatorProfile::has_operator_id() const {
@@ -9240,7 +9255,7 @@ inline bool OperatorProfile::has_operator_id() const {
 }
 inline void OperatorProfile::clear_operator_id() {
   operator_id_ = 0;
-  _has_bits_[0] &= ~0x00000020u;
+  _has_bits_[0] &= ~0x00000002u;
 }
 inline ::PROTOBUF_NAMESPACE_ID::int32 OperatorProfile::_internal_operator_id() const {
   return operator_id_;
@@ -9250,7 +9265,7 @@ inline ::PROTOBUF_NAMESPACE_ID::int32 OperatorProfile::operator_id() const {
   return _internal_operator_id();
 }
 inline void OperatorProfile::_internal_set_operator_id(::PROTOBUF_NAMESPACE_ID::int32 value) {
-  _has_bits_[0] |= 0x00000020u;
+  _has_bits_[0] |= 0x00000002u;
   operator_id_ = value;
 }
 inline void OperatorProfile::set_operator_id(::PROTOBUF_NAMESPACE_ID::int32 value) {
@@ -9258,80 +9273,37 @@ inline void OperatorProfile::set_operator_id(::PROTOBUF_NAMESPACE_ID::int32 valu
   // @@protoc_insertion_point(field_set:exec.shared.OperatorProfile.operator_id)
 }
 
-// optional string operator_type = 4;
+// optional int32 operator_type = 4 [deprecated = true];
 inline bool OperatorProfile::_internal_has_operator_type() const {
-  bool value = (_has_bits_[0] & 0x00000001u) != 0;
+  bool value = (_has_bits_[0] & 0x00000004u) != 0;
   return value;
 }
 inline bool OperatorProfile::has_operator_type() const {
   return _internal_has_operator_type();
 }
 inline void OperatorProfile::clear_operator_type() {
-  operator_type_.ClearToEmptyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-  _has_bits_[0] &= ~0x00000001u;
+  operator_type_ = 0;
+  _has_bits_[0] &= ~0x00000004u;
 }
-inline const std::string& OperatorProfile::operator_type() const {
+inline ::PROTOBUF_NAMESPACE_ID::int32 OperatorProfile::_internal_operator_type() const {
+  return operator_type_;
+}
+inline ::PROTOBUF_NAMESPACE_ID::int32 OperatorProfile::operator_type() const {
   // @@protoc_insertion_point(field_get:exec.shared.OperatorProfile.operator_type)
   return _internal_operator_type();
 }
-inline void OperatorProfile::set_operator_type(const std::string& value) {
+inline void OperatorProfile::_internal_set_operator_type(::PROTOBUF_NAMESPACE_ID::int32 value) {
+  _has_bits_[0] |= 0x00000004u;
+  operator_type_ = value;
+}
+inline void OperatorProfile::set_operator_type(::PROTOBUF_NAMESPACE_ID::int32 value) {
   _internal_set_operator_type(value);
   // @@protoc_insertion_point(field_set:exec.shared.OperatorProfile.operator_type)
-}
-inline std::string* OperatorProfile::mutable_operator_type() {
-  // @@protoc_insertion_point(field_mutable:exec.shared.OperatorProfile.operator_type)
-  return _internal_mutable_operator_type();
-}
-inline const std::string& OperatorProfile::_internal_operator_type() const {
-  return operator_type_.GetNoArena();
-}
-inline void OperatorProfile::_internal_set_operator_type(const std::string& value) {
-  _has_bits_[0] |= 0x00000001u;
-  operator_type_.SetNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), value);
-}
-inline void OperatorProfile::set_operator_type(std::string&& value) {
-  _has_bits_[0] |= 0x00000001u;
-  operator_type_.SetNoArena(
-    &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
-  // @@protoc_insertion_point(field_set_rvalue:exec.shared.OperatorProfile.operator_type)
-}
-inline void OperatorProfile::set_operator_type(const char* value) {
-  GOOGLE_DCHECK(value != nullptr);
-  _has_bits_[0] |= 0x00000001u;
-  operator_type_.SetNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
-  // @@protoc_insertion_point(field_set_char:exec.shared.OperatorProfile.operator_type)
-}
-inline void OperatorProfile::set_operator_type(const char* value, size_t size) {
-  _has_bits_[0] |= 0x00000001u;
-  operator_type_.SetNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(),
-      ::std::string(reinterpret_cast<const char*>(value), size));
-  // @@protoc_insertion_point(field_set_pointer:exec.shared.OperatorProfile.operator_type)
-}
-inline std::string* OperatorProfile::_internal_mutable_operator_type() {
-  _has_bits_[0] |= 0x00000001u;
-  return operator_type_.MutableNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-}
-inline std::string* OperatorProfile::release_operator_type() {
-  // @@protoc_insertion_point(field_release:exec.shared.OperatorProfile.operator_type)
-  if (!_internal_has_operator_type()) {
-    return nullptr;
-  }
-  _has_bits_[0] &= ~0x00000001u;
-  return operator_type_.ReleaseNonDefaultNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-}
-inline void OperatorProfile::set_allocated_operator_type(std::string* operator_type) {
-  if (operator_type != nullptr) {
-    _has_bits_[0] |= 0x00000001u;
-  } else {
-    _has_bits_[0] &= ~0x00000001u;
-  }
-  operator_type_.SetAllocatedNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), operator_type);
-  // @@protoc_insertion_point(field_set_allocated:exec.shared.OperatorProfile.operator_type)
 }
 
 // optional int64 setup_nanos = 5;
 inline bool OperatorProfile::_internal_has_setup_nanos() const {
-  bool value = (_has_bits_[0] & 0x00000002u) != 0;
+  bool value = (_has_bits_[0] & 0x00000008u) != 0;
   return value;
 }
 inline bool OperatorProfile::has_setup_nanos() const {
@@ -9339,7 +9311,7 @@ inline bool OperatorProfile::has_setup_nanos() const {
 }
 inline void OperatorProfile::clear_setup_nanos() {
   setup_nanos_ = PROTOBUF_LONGLONG(0);
-  _has_bits_[0] &= ~0x00000002u;
+  _has_bits_[0] &= ~0x00000008u;
 }
 inline ::PROTOBUF_NAMESPACE_ID::int64 OperatorProfile::_internal_setup_nanos() const {
   return setup_nanos_;
@@ -9349,7 +9321,7 @@ inline ::PROTOBUF_NAMESPACE_ID::int64 OperatorProfile::setup_nanos() const {
   return _internal_setup_nanos();
 }
 inline void OperatorProfile::_internal_set_setup_nanos(::PROTOBUF_NAMESPACE_ID::int64 value) {
-  _has_bits_[0] |= 0x00000002u;
+  _has_bits_[0] |= 0x00000008u;
   setup_nanos_ = value;
 }
 inline void OperatorProfile::set_setup_nanos(::PROTOBUF_NAMESPACE_ID::int64 value) {
@@ -9359,7 +9331,7 @@ inline void OperatorProfile::set_setup_nanos(::PROTOBUF_NAMESPACE_ID::int64 valu
 
 // optional int64 process_nanos = 6;
 inline bool OperatorProfile::_internal_has_process_nanos() const {
-  bool value = (_has_bits_[0] & 0x00000004u) != 0;
+  bool value = (_has_bits_[0] & 0x00000010u) != 0;
   return value;
 }
 inline bool OperatorProfile::has_process_nanos() const {
@@ -9367,7 +9339,7 @@ inline bool OperatorProfile::has_process_nanos() const {
 }
 inline void OperatorProfile::clear_process_nanos() {
   process_nanos_ = PROTOBUF_LONGLONG(0);
-  _has_bits_[0] &= ~0x00000004u;
+  _has_bits_[0] &= ~0x00000010u;
 }
 inline ::PROTOBUF_NAMESPACE_ID::int64 OperatorProfile::_internal_process_nanos() const {
   return process_nanos_;
@@ -9377,7 +9349,7 @@ inline ::PROTOBUF_NAMESPACE_ID::int64 OperatorProfile::process_nanos() const {
   return _internal_process_nanos();
 }
 inline void OperatorProfile::_internal_set_process_nanos(::PROTOBUF_NAMESPACE_ID::int64 value) {
-  _has_bits_[0] |= 0x00000004u;
+  _has_bits_[0] |= 0x00000010u;
   process_nanos_ = value;
 }
 inline void OperatorProfile::set_process_nanos(::PROTOBUF_NAMESPACE_ID::int64 value) {
@@ -9387,7 +9359,7 @@ inline void OperatorProfile::set_process_nanos(::PROTOBUF_NAMESPACE_ID::int64 va
 
 // optional int64 peak_local_memory_allocated = 7;
 inline bool OperatorProfile::_internal_has_peak_local_memory_allocated() const {
-  bool value = (_has_bits_[0] & 0x00000008u) != 0;
+  bool value = (_has_bits_[0] & 0x00000020u) != 0;
   return value;
 }
 inline bool OperatorProfile::has_peak_local_memory_allocated() const {
@@ -9395,7 +9367,7 @@ inline bool OperatorProfile::has_peak_local_memory_allocated() const {
 }
 inline void OperatorProfile::clear_peak_local_memory_allocated() {
   peak_local_memory_allocated_ = PROTOBUF_LONGLONG(0);
-  _has_bits_[0] &= ~0x00000008u;
+  _has_bits_[0] &= ~0x00000020u;
 }
 inline ::PROTOBUF_NAMESPACE_ID::int64 OperatorProfile::_internal_peak_local_memory_allocated() const {
   return peak_local_memory_allocated_;
@@ -9405,7 +9377,7 @@ inline ::PROTOBUF_NAMESPACE_ID::int64 OperatorProfile::peak_local_memory_allocat
   return _internal_peak_local_memory_allocated();
 }
 inline void OperatorProfile::_internal_set_peak_local_memory_allocated(::PROTOBUF_NAMESPACE_ID::int64 value) {
-  _has_bits_[0] |= 0x00000008u;
+  _has_bits_[0] |= 0x00000020u;
   peak_local_memory_allocated_ = value;
 }
 inline void OperatorProfile::set_peak_local_memory_allocated(::PROTOBUF_NAMESPACE_ID::int64 value) {
@@ -9454,7 +9426,7 @@ OperatorProfile::metric() const {
 
 // optional int64 wait_nanos = 9;
 inline bool OperatorProfile::_internal_has_wait_nanos() const {
-  bool value = (_has_bits_[0] & 0x00000010u) != 0;
+  bool value = (_has_bits_[0] & 0x00000040u) != 0;
   return value;
 }
 inline bool OperatorProfile::has_wait_nanos() const {
@@ -9462,7 +9434,7 @@ inline bool OperatorProfile::has_wait_nanos() const {
 }
 inline void OperatorProfile::clear_wait_nanos() {
   wait_nanos_ = PROTOBUF_LONGLONG(0);
-  _has_bits_[0] &= ~0x00000010u;
+  _has_bits_[0] &= ~0x00000040u;
 }
 inline ::PROTOBUF_NAMESPACE_ID::int64 OperatorProfile::_internal_wait_nanos() const {
   return wait_nanos_;
@@ -9472,12 +9444,83 @@ inline ::PROTOBUF_NAMESPACE_ID::int64 OperatorProfile::wait_nanos() const {
   return _internal_wait_nanos();
 }
 inline void OperatorProfile::_internal_set_wait_nanos(::PROTOBUF_NAMESPACE_ID::int64 value) {
-  _has_bits_[0] |= 0x00000010u;
+  _has_bits_[0] |= 0x00000040u;
   wait_nanos_ = value;
 }
 inline void OperatorProfile::set_wait_nanos(::PROTOBUF_NAMESPACE_ID::int64 value) {
   _internal_set_wait_nanos(value);
   // @@protoc_insertion_point(field_set:exec.shared.OperatorProfile.wait_nanos)
+}
+
+// optional string operator_type_name = 10;
+inline bool OperatorProfile::_internal_has_operator_type_name() const {
+  bool value = (_has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline bool OperatorProfile::has_operator_type_name() const {
+  return _internal_has_operator_type_name();
+}
+inline void OperatorProfile::clear_operator_type_name() {
+  operator_type_name_.ClearToEmptyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& OperatorProfile::operator_type_name() const {
+  // @@protoc_insertion_point(field_get:exec.shared.OperatorProfile.operator_type_name)
+  return _internal_operator_type_name();
+}
+inline void OperatorProfile::set_operator_type_name(const std::string& value) {
+  _internal_set_operator_type_name(value);
+  // @@protoc_insertion_point(field_set:exec.shared.OperatorProfile.operator_type_name)
+}
+inline std::string* OperatorProfile::mutable_operator_type_name() {
+  // @@protoc_insertion_point(field_mutable:exec.shared.OperatorProfile.operator_type_name)
+  return _internal_mutable_operator_type_name();
+}
+inline const std::string& OperatorProfile::_internal_operator_type_name() const {
+  return operator_type_name_.GetNoArena();
+}
+inline void OperatorProfile::_internal_set_operator_type_name(const std::string& value) {
+  _has_bits_[0] |= 0x00000001u;
+  operator_type_name_.SetNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), value);
+}
+inline void OperatorProfile::set_operator_type_name(std::string&& value) {
+  _has_bits_[0] |= 0x00000001u;
+  operator_type_name_.SetNoArena(
+    &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+  // @@protoc_insertion_point(field_set_rvalue:exec.shared.OperatorProfile.operator_type_name)
+}
+inline void OperatorProfile::set_operator_type_name(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  _has_bits_[0] |= 0x00000001u;
+  operator_type_name_.SetNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:exec.shared.OperatorProfile.operator_type_name)
+}
+inline void OperatorProfile::set_operator_type_name(const char* value, size_t size) {
+  _has_bits_[0] |= 0x00000001u;
+  operator_type_name_.SetNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:exec.shared.OperatorProfile.operator_type_name)
+}
+inline std::string* OperatorProfile::_internal_mutable_operator_type_name() {
+  _has_bits_[0] |= 0x00000001u;
+  return operator_type_name_.MutableNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+}
+inline std::string* OperatorProfile::release_operator_type_name() {
+  // @@protoc_insertion_point(field_release:exec.shared.OperatorProfile.operator_type_name)
+  if (!_internal_has_operator_type_name()) {
+    return nullptr;
+  }
+  _has_bits_[0] &= ~0x00000001u;
+  return operator_type_name_.ReleaseNonDefaultNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+}
+inline void OperatorProfile::set_allocated_operator_type_name(std::string* operator_type_name) {
+  if (operator_type_name != nullptr) {
+    _has_bits_[0] |= 0x00000001u;
+  } else {
+    _has_bits_[0] &= ~0x00000001u;
+  }
+  operator_type_name_.SetAllocatedNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), operator_type_name);
+  // @@protoc_insertion_point(field_set_allocated:exec.shared.OperatorProfile.operator_type_name)
 }
 
 // -------------------------------------------------------------------

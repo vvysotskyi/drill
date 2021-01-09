@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,6 +37,7 @@ import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonValue;
 
+import org.apache.drill.exec.server.rest.profile.CoreOperatorType;
 import org.apache.drill.shaded.guava.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -434,7 +436,10 @@ public class ProfileParser {
       majorFragId = majorId;
       minorFragId = minorId;
       opId = opProfile.getInt("operatorId");
-      type = opProfile.getString("operatorType");
+      JsonValue.ValueType valueType = opProfile.get("operatorType").getValueType();
+      type = valueType == JsonValue.ValueType.STRING
+          ? opProfile.getString("operatorType")
+          : Objects.requireNonNull(CoreOperatorType.valueOf(opProfile.getInt("operatorType"))).name();
       processMs = opProfile.getJsonNumber("processNanos").longValue() / 1_000_000;
       waitMs = opProfile.getJsonNumber("waitNanos").longValue() / 1_000_000;
       setupMs = opProfile.getJsonNumber("setupNanos").longValue() / 1_000_000;
@@ -466,7 +471,7 @@ public class ProfileParser {
 
     @Override
     public String toString() {
-      return String.format("[OperatorProfile %02d-%02d-%02d, type: %d, name: %s]",
+      return String.format("[OperatorProfile %02d-%02d-%02d, type: %s, name: %s]",
           majorFragId, opId, minorFragId, type,
           (name == null) ? "null" : name);
     }

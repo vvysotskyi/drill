@@ -2365,7 +2365,7 @@ public final class SchemaUserBitShared
                 if(message.hasOperatorId())
                     output.writeInt32(3, message.getOperatorId(), false);
                 if(message.hasOperatorType())
-                    output.writeString(4, message.getOperatorType(), false);
+                    output.writeInt32(4, message.getOperatorType(), false);
                 if(message.hasSetupNanos())
                     output.writeInt64(5, message.getSetupNanos(), false);
                 if(message.hasProcessNanos())
@@ -2377,6 +2377,8 @@ public final class SchemaUserBitShared
 
                 if(message.hasWaitNanos())
                     output.writeInt64(9, message.getWaitNanos(), false);
+                if(message.hasOperatorTypeName())
+                    output.writeString(10, message.getOperatorTypeName(), false);
             }
             public boolean isInitialized(org.apache.drill.exec.proto.UserBitShared.OperatorProfile message)
             {
@@ -2424,7 +2426,7 @@ public final class SchemaUserBitShared
                             builder.setOperatorId(input.readInt32());
                             break;
                         case 4:
-                            builder.setOperatorType(input.readString());
+                            builder.setOperatorType(input.readInt32());
                             break;
                         case 5:
                             builder.setSetupNanos(input.readInt64());
@@ -2441,6 +2443,9 @@ public final class SchemaUserBitShared
                             break;
                         case 9:
                             builder.setWaitNanos(input.readInt64());
+                            break;
+                        case 10:
+                            builder.setOperatorTypeName(input.readString());
                             break;
                         default:
                             input.handleUnknownField(number, this);
@@ -2490,6 +2495,7 @@ public final class SchemaUserBitShared
                 case 7: return "peakLocalMemoryAllocated";
                 case 8: return "metric";
                 case 9: return "waitNanos";
+                case 10: return "operatorTypeName";
                 default: return null;
             }
         }
@@ -2509,6 +2515,7 @@ public final class SchemaUserBitShared
             fieldMap.put("peakLocalMemoryAllocated", 7);
             fieldMap.put("metric", 8);
             fieldMap.put("waitNanos", 9);
+            fieldMap.put("operatorTypeName", 10);
         }
     }
 
