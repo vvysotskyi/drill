@@ -18,10 +18,12 @@
 package org.apache.drill.exec.server.rest.profile;
 
 
+import java.util.Arrays;
+
 /**
  * This class is used for backward compatibility when reading older query profiles that
  * stored operator id instead of its name.
- * <b>Please do not update this class.</b>
+ * <b>Please do not update this class. It will be removed for Drill 2.0</b>
  */
 public enum CoreOperatorType {
 
@@ -320,14 +322,21 @@ public enum CoreOperatorType {
     this.value = value;
   }
 
-  public int getNumber() {
+  public int getId() {
     return value;
   }
 
   public static CoreOperatorType valueOf(int id) {
-    if (id >= 0 && id <= XML_SUB_SCAN.getNumber()) {
+    if (id >= 0 && id <= XML_SUB_SCAN.getId()) {
       return values()[id];
     }
     return null;
+  }
+
+  public static CoreOperatorType forName(String name) {
+    return Arrays.stream(values())
+        .filter(value -> value.name().equalsIgnoreCase(name))
+        .findFirst()
+        .orElse(null);
   }
 }

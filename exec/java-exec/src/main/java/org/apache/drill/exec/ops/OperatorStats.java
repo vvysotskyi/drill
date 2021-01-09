@@ -31,6 +31,7 @@ import com.carrotsearch.hppc.cursors.IntDoubleCursor;
 import com.carrotsearch.hppc.cursors.IntLongCursor;
 import com.carrotsearch.hppc.procedures.IntDoubleProcedure;
 import com.carrotsearch.hppc.procedures.IntLongProcedure;
+import org.apache.drill.exec.server.rest.profile.CoreOperatorType;
 import org.apache.drill.shaded.guava.com.google.common.annotations.VisibleForTesting;
 
 public class OperatorStats {
@@ -198,6 +199,7 @@ public class OperatorStats {
         .toString();
   }
 
+  @SuppressWarnings("deprecation")
   public OperatorProfile getProfile() {
     final OperatorProfile.Builder b = OperatorProfile //
         .newBuilder() //
@@ -206,6 +208,12 @@ public class OperatorStats {
         .setSetupNanos(setupNanos) //
         .setProcessNanos(processingNanos)
         .setWaitNanos(waitNanos);
+
+    CoreOperatorType coreOperatorType = CoreOperatorType.forName(operatorType);
+
+    if (coreOperatorType != null) {
+      b.setOperatorType(coreOperatorType.getId());
+    }
 
     if (allocator != null) {
       b.setPeakLocalMemoryAllocated(allocator.getPeakMemoryAllocation());
