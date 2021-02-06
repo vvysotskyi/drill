@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.store.sys;
 
-import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.logical.StoragePluginConfigBase;
 
 /**
  * A namesake plugin configuration for system tables.
  */
-public class SystemTablePluginConfig extends StoragePluginConfig {
+public class SystemTablePluginConfig extends StoragePluginConfigBase {
 
   public static final String NAME = "system-tables";
 

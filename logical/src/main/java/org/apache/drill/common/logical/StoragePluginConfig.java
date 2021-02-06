@@ -20,6 +20,7 @@ package org.apache.drill.common.logical;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.apache.drill.common.logical.security.CredentialsProvider;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 public abstract class StoragePluginConfig {
@@ -27,6 +28,16 @@ public abstract class StoragePluginConfig {
   // DO NOT include enabled status in equality and hash
   // comparisons; doing so will break the plugin registry.
   private Boolean enabled;
+
+  protected final CredentialsProvider credentialsProvider;
+
+  protected StoragePluginConfig(CredentialsProvider credentialsProvider) {
+    this.credentialsProvider = credentialsProvider;
+  }
+
+  public CredentialsProvider getCredentialsProvider() {
+    return credentialsProvider;
+  }
 
   /**
    * Check for enabled status of the plugin

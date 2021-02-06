@@ -15,17 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.common.logical;
+package org.apache.drill.common.logical.security;
 
-import org.apache.drill.common.logical.security.CredentialsProvider;
-import org.apache.drill.common.logical.security.PlainCredentialsProvider;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-public abstract class StoragePluginConfigBase extends StoragePluginConfig {
-  public StoragePluginConfigBase(CredentialsProvider credentialsProvider) {
-    super(credentialsProvider);
-  }
+import java.util.Map;
 
-  public StoragePluginConfigBase() {
-    super(PlainCredentialsProvider.EMPTY_CREDENTIALS_PROVIDER);
-  }
+/**
+ * Provider of authentication credentials.
+ */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME,
+    property = "credentialsProviderType",
+    defaultImpl = PlainCredentialsProvider.class)
+public interface CredentialsProvider {
+  /**
+   * Returns map with authentication credentials. Key is the credential name, for example {@code "username"}
+   * and map value is corresponding credential value.
+   */
+  @JsonIgnore
+  Map<String, String> getCredentials();
 }

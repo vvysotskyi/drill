@@ -31,6 +31,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.config.LogicalPlanPersistence;
 import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.logical.StoragePluginConfigBase;
 import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.planner.logical.StoragePlugins;
@@ -51,7 +52,7 @@ public class BasePluginRegistryTest extends BaseTest {
 
   protected static final String RESOURCE_BASE = "plugins/";
 
-  protected class PluginRegistryContextFixture implements PluginRegistryContext {
+  protected static class PluginRegistryContextFixture implements PluginRegistryContext {
 
     private final DrillConfig drillConfig;
     private final ScanResult classpathScan;
@@ -82,7 +83,7 @@ public class BasePluginRegistryTest extends BaseTest {
     public ObjectMapper hoconMapper() { return mapper; }
   }
 
-  public static class StoragePluginFixtureConfig extends StoragePluginConfig {
+  public static class StoragePluginFixtureConfig extends StoragePluginConfigBase {
 
     private final String mode;
 

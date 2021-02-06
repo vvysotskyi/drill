@@ -22,11 +22,15 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonFilter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.drill.common.logical.StoragePluginConfig;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.apache.drill.exec.store.security.CredentialProviderUtils;
+import org.apache.drill.common.logical.security.CredentialsProvider;
+import org.apache.drill.exec.store.security.UsernamePasswordCredentials;
 
 @JsonTypeName(JdbcStorageConfig.NAME)
 @JsonFilter("passwordFilter")
@@ -36,8 +40,6 @@ public class JdbcStorageConfig extends StoragePluginConfig {
 
   private final String driver;
   private final String url;
-  private final String username;
-  private final String password;
   private final boolean caseInsensitiveTableNames;
   private final Map<String, Object> sourceParameters;
 
@@ -48,11 +50,11 @@ public class JdbcStorageConfig extends StoragePluginConfig {
       @JsonProperty("username") String username,
       @JsonProperty("password") String password,
       @JsonProperty("caseInsensitiveTableNames") boolean caseInsensitiveTableNames,
-      @JsonProperty("sourceParameters") Map<String, Object> sourceParameters) {
+      @JsonProperty("sourceParameters") Map<String, Object> sourceParameters,
+      @JsonProperty("credentialsProvider") CredentialsProvider credentialsProvider) {
+    super(CredentialProviderUtils.getCredentialsProvider(username, password, credentialsProvider));
     this.driver = driver;
     this.url = url;
-    this.username = username;
-    this.password = password;
     this.caseInsensitiveTableNames = caseInsensitiveTableNames;
     this.sourceParameters = sourceParameters == null ? Collections.emptyMap() : sourceParameters;
   }
@@ -65,14 +67,6 @@ public class JdbcStorageConfig extends StoragePluginConfig {
     return url;
   }
 
-  public String getUsername() {
-    return username;
-  }
-
-  public String getPassword() {
-    return password;
-  }
-
   @JsonProperty("caseInsensitiveTableNames")
   public boolean areTableNamesCaseInsensitive() {
     return caseInsensitiveTableNames;
@@ -82,9 +76,14 @@ public class JdbcStorageConfig extends StoragePluginConfig {
     return sourceParameters;
   }
 
+  @JsonIgnore
+  public UsernamePasswordCredentials getUsernamePasswordCredentials() {
+    return new UsernamePasswordCredentials(getCredentialsProvider());
+  }
+
   @Override
   public int hashCode() {
-    return Objects.hash(driver, url, username, password, caseInsensitiveTableNames, sourceParameters);
+    return Objects.hash(driver, url, caseInsensitiveTableNames, sourceParameters, credentialsProvider);
   }
 
   @Override
@@ -99,8 +98,7 @@ public class JdbcStorageConfig extends StoragePluginConfig {
     return caseInsensitiveTableNames == that.caseInsensitiveTableNames &&
         Objects.equals(driver, that.driver) &&
         Objects.equals(url, that.url) &&
-        Objects.equals(username, that.username) &&
-        Objects.equals(password, that.password) &&
-        Objects.equals(sourceParameters, that.sourceParameters);
+        Objects.equals(sourceParameters, that.sourceParameters) &&
+        Objects.equals(credentialsProvider, that.credentialsProvider);
   }
 }

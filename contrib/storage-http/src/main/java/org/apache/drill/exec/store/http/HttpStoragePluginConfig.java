@@ -26,6 +26,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import org.apache.drill.exec.store.security.CredentialProviderUtils;
+import org.apache.drill.common.logical.security.CredentialsProvider;
+import org.apache.drill.exec.store.security.UsernamePasswordCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,8 +46,6 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   public final String proxyHost;
   public final int proxyPort;
   public final String proxyType;
-  public final String proxyUsername;
-  public final String proxyPassword;
   /**
    * Timeout in seconds.
    */
@@ -58,9 +59,11 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
                                  @JsonProperty("proxyPort") Integer proxyPort,
                                  @JsonProperty("proxyType") String proxyType,
                                  @JsonProperty("proxyUsername") String proxyUsername,
-                                 @JsonProperty("proxyPassword") String proxyPassword
+                                 @JsonProperty("proxyPassword") String proxyPassword,
+                                 @JsonProperty("credentialsProvider") CredentialsProvider credentialsProvider
                                  ) {
-    this.cacheResults = cacheResults == null ? false : cacheResults;
+    super(CredentialProviderUtils.getCredentialsProvider(normalize(proxyUsername), normalize(proxyPassword), credentialsProvider));
+    this.cacheResults = cacheResults != null && cacheResults;
 
     this.connections = CaseInsensitiveMap.newHashMap();
     if (connections != null) {
@@ -70,25 +73,21 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
     this.timeout = timeout == null ? 0 : timeout;
     this.proxyHost = normalize(proxyHost);
     this.proxyPort = proxyPort == null ? 0 : proxyPort;
-    this.proxyUsername = normalize(proxyUsername);
-    this.proxyPassword = normalize(proxyPassword);
     proxyType = normalize(proxyType);
     this.proxyType = proxyType == null
         ? "direct" : proxyType.trim().toLowerCase();
 
     // Validate Proxy Type
-    if (this.proxyType != null) {
-      switch (this.proxyType) {
-        case "direct":
-        case "http":
-        case "socks":
-          break;
-        default:
-          throw UserException
-            .validationError()
-            .message("Invalid Proxy Type: %s.  Drill supports 'direct', 'http' and 'socks' proxies.", proxyType)
-            .build(logger);
-      }
+    switch (this.proxyType) {
+      case "direct":
+      case "http":
+      case "socks":
+        break;
+      default:
+        throw UserException
+          .validationError()
+          .message("Invalid Proxy Type: %s.  Drill supports 'direct', 'http' and 'socks' proxies.", proxyType)
+          .build(logger);
     }
   }
 
@@ -107,7 +106,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   public HttpStoragePluginConfig copyForPlan(String connectionName) {
     return new HttpStoragePluginConfig(
         cacheResults, configFor(connectionName), timeout,
-        proxyHost, proxyPort, proxyType, proxyUsername, proxyPassword);
+        proxyHost, proxyPort, proxyType, null, null, credentialsProvider);
   }
 
   private Map<String, HttpApiConfig> configFor(String connectionName) {
@@ -129,8 +128,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
            Objects.equals(proxyHost, thatConfig.proxyHost) &&
            Objects.equals(proxyPort, thatConfig.proxyPort) &&
            Objects.equals(proxyType, thatConfig.proxyType) &&
-           Objects.equals(proxyUsername, thatConfig.proxyUsername) &&
-           Objects.equals(proxyPassword, thatConfig.proxyPassword);
+           Objects.equals(credentialsProvider, thatConfig.credentialsProvider);
   }
 
   @Override
@@ -141,8 +139,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
       .field("timeout", timeout)
       .field("proxyHost", proxyHost)
       .field("proxyPort", proxyPort)
-      .field("proxyUsername", proxyUsername)
-      .maskedField("proxyPassword", proxyPassword)
+      .field("credentialsProvider", credentialsProvider)
       .field("proxyType", proxyType)
       .toString();
   }
@@ -150,7 +147,7 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   @Override
   public int hashCode() {
     return Objects.hash(connections, cacheResults, timeout,
-        proxyHost, proxyPort, proxyType, proxyUsername, proxyPassword);
+        proxyHost, proxyPort, proxyType, credentialsProvider);
   }
 
   @JsonProperty("cacheResults")
@@ -168,17 +165,16 @@ public class HttpStoragePluginConfig extends StoragePluginConfigBase {
   @JsonProperty("proxyPort")
   public int proxyPort() { return proxyPort; }
 
-  @JsonProperty("proxyUsername")
-  public String proxyUsername() { return proxyUsername; }
-
-  @JsonProperty("proxyPassword")
-  public String proxyPassword() { return proxyPassword; }
-
   @JsonProperty("proxyType")
   public String proxyType() { return proxyType; }
 
   @JsonIgnore
   public HttpApiConfig getConnection(String connectionName) {
     return connections.get(connectionName);
+  }
+
+  @JsonIgnore
+  public UsernamePasswordCredentials getUsernamePasswordCredentials() {
+    return new UsernamePasswordCredentials(getCredentialsProvider());
   }
 }

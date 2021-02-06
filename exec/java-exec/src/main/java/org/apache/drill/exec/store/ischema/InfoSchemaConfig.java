@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.store.ischema;
 
-import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.logical.StoragePluginConfigBase;
 
-public class InfoSchemaConfig extends StoragePluginConfig {
+public class InfoSchemaConfig extends StoragePluginConfigBase {
 
   public static final String NAME = "ischema";
 

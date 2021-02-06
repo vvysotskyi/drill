@@ -49,6 +49,7 @@ public class BaseCassandraTest extends ClusterTest {
         cassandra.getSettings().getAddress().getHostAddress(),
         cassandra.getSettings().getPort(),
         null,
+        null,
         null);
     config.setEnabled(true);
     cluster.defineStoragePlugin("cassandra", config);

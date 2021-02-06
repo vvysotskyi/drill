@@ -22,7 +22,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.StringJoiner;
 
-import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.logical.StoragePluginConfigBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +31,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName(KafkaStoragePluginConfig.NAME)
-public class KafkaStoragePluginConfig extends StoragePluginConfig {
+public class KafkaStoragePluginConfig extends StoragePluginConfigBase {
 
   private static final Logger logger = LoggerFactory.getLogger(KafkaStoragePluginConfig.class);
   public static final String NAME = "kafka";
