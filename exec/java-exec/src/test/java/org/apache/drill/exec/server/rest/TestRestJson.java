@@ -83,8 +83,9 @@ public class TestRestJson extends ClusterTest {
 
   @BeforeClass
   public static void setup() throws Exception {
-    ClusterFixtureBuilder builder = new ClusterFixtureBuilder(dirTestWatcher);
-    builder.configBuilder().put(ExecConstants.HTTP_ENABLE, true);
+    ClusterFixtureBuilder builder = new ClusterFixtureBuilder(dirTestWatcher)
+        .configProperty(ExecConstants.HTTP_ENABLE, true)
+        .configProperty(ExecConstants.HTTP_PORT_HUNT, true);
     startCluster(builder);
 
     // Set up CSV storage plugin using headers.
