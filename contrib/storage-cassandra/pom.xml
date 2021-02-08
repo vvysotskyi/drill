@@ -98,7 +98,14 @@
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <forkCount combine.self="override">1</forkCount>
+          <includes>
+            <include>**/TestCassandraSuit.class</include>
+          </includes>
+          <excludes>
+            <exclude>**/CassandraComplexTypesTest.java</exclude>
+            <exclude>**/CassandraPlanTest.java</exclude>
+            <exclude>**/CassandraQueryTest.java</exclude>
+          </excludes>
         </configuration>
       </plugin>
     </plugins>
