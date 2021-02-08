@@ -96,7 +96,7 @@
     <asm.version>7.3.1</asm.version>
     <excludedGroups />
     <memoryMb>4096</memoryMb>
-    <directMemoryMb>4096</directMemoryMb>
+    <directMemoryMb>3072</directMemoryMb>
     <rat.skip>true</rat.skip>
     <license.skip>true</license.skip>
     <docker.repository>apache/drill</docker.repository>
