@@ -36,6 +36,7 @@ import org.apache.drill.exec.server.options.SessionOptionManager;
 import org.codehaus.commons.compiler.CompileException;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -147,6 +148,7 @@ public class TestClassTransformation extends BaseTestQuery {
   }
 
   @Test
+  @Ignore
   public void testScalarReplacementWithArrayAssignment() throws Exception {
     ClassTransformer.ClassNames classNames = new ClassTransformer.ClassNames("StreamingAggregatorGen4");
     String entireClass = "\n" +
