@@ -151,7 +151,9 @@ public @interface FunctionTemplate {
      * <p>Not Supported for aggregate functions and for functions with {@link Output} of type
      * {@link org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter}.</p>
      */
-    NULL_IF_NULL
+    NULL_IF_NULL,
+
+    EMPTY_IF_NULL
   }
 
   /**

@@ -98,8 +98,8 @@ public class DrillComplexWriterFuncHolder extends DrillSimpleFuncHolder {
 
   @Override
   protected void checkNullHandling(NullHandling nullHandling) {
-    checkArgument(nullHandling == NullHandling.INTERNAL,
+    checkArgument(nullHandling == NullHandling.INTERNAL || nullHandling == NullHandling.EMPTY_IF_NULL,
         "Function with @Output of type 'org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter'" +
-            " is required to handle null input(s) on its own.");
+            " supports only 'INTERNAL' and 'EMPTY_IF_NULL' null handling.");
   }
 }
