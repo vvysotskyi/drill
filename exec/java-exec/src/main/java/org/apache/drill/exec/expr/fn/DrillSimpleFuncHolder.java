@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.expr.fn;
 
+import static org.apache.drill.shaded.guava.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.drill.shaded.guava.com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.List;
@@ -204,5 +205,10 @@ public class DrillSimpleFuncHolder extends DrillFuncHolder {
         "//---- end of eval portion of %s function. ----//", getRegisteredNames()[0]));
 
     return out;
+  }
+
+  protected void checkNullHandling(NullHandling nullHandling) {
+    checkArgument(nullHandling == NullHandling.INTERNAL || nullHandling == NullHandling.NULL_IF_NULL,
+        "Function with @Output of value vector type supports only 'INTERNAL' and 'NULL_IF_NULL' null handlings.");
   }
 }
