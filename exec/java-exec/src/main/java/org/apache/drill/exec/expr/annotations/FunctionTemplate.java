@@ -151,18 +151,7 @@ public @interface FunctionTemplate {
      * <p>Not Supported for aggregate functions and for functions with {@link Output} of type
      * {@link org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter}.</p>
      */
-    NULL_IF_NULL,
-
-    /**
-     * Empty output if any null input:
-     * Indicates that a method's associated logical operation returns empty map or list if
-     * either input is NULL, and therefore that the method must not be called
-     * with null inputs.  (The calling framework must handle NULLs.)
-     *
-     * <p>Supported only for functions with {@link Output} of type
-     * {@link org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter}.</p>
-     */
-    EMPTY_IF_NULL
+    NULL_IF_NULL
   }
 
   /**

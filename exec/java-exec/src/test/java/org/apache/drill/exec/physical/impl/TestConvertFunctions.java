@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.ClassCompilerSelector;
@@ -621,25 +620,6 @@ public class TestConvertFunctions extends BaseTestQuery {
   @Test // DRILL-7773
   public void testTimeEpochBE() throws Throwable {
     verifyPhysicalPlan("cast(convert_from(convert_to('23:30:21', 'TIME_EPOCH_BE'), 'TIME_EPOCH_BE') as time)", LocalTime.of(23, 30, 21));
-  }
-
-  @Test
-  public void testNullableConvertFromJsonFunction() throws Exception {
-    String table = "test.csv";
-    File file = new File(dirTestWatcher.getRootDir(), table);
-    String csv = "col_0, {\"col\":123}";
-    try {
-      FileUtils.writeStringToFile(file, csv);
-      testBuilder()
-          .sqlQuery(String.format("select convert_fromJSON(case when true then columns[1] else null end) as col from dfs.`%s`", table))
-          .unOrdered()
-          .baselineColumns("col")
-          .baselineValues(mapOf("col", 123L))
-          .build()
-          .run();
-    } finally {
-      FileUtils.deleteQuietly(file);
-    }
   }
 
   protected <T> void verifySQL(String sql, T expectedResults) throws Throwable {

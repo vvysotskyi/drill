@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.expr.fn;
 
-import com.sun.codemodel.JConditional;
-import com.sun.codemodel.JOp;
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.FunctionHolderExpression;
 import org.apache.drill.exec.expr.ClassGenerator;
@@ -77,31 +75,6 @@ public class DrillComplexWriterFuncHolder extends DrillSimpleFuncHolder {
 
     classGenerator.getEvalBlock().add(complexWriter.invoke("setPosition").arg(classGenerator.getMappingSet().getValueWriteIndex()));
 
-    if (getNullHandling() == NullHandling.EMPTY_IF_NULL) {
-      JExpression e = null;
-      for (HoldingContainer v : inputVariables) {
-        if (v.isOptional()) {
-          JExpression isNullExpr;
-          if (v.isReader()) {
-            isNullExpr = JOp.cond(v.getHolder().invoke("isSet"), JExpr.lit(1), JExpr.lit(0));
-          } else {
-            isNullExpr = v.getIsSet();
-          }
-          if (e == null) {
-            e = isNullExpr;
-          } else {
-            e = e.mul(isNullExpr);
-          }
-        }
-      }
-
-      if (e != null) {
-        e = e.ne(JExpr.lit(0));
-        JConditional jc = sub._if(e);
-        sub = jc._then();
-      }
-    }
-
     sub.decl(classGenerator.getModel()._ref(ComplexWriter.class), getReturnValue().getName(), complexWriter);
 
     // add the subblock after the out declaration.
@@ -125,8 +98,8 @@ public class DrillComplexWriterFuncHolder extends DrillSimpleFuncHolder {
 
   @Override
   protected void checkNullHandling(NullHandling nullHandling) {
-    checkArgument(nullHandling == NullHandling.INTERNAL || nullHandling == NullHandling.EMPTY_IF_NULL,
+    checkArgument(nullHandling == NullHandling.INTERNAL,
         "Function with @Output of type 'org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter'" +
-            " supports only 'INTERNAL' and 'EMPTY_IF_NULL' null handlings.");
+            " is required to handle null input(s) on its own.");
   }
 }

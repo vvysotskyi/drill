@@ -388,7 +388,6 @@ public class TypeInferenceUtils {
         case REQUIRED:
           switch (nullHandling) {
             case INTERNAL:
-            case EMPTY_IF_NULL:
               isNullable = false;
               break;
 
