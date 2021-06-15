@@ -732,7 +732,7 @@ public class TestParquetLogicalTypes extends BaseTestQuery {
         .go();
   }
 
-//  @Test
+  @Test
   public void testNullableIntervalDictionaryEncoding() throws Exception {
     alterSession(ExecConstants.PARQUET_NEW_RECORD_READER, true);
     testBuilder()
@@ -742,6 +742,7 @@ public class TestParquetLogicalTypes extends BaseTestQuery {
         .baselineValues(Period.months(875770417).plusDays(943142453).plusMillis(1650536505))
         .baselineValues(Period.months(16843009).plusDays(16843009).plusMillis(16843009))
         .baselineValues(Period.seconds(0))
+        .baselineValues((Object) null)
         .go();
   }
 }
