@@ -454,6 +454,7 @@ class AsyncPageReader extends PageReader {
             case DATA_PAGE:
               valuesRead += pageHeader.getData_page_header().getNum_values();
               parent.totalPageValuesRead += valuesRead;
+              break;
             default:
               throw UserException.unsupportedError()
                   .message("Page type is not supported yet: " + type)
@@ -535,10 +536,8 @@ class AsyncPageReader extends PageReader {
         // The Snappy codec is itself thread safe, while going thru the DirectDecompressor path
         // seems to have concurrency issues.
         output.clear();
-        if (compressedSize <= uncompressedSize) {
-          int size = Snappy.uncompress(input, output);
-          output.limit(size);
-        }
+        int size = Snappy.uncompress(input, output);
+        output.limit(size);
       } else {
         CodecFactory.BytesDecompressor decompressor = codecFactory.getDecompressor(parentColumnReader.columnChunkMetaData.getCodec());
         decompressor.decompress(input, compressedSize, output, uncompressedSize);
