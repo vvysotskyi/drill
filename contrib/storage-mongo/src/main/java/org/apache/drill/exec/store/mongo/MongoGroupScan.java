@@ -508,7 +508,7 @@ public class MongoGroupScan extends AbstractGroupScan implements
         String json = collection.find().first().toJson(codec);
         approxDiskCost = json.getBytes().length * recordCount;
       }
-      return new ScanStats(GroupScanProperty.EXACT_ROW_COUNT, recordCount, 1, approxDiskCost);
+      return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, recordCount, 1, approxDiskCost);
     } catch (Exception e) {
       throw new DrillRuntimeException(e.getMessage(), e);
     }
